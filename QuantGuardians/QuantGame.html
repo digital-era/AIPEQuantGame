@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子护卫队：四方战纪 | Quant Guardians</title>
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入像素字体 (Google Fonts) -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #050510;
+            --panel-bg: #111122;
+            --text-main: #e0e0e0;
+            --terminal-green: #0f0;
+            
+            /* 角色色调 */
+            --genbu-color: #10B981;
+            --suzaku-color: #EF4444;
+            --sirius-color: #8B5CF6;
+            --kirin-color: #3B82F6;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Roboto Mono', monospace;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, .pixel-font {
+            font-family: 'Press Start 2P', cursive;
+            text-transform: uppercase;
+        }
+
+        /* --- UI 组件 --- */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+
+        .boss-stage {
+            background: #000;
+            border: 4px solid #333;
+            height: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .boss-health-bar {
+            width: 80%;
+            height: 20px;
+            background: #333;
+            margin-top: 10px;
+            border: 2px solid #fff;
+        }
+
+        .boss-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f00, #ff0);
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .market-status {
+            font-size: 2em;
+            color: #fff;
+            z-index: 2;
+        }
+
+        /* --- 护卫队卡片 --- */
+        .guardians-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .guardian-card {
+            background: var(--panel-bg);
+            border: 2px solid #444;
+            padding: 15px;
+            border-radius: 4px;
+            position: relative;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+
+        .guardian-card.active {
+            box-shadow: 0 0 15px var(--glow-color);
+            border-color: var(--glow-color);
+        }
+
+        /* 角色特定样式 */
+        .g-genbu { --glow-color: var(--genbu-color); }
+        .g-suzaku { --glow-color: var(--suzaku-color); }
+        .g-sirius { --glow-color: var(--sirius-color); }
+        .g-kirin { --glow-color: var(--kirin-color); }
+
+        .avatar {
+            font-size: 3em;
+            text-align: center;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px var(--glow-color);
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            margin: 5px 0;
+            color: #aaa;
+        }
+        
+        .main-stat {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #fff;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .holdings-list {
+            font-size: 0.7em;
+            height: 60px;
+            overflow-y: auto;
+            border-top: 1px dashed #444;
+            padding-top: 5px;
+            margin-top: 10px;
+        }
+
+        /* --- 技能特效 --- */
+        .effect-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .g-genbu .effect-overlay { background: rgba(16, 185, 129, 0.2); border: 4px solid var(--genbu-color); }
+        .g-suzaku .effect-overlay { background: radial-gradient(circle, rgba(239,68,68,0.4) 0%, transparent 70%); }
+        .g-sirius .effect-overlay { background: repeating-linear-gradient(90deg, transparent, transparent 49%, var(--sirius-color) 50%, transparent 51%); }
+        .g-kirin .effect-overlay { box-shadow: inset 0 0 30px var(--kirin-color); }
+
+        /* --- 控制台 --- */
+        .controls-area {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 20px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+        }
+
+        button.engage-btn {
+            background: #000;
+            color: var(--terminal-green);
+            border: 2px solid var(--terminal-green);
+            padding: 15px 40px;
+            font-family: 'Press Start 2P';
+            font-size: 1.2em;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0 var(--terminal-green);
+            transition: transform 0.1s;
+        }
+
+        button.engage-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--terminal-green);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* --- 结算面板 --- */
+        .settlement-panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border: 1px solid #555;
+            margin-top: 20px;
+            display: none; /* Hidden by default */
+        }
+
+        .commander-input {
+            background: #000;
+            border: 1px solid #666;
+            color: #fff;
+            padding: 5px;
+            font-family: 'Roboto Mono';
+            width: 80px;
+        }
+
+        /* 动画类 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .shake-screen {
+            animation: shake 0.5s;
+        }
+
+        .log-console {
+            height: 100px;
+            overflow-y: scroll;
+            background: #000;
+            border: 1px solid #333;
+            color: #0f0;
+            font-size: 0.8em;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        
+        .log-entry { margin-bottom: 4px; }
+        .log-time { color: #666; margin-right: 5px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Quant Guardians</h1>
+        <div class="pixel-font" style="color: #666; font-size: 0.8em;">The Cyber Front // 四方战纪</div>
+    </div>
+
+    <div class="container">
+        
+        <!-- BOSS 区域 (大盘) -->
+        <div class="boss-stage" id="bossStage">
+            <div class="pixel-font" style="color: #aaa; font-size: 0.8em; margin-bottom: 5px;">TARGET: MARKET INDEX</div>
+            <div class="market-status pixel-font" id="marketStatus">0.00%</div>
+            <div class="boss-health-bar">
+                <div class="boss-health-fill" id="bossHealth"></div>
+            </div>
+            <div id="bossMessage" style="color:red; font-weight:bold; height: 20px; margin-top:5px;"></div>
+        </div>
+
+        <!-- 护卫队区域 -->
+        <div class="guardians-grid">
+            
+            <!-- 01. 玄武 -->
+            <div class="guardian-card g-genbu" id="card-genbu">
+                <div class="effect-overlay"></div>
+                <div class="avatar">🛡️</div>
+                <div class="pixel-font" style="color:var(--genbu-color); text-align:center;">GENBU</div>
+                <div style="text-align:center; font-size:0.7em;">LowVol_Guardian</div>
+                <div class="main-stat">
+                    Rtn: <span id="rtn-genbu">0.00%</span>
+                </div>
+                <div class="stats-row">
+                    <span>充能: <span id="power-genbu">0%</span></span>
+                    <span>状态: 待机</span>
+                </div>
+                <div class="holdings-list" id="list-genbu"></div>
+                <!-- 指挥官模式 -->
+                <div class="commander-section" style="margin-top:10px; border-top:1px solid #333; padding-top:5px;">
+                    <small>指挥官修正:</small><br>
+                    <input type="number" class="commander-input" id="input-genbu" placeholder="买入价">
+                    <button onclick="commanderAction('genbu')" style="cursor:pointer; font-size:0.7em;">Confirm</button>
+                    <div id="msg-genbu" style="font-size:0.7em; color: yellow;"></div>
+                </div>
+            </div>
+
+            <!-- 02. 朱雀 -->
+            <div class="guardian-card g-suzaku" id="card-suzaku">
+                <div class="effect-overlay"></div>
+                <div class="avatar">🔥</div>
+                <div class="pixel-font" style="color:var(--suzaku-color); text-align:center;">SUZAKU</div>
+                <div style="text-align:center; font-size:0.7em;">DaCheng_Striker</div>
+                <div class="main-stat">
+                    Rtn: <span id="rtn-suzaku">0.00%</span>
+                </div>
+                <div class="stats-row">
+                    <span>充能: <span id="power-suzaku">0%</span></span>
+                    <span>状态: 待机</span>
+                </div>
+                <div class="holdings-list" id="list-suzaku"></div>
+                <div class="commander-section" style="margin-top:10px; border-top:1px solid #333; padding-top:5px;">
+                    <small>指挥官修正:</small><br>
+                    <input type="number" class="commander-input" id="input-suzaku" placeholder="买入价">
+                    <button onclick="commanderAction('suzaku')" style="cursor:pointer; font-size:0.7em;">Confirm</button>
+                    <div id="msg-suzaku" style="font-size:0.7em; color: yellow;"></div>
+                </div>
+            </div>
+
+            <!-- 03. 天狼 -->
+            <div class="guardian-card g-sirius" id="card-sirius">
+                <div class="effect-overlay"></div>
+                <div class="avatar">🐺</div>
+                <div class="pixel-font" style="color:var(--sirius-color); text-align:center;">SIRIUS</div>
+                <div style="text-align:center; font-size:0.7em;">Inflow_Sniper</div>
+                <div class="main-stat">
+                    Sharpe: <span id="sharpe-sirius">0.0</span>
+                </div>
+                <div class="stats-row">
+                    <span>充能: <span id="power-sirius">0%</span></span>
+                    <span>状态: 待机</span>
+                </div>
+                <div class="holdings-list" id="list-sirius"></div>
+                 <div class="commander-section" style="margin-top:10px; border-top:1px solid #333; padding-top:5px;">
+                    <small>指挥官修正:</small><br>
+                    <input type="number" class="commander-input" id="input-sirius" placeholder="买入价">
+                    <button onclick="commanderAction('sirius')" style="cursor:pointer; font-size:0.7em;">Confirm</button>
+                    <div id="msg-sirius" style="font-size:0.7em; color: yellow;"></div>
+                </div>
+            </div>
+
+            <!-- 04. 麒麟 -->
+            <div class="guardian-card g-kirin" id="card-kirin">
+                <div class="effect-overlay"></div>
+                <div class="avatar">🦄</div>
+                <div class="pixel-font" style="color:var(--kirin-color); text-align:center;">KIRIN</div>
+                <div style="text-align:center; font-size:0.7em;">DaZhi_Core</div>
+                <div class="main-stat">
+                    Yield: <span id="yield-kirin">0.00%</span>
+                </div>
+                <div class="stats-row">
+                    <span>充能: <span id="power-kirin">0%</span></span>
+                    <span>状态: 待机</span>
+                </div>
+                <div class="holdings-list" id="list-kirin"></div>
+                 <div class="commander-section" style="margin-top:10px; border-top:1px solid #333; padding-top:5px;">
+                    <small>指挥官修正:</small><br>
+                    <input type="number" class="commander-input" id="input-kirin" placeholder="买入价">
+                    <button onclick="commanderAction('kirin')" style="cursor:pointer; font-size:0.7em;">Confirm</button>
+                    <div id="msg-kirin" style="font-size:0.7em; color: yellow;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操控区 -->
+        <div class="controls-area">
+            <button id="engageBtn" class="engage-btn" onclick="startGame()">[ ENGAGE SYSTEM ]</button>
+        </div>
+
+        <div class="log-console" id="gameLog">
+            <div class="log-entry">> System Initialized... Waiting for command.</div>
+        </div>
+
+        <!-- 结算图表 -->
+        <div class="settlement-panel" id="settlementPanel">
+            <h3 class="pixel-font" style="color: #fff; text-align:center;">历史战绩回放 (Settlement)</h3>
+            <canvas id="performanceChart" width="800" height="300"></canvas>
+        </div>
+
+    </div>
+
+    <!-- JS 逻辑 -->
+    <script>
+        // --- 1. 模拟数据源 (基于Prompt提供的JSON样例) ---
+        // 为了演示方便，这里将JSON硬编码。实际应用可替换为 fetch('filename.json')
+        
+        const MOCK_DATA = {
+            genbu: { // 低波稳健
+                config: {
+                    "结果": {
+                        "最优投资组合配置": {
+                            "配置详情": [
+                                { "名称": "浦发银行", "最优权重(%)": "10.00%", "最近一日价格": 11.61 },
+                                { "名称": "比亚迪", "最优权重(%)": "10.00%", "最近一日价格": 97.00 },
+                                { "名称": "鼎阳科技", "最优权重(%)": "10.00%", "最近一日价格": 36.54 }
+                            ]
+                        },
+                        "风控因子信息": { "综合建议仓位因子": "0.50" }
+                    }
+                },
+                eval: {
+                    "每日评估数据": Array.from({length: 30}, (_, i) => ({ "日期": `Day ${i}`, "累计收益率": Math.random() * 0.05 })) // 简化模拟
+                }
+            },
+            suzaku: { // 大成模型
+                config: {
+                    "结果": {
+                        "最优投资组合配置": {
+                            "配置详情": [
+                                { "名称": "顺灏股份", "最优权重(%)": "21.64%", "最近一日价格": 15.95 },
+                                { "名称": "杰瑞股份", "最优权重(%)": "21.59%", "最近一日价格": 75.87 },
+                                { "名称": "中钨高新", "最优权重(%)": "13.83%", "最近一日价格": 24.90 }
+                            ]
+                        },
+                        "风控因子信息": { "综合建议仓位因子": "0.51" }
+                    }
+                },
+                eval: { "每日评估数据": [] }
+            },
+            sirius: { // 流入模型
+                config: {
+                    "结果": {
+                        "最优投资组合配置": {
+                            "配置详情": [
+                                { "名称": "再升科技", "最优权重(%)": "27.86%", "最近一日价格": 8.43 },
+                                { "名称": "东睦股份", "最优权重(%)": "18.06%", "最近一日价格": 30.53 },
+                                { "名称": "铁流股份", "最优权重(%)": "16.52%", "最近一日价格": 15.99 }
+                            ]
+                        },
+                        "风控因子信息": { "综合建议仓位因子": "0.37" }
+                    }
+                },
+                eval: { "每日评估数据": [] }
+            },
+            kirin: { // 大智模型
+                config: {
+                    "结果": {
+                        "最优投资组合配置": {
+                            "配置详情": [
+                                { "名称": "宇通客车", "最优权重(%)": "26.52%", "最近一日价格": 33.60 },
+                                { "名称": "云铝股份", "最优权重(%)": "24.74%", "最近一日价格": 27.42 },
+                                { "名称": "紫金矿业", "最优权重(%)": "17.65%", "最近一日价格": 31.70 }
+                            ]
+                        },
+                        "风控因子信息": { "综合建议仓位因子": "0.38" }
+                    }
+                },
+                eval: { "每日评估数据": [] }
+            }
+        };
+
+        // --- 2. 游戏状态与逻辑 ---
+
+        let gameState = {
+            active: false,
+            guardians: {
+                genbu: { id: 'genbu', name: '玄武', profit: 0, power: 0, holdings: [] },
+                suzaku: { id: 'suzaku', name: '朱雀', profit: 0, power: 0, holdings: [] },
+                sirius: { id: 'sirius', name: '天狼', profit: 0, power: 0, holdings: [] },
+                kirin: { id: 'kirin', name: '麒麟', profit: 0, power: 0, holdings: [] }
+            },
+            marketIndex: 0 // 大盘涨跌幅
+        };
+
+        const LOG_ELEMENT = document.getElementById('gameLog');
+
+        function addLog(msg, color = '#0f0') {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = `<span class="log-time">[${time}]</span> <span style="color:${color}">${msg}</span>`;
+            LOG_ELEMENT.prepend(div);
+        }
+
+        function parseConfig() {
+            addLog("Reading Configuration Files...", "cyan");
+            
+            for (let key in MOCK_DATA) {
+                const data = MOCK_DATA[key].config.结果;
+                const portfolio = data.最优投资组合配置.配置详情;
+                const factor = parseFloat(data.风控因子信息.综合建议仓位因子);
+
+                gameState.guardians[key].power = factor;
+                gameState.guardians[key].holdings = portfolio.map(p => ({
+                    name: p.名称,
+                    weight: parseFloat(p["最优权重(%)"]) / 100,
+                    price: p.最近一日价格,
+                    currentPrice: p.最近一日价格 // 初始
+                }));
+
+                // Update UI Setup
+                document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
+                const listEl = document.getElementById(`list-${key}`);
+                listEl.innerHTML = portfolio.map(p => `<div>${p.名称} (${p["最优权重(%)"]})</div>`).join('');
+            }
+            addLog("Weapons Loaded. Systems Optimized.");
+        }
+
+        function startGame() {
+            if (gameState.active) return;
+            
+            parseConfig();
+            gameState.active = true;
+            document.getElementById('engageBtn').innerText = "SYSTEM ENGAGED";
+            document.getElementById('engageBtn').disabled = true;
+            
+            addLog("BATTLE START! Connection to yfinance (Simulation) established.", "red");
+            
+            // 开启战斗循环
+            setInterval(battleTick, 2000); // 每2秒模拟一次市场跳动
+            
+            // 30秒后展示结算
+            setTimeout(() => {
+                showSettlement();
+            }, 30000);
+        }
+
+        // --- 3. 战斗核心逻辑 (模拟) ---
+
+        function battleTick() {
+            if (!gameState.active) return;
+
+            // 1. 模拟大盘波动
+            const marketMove = (Math.random() - 0.45) * 0.005; // 偏向微涨
+            gameState.marketIndex += marketMove;
+            
+            // Update Boss UI
+            const bossHealth = 100 - (gameState.marketIndex * 1000); // 简单可视化
+            document.getElementById('bossHealth').style.width = Math.max(0, Math.min(100, bossHealth)) + "%";
+            document.getElementById('marketStatus').innerText = (gameState.marketIndex * 100).toFixed(2) + "%";
+            
+            if (gameState.marketIndex < -0.01) {
+                document.body.classList.add('shake-screen');
+                document.getElementById('bossMessage').innerText = "MARKET DUMP DETECTED!";
+                setTimeout(() => document.body.classList.remove('shake-screen'), 500);
+            } else {
+                document.getElementById('bossMessage').innerText = "";
+            }
+
+            // 2. 更新每个护卫队的状态
+            for (let key in gameState.guardians) {
+                const g = gameState.guardians[key];
+                updateGuardian(g, marketMove);
+            }
+        }
+
+        function updateGuardian(guardian, marketMove) {
+            const card = document.getElementById(`card-${guardian.id}`);
+            const effect = card.querySelector('.effect-overlay');
+            
+            // 模拟每个持仓的波动 (基于大盘 + 随机Alpha)
+            let totalReturn = 0;
+            guardian.holdings.forEach(stock => {
+                const alpha = (Math.random() - 0.5) * 0.01;
+                const change = marketMove + alpha;
+                stock.currentPrice = stock.currentPrice * (1 + change);
+                totalReturn += change * stock.weight;
+            });
+
+            // 考虑仓位因子
+            const realReturn = totalReturn * guardian.power;
+            guardian.profit += realReturn;
+
+            // --- 角色技能特效逻辑 ---
+            
+            // 1. 玄武 (Genbu): 跌的时候少跌
+            if (guardian.id === 'genbu') {
+                 if (marketMove < -0.005) {
+                     effect.style.opacity = 1; // 开启护盾
+                     addLog("GENBU: Absolute Field deployed!", "#10B981");
+                 } else {
+                     effect.style.opacity = 0;
+                 }
+                 document.getElementById('rtn-genbu').innerText = (guardian.profit * 100).toFixed(2) + "%";
+            }
+
+            // 2. 朱雀 (Suzaku): 暴涨时燃烧
+            else if (guardian.id === 'suzaku') {
+                if (realReturn > 0.002) { // 模拟阈值
+                    effect.style.opacity = 1;
+                    addLog("SUZAKU: CRITICAL HIT! 🔥", "#EF4444");
+                } else {
+                    effect.style.opacity = 0;
+                }
+                document.getElementById('rtn-suzaku').innerText = (guardian.profit * 100).toFixed(2) + "%";
+            }
+
+            // 3. 天狼 (Sirius): 展示夏普 (用随机数模拟稳定度)
+            else if (guardian.id === 'sirius') {
+                const simulatedSharpe = (2 + Math.random()).toFixed(2);
+                document.getElementById('sharpe-sirius').innerText = simulatedSharpe;
+                if (simulatedSharpe > 2.5) {
+                    effect.style.opacity = 0.8; // 激光锁定
+                } else {
+                    effect.style.opacity = 0;
+                }
+            }
+
+            // 4. 麒麟 (Kirin): 积累电量
+            else if (guardian.id === 'kirin') {
+                const yieldVal = (guardian.profit * 100).toFixed(2);
+                document.getElementById('yield-kirin').innerText = yieldVal + "%";
+                // 收益越高越亮
+                const brightness = Math.min(1, Math.max(0, guardian.profit * 10));
+                effect.style.opacity = brightness;
+            }
+
+            // 视觉反馈： active边框
+            if (realReturn > 0) {
+                card.style.borderColor = getComputedStyle(card).getPropertyValue('--glow-color');
+            } else {
+                card.style.borderColor = "#444";
+            }
+        }
+
+        // --- 4. 指挥官模式 ---
+        function commanderAction(id) {
+            const input = document.getElementById(`input-${id}`);
+            const msgEl = document.getElementById(`msg-${id}`);
+            const buyPrice = parseFloat(input.value);
+            
+            if (!buyPrice) return;
+
+            // 简单取第一个持仓的昨收价做对比
+            const refPrice = gameState.guardians[id].holdings[0].price;
+            
+            if (buyPrice < refPrice) {
+                msgEl.innerText = "BUFF: 神之一手! Alpha +5%";
+                addLog(`COMMANDER: Perfect entry on ${id.toUpperCase()}. Buff Applied.`, "gold");
+                // 可以在这里增加额外的收益逻辑
+            } else {
+                const quotes = [
+                    "指挥官，手别抖...",
+                    "高位站岗？",
+                    "这就是你的策略？"
+                ];
+                const quote = quotes[Math.floor(Math.random() * quotes.length)];
+                msgEl.innerText = quote;
+                addLog(`COMMANDER: Failed entry on ${id.toUpperCase()}. ${quote}`, "gray");
+            }
+        }
+
+        // --- 5. 结算图表 ---
+        function showSettlement() {
+            document.getElementById('settlementPanel').style.display = 'block';
+            addLog("Market Closed. Calculating Performance...", "white");
+
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            
+            // 模拟一些累积收益曲线数据
+            const labels = Array.from({length: 30}, (_, i) => `Day ${i+1}`);
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Genbu (LowVol)',
+                            borderColor: '#10B981',
+                            data: labels.map(() => Math.random() * 5),
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Suzaku (Striker)',
+                            borderColor: '#EF4444',
+                            data: labels.map(() => Math.random() * 10 - 2),
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Sirius (Sniper)',
+                            borderColor: '#8B5CF6',
+                            data: labels.map(() => Math.random() * 6 + 1),
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Kirin (Core)',
+                            borderColor: '#3B82F6',
+                            data: labels.map((_, i) => i * 0.5 + Math.random()), // 稳步向上
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: 'white' } }
+                    },
+                    scales: {
+                        y: { ticks: { color: '#aaa' }, grid: { color: '#333' } },
+                        x: { ticks: { color: '#aaa' }, grid: { color: '#333' } }
+                    }
+                }
+            });
+            
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+    </script>
+</body>
+</html>
