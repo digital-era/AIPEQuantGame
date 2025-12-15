@@ -513,52 +513,83 @@
             }
         }
 
+        // --- 修正后的核心数据更新函数 ---
         async function updateMarketData() {
             log("Scanning Market Frequencies...", "#888");
+            
             for (let key in gameState.guardians) {
                 const g = gameState.guardians[key];
-                let totalRtn = 0, valid = 0;
+                let totalRtn = 0;
+                let activeWeight = 0; 
                 
                 const promises = g.holdings.map(async (stock, idx) => {
                     if (!stock.code) return;
+
                     try {
-                        // 修复API缓存：添加随机时间戳 _=${Date.now()}
+                        // 1. URL 构造：直接请求后端，加时间戳防缓存
+                        // 请确保 REAL_API_URL 变量已定义且正确
                         const target = `${REAL_API_URL}?code=${stock.code}&type=intraday&_t=${Date.now()}`;
+                        
+                        // 2. 直连请求 (不再使用代理)
                         const res = await fetch(target);
                         const data = await res.json();
-                        
+
                         if (Array.isArray(data) && data.length > 0) {
-                            // 强制保留2位小数，解决浮点误差
-                            const last = data[data.length - 1];
-                            const price = parseFloat(parseFloat(last.price).toFixed(2));
+                            // 3. 获取最新价 (API)
+                            // 强制保留2位小数，解决浮点误差 (例如 30.770004 -> 30.77)
+                            const lastPoint = data[data.length - 1];
+                            const price = parseFloat(parseFloat(lastPoint.price).toFixed(2));
+                            
                             stock.currentPrice = price;
+                            // 保存分钟线历史用于画图
                             stock.history = data.map(d => parseFloat(d.price));
+
+                            // 4. 确定基准价 (Benchmark) - 核心修正！
+                            // 使用 JSON 文件里的 refPrice 作为基准
+                            // 这样计算的是 "策略累计收益" (包含隔夜缺口)，而非仅仅今天的日内波动
+                            const basePrice = parseFloat(stock.refPrice.toFixed(2));
                             
-                            // 优先使用今早开盘价作为日内基准
-                            let base = parseFloat(data[0].price);
-                            if (!base) base = stock.refPrice;
+                            // 5. 计算收益率
+                            // 公式：(当前价 - 策略基准价) / 策略基准价
+                            const change = (price - basePrice) / basePrice;
                             
-                            const change = (price - base) / base;
                             stock.changePct = change;
+
+                            // 6. 累加策略总收益
+                            // 贡献度 = 个股涨跌幅 * 个股权重
                             totalRtn += change * stock.weight;
-                            valid++;
-                            updateRowUI(key, idx, stock, change, base);
+                            activeWeight += stock.weight;
+
+                            // 7. 更新单行 UI
+                            // 传入 basePrice，确保小图表的虚线画在策略基准价上，直观显示跳空缺口
+                            updateRowUI(key, idx, stock, change, basePrice);
                         }
-                    } catch (e) { console.error(e); }
+                    } catch (e) {
+                        console.error(`Fetch error for ${stock.name}:`, e);
+                    }
                 });
+
                 await Promise.all(promises);
 
-                if (valid > 0) {
+                // 更新大卡片 Rtn
+                if (activeWeight > 0) {
+                    // 最终 Rtn = 持仓部分加权收益 * 仓位因子
                     const finalRtn = totalRtn * g.power;
+                    
                     const el = document.getElementById(`rtn-${key}`);
-                    el.innerText = (finalRtn > 0 ? "+" : "") + (finalRtn * 100).toFixed(2) + "%";
-                    el.style.color = finalRtn > 0 ? "#EF4444" : "#10B981";
-                    if(finalRtn > 0) document.getElementById(`card-${key}`).classList.add('active');
+                    const sign = finalRtn > 0 ? "+" : "";
+                    
+                    el.innerText = sign + (finalRtn * 100).toFixed(2) + "%";
+                    el.style.color = finalRtn >= 0 ? "#EF4444" : "#10B981";
+                    
+                    // 激活发光效果
+                    if (finalRtn > 0) document.getElementById(`card-${key}`).classList.add('active');
+                    else document.getElementById(`card-${key}`).classList.remove('active');
                 }
             }
-            log("Data Stream Synced.", "#0f0");
+            log("Data Stream Synced (Base: Strategy Ref).", "#0f0");
         }
-
+        
         function updateRowUI(key, idx, stock, change, base) {
             const el = document.getElementById(`price-box-${key}-${idx}`);
             const row = document.getElementById(`item-${key}-${idx}`);
