@@ -279,7 +279,6 @@
         
         // API 代理地址 (带时间戳防缓存)
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
-        const PROXY_WRAPPER = 'https://api.allorigins.win/raw?url=';
         
         const GUARDIAN_FILES = {
             genbu: '低波稳健模型_New.json',
@@ -525,7 +524,7 @@
                     try {
                         // 修复API缓存：添加随机时间戳 _=${Date.now()}
                         const target = `${REAL_API_URL}?code=${stock.code}&type=intraday&_t=${Date.now()}`;
-                        const res = await fetch(PROXY_WRAPPER + encodeURIComponent(target));
+                        const res = await fetch(target);
                         const data = await res.json();
                         
                         if (Array.isArray(data) && data.length > 0) {
