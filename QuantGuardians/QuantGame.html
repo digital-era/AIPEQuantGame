@@ -44,7 +44,6 @@
         .header {
             text-align: center;
             margin-bottom: 30px;
-            text-shadow: 0 0 10px rgba(255,255,255,0.2);
             border-bottom: 2px solid #333;
             padding-bottom: 20px;
             width: 100%;
@@ -66,7 +65,6 @@
             border: 2px solid #444;
             padding: 15px;
             border-radius: 4px;
-            position: relative;
             display: flex;
             flex-direction: column;
             transition: all 0.3s;
@@ -108,6 +106,7 @@
         .stat-value { font-size: 1.8em; font-weight: bold; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3); }
         .sub-stat { font-size: 0.8em; color: #666; margin-top: 5px; }
 
+        /* 持仓列表优化 */
         .holdings-list {
             flex-grow: 1;
             overflow-y: auto;
@@ -119,20 +118,24 @@
 
         .holding-item {
             display: grid;
-            grid-template-columns: 1.2fr 0.8fr 1fr;
+            grid-template-columns: 1.4fr 0.8fr 1fr; /* 调整列宽 */
             background: #1a1a2e;
             margin-bottom: 4px;
-            padding: 6px;
+            padding: 8px 6px;
             border-left: 3px solid #444;
             cursor: pointer;
             transition: background 0.2s;
+            align-items: center;
         }
         .holding-item:hover { background: #252540; }
-        .holding-item.selected { background: #303050; border-left-color: #fff; box-shadow: inset 0 0 10px rgba(255,255,255,0.1); }
+        .holding-item.selected { background: #303050; border-left-color: #fff; }
 
-        .h-name { font-weight: bold; font-size: 0.85em; color: #ddd; }
-        .h-meta { font-size: 0.7em; color: #666; }
-        .h-price-col { text-align: right; display: flex; flex-direction: column; justify-content: center; }
+        .h-info { display: flex; flex-direction: column; }
+        .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; }
+        /* 权重显示优化 */
+        .h-weight { font-size: 0.75em; color: #FFD700; margin-top: 2px; } 
+
+        .h-price-col { text-align: right; display: flex; flex-direction: column; justify-content: center; padding-right: 5px;}
         .h-price { font-size: 0.85em; font-weight: bold; }
         .h-pct { font-size: 0.7em; }
         
@@ -149,7 +152,7 @@
         .cmd-btn { background: #222; color: var(--glow-color); border: 1px solid var(--glow-color); cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.6em; padding: 5px 10px; }
         .cmd-msg { height: 20px; font-size: 0.7em; margin-top: 5px; color: #ffff00; }
 
-        /* --- 历史战绩面板 (恢复内容) --- */
+        /* --- 历史战绩面板 --- */
         .settlement-panel {
             width: 100%;
             max-width: 1400px;
@@ -157,7 +160,8 @@
             border: 2px solid #555;
             padding: 20px;
             margin-bottom: 20px;
-            display: none; /* 初始隐藏 */
+            display: none; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         .settlement-header {
             text-align: center; 
@@ -165,6 +169,11 @@
             padding-bottom: 10px; 
             margin-bottom: 10px; 
             color: #fff;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 400px; /* 固定高度确保显示正常 */
+            width: 100%;
         }
 
         /* 底部控制台 */
@@ -245,30 +254,33 @@
         </div>
     </div>
 
-    <!-- 恢复的结算图表区域 -->
+    <!-- 结算图表 (Historical Chart) -->
     <div class="settlement-panel" id="settlementPanel">
-        <h3 class="settlement-header pixel-font">Historical Battle Records (Backtest)</h3>
-        <canvas id="performanceChart" style="width:100%; height:300px;"></canvas>
+        <h3 class="settlement-header pixel-font">Historical Performance (Yield Curve)</h3>
+        <div class="chart-wrapper">
+            <canvas id="performanceChart"></canvas>
+        </div>
     </div>
 
     <!-- 系统控制台 -->
     <div class="system-controls">
         <button id="engageBtn" class="start-btn" onclick="initSystem()">[ ENGAGE SYSTEM ]</button>
         <div class="log-box" id="systemLog">
-            <div class="log-line">> System Standby... Waiting for user command.</div>
+            <div class="log-line">> System Standby... Ready to connect.</div>
         </div>
         <div style="color:#444; font-size:0.6em; margin-top:5px;">DATA REFRESH: 5 MIN INTERVAL</div>
     </div>
 
     <script>
-        // --- 1. 配置 ---
+        // --- 1. 核心配置 ---
         const GITHUB_USER = 'digital-era';
         const GITHUB_REPO = 'AIPEQModel';
         const GITHUB_BRANCH = 'main';
+        
+        // API 代理地址 (带时间戳防缓存)
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
         const PROXY_WRAPPER = 'https://api.allorigins.win/raw?url=';
         
-        // 策略持仓文件
         const GUARDIAN_FILES = {
             genbu: '低波稳健模型_New.json',
             suzaku: '大成模型_New.json', 
@@ -276,7 +288,6 @@
             kirin: '大智模型_New.json'
         };
 
-        // 历史回测文件 (恢复)
         const HISTORY_FILES = {
             genbu: '低波稳健模型优化后评估.json',
             suzaku: '大成模型优化后评估.json',
@@ -296,6 +307,7 @@
 
         // 历史数据存储
         let historyData = { dates: [], datasets: {} };
+        let myChart = null; // Chart 实例
 
         function log(msg, color="#0f0") {
             const box = document.getElementById('systemLog');
@@ -306,10 +318,11 @@
             box.prepend(div);
         }
 
-        // --- 2. 加载策略与实时数据逻辑 (保持不变) ---
+        // --- 2. 加载策略配置 ---
         async function loadStrategies() {
             log("Loading Tactical Configurations...", "cyan");
             const promises = Object.keys(GUARDIAN_FILES).map(async (key) => {
+                // 加时间戳防止配置缓存
                 const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GUARDIAN_FILES[key]}?t=${Date.now()}`;
                 try {
                     const res = await fetch(url);
@@ -320,8 +333,10 @@
                     const portfolio = data.最优投资组合配置.配置详情;
                     const factor = parseFloat(data.风控因子信息.综合建议仓位因子);
                     gameState.guardians[key].power = factor;
+                    
                     gameState.guardians[key].holdings = portfolio.map(p => {
                         let w = parseFloat(p["最优权重(%)"]);
+                        // 修正权重 (如果是15则转为0.15)
                         if (w > 1) w = w / 100;
                         return {
                             name: p.名称, code: p.代码,
@@ -337,56 +352,77 @@
             await Promise.all(promises);
         }
 
-        // --- 3. 恢复历史数据加载与绘图 ---
+        // --- 3. 历史数据逻辑 (修复曲线对齐问题) ---
         async function loadHistoryData() {
-            log("Downloading Historical Combat Records...", "#888");
+            log("Syncing Historical Database...", "#888");
             const keys = Object.keys(HISTORY_FILES);
             const requests = keys.map(key => {
                  const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${HISTORY_FILES[key]}?t=${Date.now()}`;
                  return fetch(url).then(res => res.json()).catch(e => null);
             });
 
-            const results = await Promise.all(requests);
-            let allDatesSet = new Set();
-            
-            // 收集日期
-            results.forEach(json => {
-                if(json && json.每日评估数据) {
-                    json.每日评估数据.forEach(item => allDatesSet.add(item.日期));
-                }
-            });
-            
-            historyData.dates = Array.from(allDatesSet).sort();
+            try {
+                const results = await Promise.all(requests);
+                let allDatesSet = new Set();
+                
+                // 1. 收集所有文件的所有日期
+                results.forEach(json => {
+                    if(json && json.每日评估数据) {
+                        json.每日评估数据.forEach(item => allDatesSet.add(item.日期));
+                    }
+                });
+                
+                // 2. 排序生成标准时间轴
+                historyData.dates = Array.from(allDatesSet).sort();
 
-            // 对齐数据
-            results.forEach((json, index) => {
-                const key = keys[index];
-                if (json && json.每日评估数据) {
-                    const dataMap = new Map();
-                    json.每日评估数据.forEach(d => dataMap.set(d.日期, d.累计收益率 * 100));
-                    historyData.datasets[key] = historyData.dates.map(date => dataMap.has(date) ? dataMap.get(date) : null);
-                }
-            });
+                // 3. 严格映射数据 (Alignment)
+                results.forEach((json, index) => {
+                    const key = keys[index];
+                    if (json && json.每日评估数据) {
+                        // 创建 日期 -> 收益率 的查找表
+                        const dataMap = new Map();
+                        json.每日评估数据.forEach(d => {
+                            dataMap.set(d.日期, d.累计收益率 * 100);
+                        });
 
-            log("Historical Database Synced.", "lime");
-            renderHistoryChart();
+                        // 按照标准时间轴填充数据 (缺失填 null)
+                        historyData.datasets[key] = historyData.dates.map(date => {
+                            return dataMap.has(date) ? dataMap.get(date) : null;
+                        });
+                    } else {
+                        historyData.datasets[key] = [];
+                    }
+                });
+
+                log("History Synced. Rendering Chart...", "lime");
+                renderHistoryChart();
+            } catch (e) {
+                console.error(e);
+                log("History Sync Failed.", "red");
+            }
         }
 
         function renderHistoryChart() {
             const panel = document.getElementById('settlementPanel');
-            panel.style.display = 'block'; // 显示面板
+            panel.style.display = 'block';
 
             const ctx = document.getElementById('performanceChart').getContext('2d');
             
+            // 如果旧图表存在，先销毁
+            if (myChart) myChart.destroy();
+
             const createDataset = (label, color, dataKey) => ({
                 label: label,
                 borderColor: color,
-                backgroundColor: color + '1A',
+                backgroundColor: color + '1A', // 10% 透明度背景
                 data: historyData.datasets[dataKey] || [],
-                tension: 0.2, pointRadius: 0, borderWidth: 2, spanGaps: true
+                tension: 0.3,       // 曲线平滑度
+                pointRadius: 0,     // 隐藏数据点，只显示线
+                borderWidth: 2,
+                spanGaps: true      // 关键：允许跨越空数据连接线条
             });
 
-            new Chart(ctx, {
+            myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: historyData.dates,
@@ -399,18 +435,28 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: false, // 允许填满父容器
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { labels: { color: '#ccc', font: {family: 'Roboto Mono'} } } },
+                    plugins: { 
+                        legend: { labels: { color: '#ccc', font: {family: 'Roboto Mono'} } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
                     scales: {
-                        y: { ticks: { color: '#666' }, grid: { color: '#333' } },
-                        x: { ticks: { color: '#666', maxTicksLimit: 10 }, grid: { color: '#333' } }
+                        y: { 
+                            ticks: { color: '#666' }, 
+                            grid: { color: '#333' },
+                            title: { display: true, text: 'Yield (%)', color: '#555' }
+                        },
+                        x: { 
+                            ticks: { color: '#666', maxTicksLimit: 8 }, 
+                            grid: { color: '#333' } 
+                        }
                     }
                 }
             });
         }
 
-        // --- 4. 实时交互部分 (列表、API、画图) ---
+        // --- 4. 实时数据与交互 (修复权重显示与API缓存) ---
         function renderList(key) {
             const listEl = document.getElementById(`list-${key}`);
             listEl.innerHTML = '';
@@ -420,8 +466,12 @@
                 div.className = 'holding-item';
                 div.id = `item-${key}-${idx}`;
                 div.onclick = () => selectStock(key, idx);
+                
+                // 修复权重显示：显眼的黄色标签
                 div.innerHTML = `
-                    <div><div class="h-name">${stock.name}</div><div class="h-meta">W:${(stock.weight*100).toFixed(1)}%</div></div>
+                    <div class="h-info">
+                        <div class="h-name">${stock.name} <span class="h-weight">[${(stock.weight*100).toFixed(1)}%]</span></div>
+                    </div>
                     <div class="h-price-col" id="price-box-${key}-${idx}"><span class="h-price">--</span></div>
                     <div class="mini-chart-container"><canvas id="chart-${key}-${idx}" class="sparkline"></canvas></div>
                 `;
@@ -473,15 +523,19 @@
                 const promises = g.holdings.map(async (stock, idx) => {
                     if (!stock.code) return;
                     try {
-                        const target = `${REAL_API_URL}?code=${stock.code}&type=intraday`;
+                        // 修复API缓存：添加随机时间戳 _=${Date.now()}
+                        const target = `${REAL_API_URL}?code=${stock.code}&type=intraday&_t=${Date.now()}`;
                         const res = await fetch(PROXY_WRAPPER + encodeURIComponent(target));
                         const data = await res.json();
+                        
                         if (Array.isArray(data) && data.length > 0) {
+                            // 强制保留2位小数，解决浮点误差
                             const last = data[data.length - 1];
                             const price = parseFloat(parseFloat(last.price).toFixed(2));
                             stock.currentPrice = price;
                             stock.history = data.map(d => parseFloat(d.price));
                             
+                            // 优先使用今早开盘价作为日内基准
                             let base = parseFloat(data[0].price);
                             if (!base) base = stock.refPrice;
                             
@@ -522,8 +576,10 @@
             if (data.length < 2) return;
             
             const min = Math.min(...data, base), max = Math.max(...data, base);
+            // 增加一点padding防止线条贴边
             const range = (max - min) || 0.01;
-            const pad = range * 0.1, effMin = min - pad, effRange = range + 2*pad;
+            const pad = range * 0.2;
+            const effMin = min - pad, effRange = range + 2*pad;
 
             ctx.clearRect(0,0,w,h);
             
@@ -543,11 +599,9 @@
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING..."; btn.disabled = true;
             
-            // 并行加载策略配置和历史数据
             await Promise.all([loadStrategies(), loadHistoryData()]);
-            
             await updateMarketData();
-            setInterval(updateMarketData, 300000);
+            setInterval(updateMarketData, 300000); // 5分钟刷新
             
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
