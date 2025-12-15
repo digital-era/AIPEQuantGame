@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量子护卫队：四方战纪 | Quant Guardians</title>
-    <!-- 引入 Chart.js -->
+    <title>量子护卫队：实盘监控 | Quant Guardians Live</title>
+    <!-- 引入 Chart.js (用于大图) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 引入像素字体 (Google Fonts) -->
+    <!-- 引入像素字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
@@ -45,7 +45,7 @@
 
         /* --- UI 组件 --- */
         .container {
-            max-width: 1200px;
+            max-width: 1400px; /* 加宽以容纳更多信息 */
             width: 100%;
             display: grid;
             grid-template-columns: 1fr;
@@ -57,47 +57,12 @@
             border-bottom: 2px solid #333;
             padding-bottom: 20px;
             margin-bottom: 20px;
-            text-shadow: 0 0 10px rgba(255,255,255,0.3);
-        }
-
-        .boss-stage {
-            background: #000;
-            border: 4px solid #333;
-            height: 150px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            margin-bottom: 20px;
-            overflow: hidden;
-        }
-
-        .boss-health-bar {
-            width: 80%;
-            height: 20px;
-            background: #333;
-            margin-top: 10px;
-            border: 2px solid #fff;
-        }
-
-        .boss-health-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #f00, #ff0);
-            width: 100%;
-            transition: width 0.2s;
-        }
-
-        .market-status {
-            font-size: 2em;
-            color: #fff;
-            z-index: 2;
         }
 
         /* --- 护卫队卡片 --- */
         .guardians-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 卡片变宽 */
             gap: 15px;
         }
 
@@ -108,9 +73,9 @@
             border-radius: 4px;
             position: relative;
             transition: all 0.3s;
-            overflow: hidden;
             display: flex;
             flex-direction: column;
+            min-height: 500px; /* 增加高度 */
         }
 
         .guardian-card.active {
@@ -118,86 +83,85 @@
             border-color: var(--glow-color);
         }
 
-        /* 角色特定样式 */
         .g-genbu { --glow-color: var(--genbu-color); }
         .g-suzaku { --glow-color: var(--suzaku-color); }
         .g-sirius { --glow-color: var(--sirius-color); }
         .g-kirin { --glow-color: var(--kirin-color); }
 
         .avatar {
-            font-size: 3em;
+            font-size: 2.5em;
             text-align: center;
             margin-bottom: 10px;
             text-shadow: 0 0 10px var(--glow-color);
         }
 
-        .stats-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8em;
-            margin: 5px 0;
-            color: #aaa;
-        }
-        
         .main-stat {
             font-size: 1.2em;
             font-weight: bold;
             color: #fff;
             text-align: center;
             margin: 10px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid #333;
         }
 
-        /* --- 列表交互样式更新 --- */
+        /* --- 列表与走势图样式更新 --- */
         .holdings-list {
             font-size: 0.7em;
-            height: 100px; /* 增加高度 */
+            flex-grow: 1;
             overflow-y: auto;
             border-top: 1px dashed #444;
             padding-top: 5px;
             margin-top: 10px;
+            padding-right: 5px;
         }
 
         .holding-item {
-            padding: 4px;
-            cursor: pointer;
-            border-radius: 2px;
-            border: 1px solid transparent;
-            transition: all 0.2s;
+            background: rgba(0, 0, 0, 0.2);
+            margin-bottom: 6px;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #444;
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr; /* 名称 | 价格/涨跌 | 图表 */
+            grid-template-rows: auto auto;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .holding-item.up { border-left-color: #ef4444; }
+        .holding-item.down { border-left-color: #10b981; } /* 遵循红涨绿跌习惯，如需反转请互换 */
+
+        .h-name { font-weight: bold; color: #fff; }
+        .h-code { color: #666; font-size: 0.9em; }
+        
+        .h-price-box {
+            text-align: right;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
         }
+        .h-price { color: #eee; font-weight: bold;}
+        .h-change { font-size: 0.9em; }
+        .text-red { color: #ef4444; }
+        .text-green { color: #10b981; }
 
-        .holding-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+        /* 迷你走势图 Canvas */
+        .mini-chart-container {
+            width: 100%;
+            height: 40px;
+            position: relative;
         }
-
-        .holding-item.selected {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: #777;
-            color: #fff;
-            font-weight: bold;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        canvas.sparkline {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         /* 滚动条美化 */
         .holdings-list::-webkit-scrollbar { width: 5px; }
         .holdings-list::-webkit-scrollbar-track { background: #000; }
         .holdings-list::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
-
-        /* --- 技能特效 --- */
-        .effect-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-            z-index: 0;
-        }
-
-        .g-genbu .effect-overlay { background: rgba(16, 185, 129, 0.2); border: 4px solid var(--genbu-color); }
-        .g-suzaku .effect-overlay { background: radial-gradient(circle, rgba(239,68,68,0.4) 0%, transparent 70%); }
-        .g-sirius .effect-overlay { background: repeating-linear-gradient(90deg, transparent, transparent 49%, var(--sirius-color) 50%, transparent 51%); }
-        .g-kirin .effect-overlay { box-shadow: inset 0 0 30px var(--kirin-color); }
 
         /* --- 控制台 --- */
         .controls-area {
@@ -208,6 +172,9 @@
             padding: 20px;
             background: #1a1a2e;
             border: 1px solid #333;
+            position: sticky;
+            bottom: 0;
+            z-index: 100;
         }
 
         button.engage-btn {
@@ -222,228 +189,125 @@
             box-shadow: 4px 4px 0 var(--terminal-green);
             transition: transform 0.1s;
         }
-
-        button.engage-btn:active {
-            transform: translate(2px, 2px);
-            box-shadow: 2px 2px 0 var(--terminal-green);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* --- 结算面板 --- */
-        .settlement-panel {
-            background: var(--panel-bg);
-            padding: 20px;
-            border: 1px solid #555;
-            margin-top: 20px;
-            display: none; /* Hidden by default */
-        }
-
-        .commander-section {
-            margin-top: auto; /* 推到底部 */
-            padding-top: 10px;
-            border-top: 1px solid #333;
-            z-index: 1; /* 确保在上层 */
-        }
-
-        .commander-input {
-            background: #000;
-            border: 1px solid #666;
-            color: #fff;
-            padding: 5px;
-            font-family: 'Roboto Mono';
-            width: 100px;
-        }
         
-        .action-btn {
-            background: #333;
-            color: #fff;
-            border: 1px solid #666;
-            padding: 4px 8px;
-            cursor: pointer;
-            font-family: 'Roboto Mono';
-        }
-        
-        .action-btn:hover { background: #555; }
-
-        /* 动画类 */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-
-        .shake-screen {
-            animation: shake 0.5s;
-        }
+        button.engage-btn:hover { background: #002200; }
+        button.engage-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--terminal-green); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .log-console {
-            height: 100px;
+            height: 150px;
             overflow-y: scroll;
             background: #000;
             border: 1px solid #333;
             color: #0f0;
             font-size: 0.8em;
             padding: 10px;
-            margin-top: 10px;
             width: 100%;
-            max-width: 1200px;
+            margin-top: 10px;
         }
         
         .log-entry { margin-bottom: 4px; border-bottom: 1px solid #111; padding-bottom: 2px; }
-        .log-time { color: #666; margin-right: 5px; }
+        
+        .update-timer {
+            color: #666;
+            font-size: 0.7em;
+            text-align: center;
+            margin-top: 5px;
+        }
 
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>Quant Guardians</h1>
-        <div class="pixel-font" style="color: #666; font-size: 0.8em;">The Cyber Front // 四方战纪</div>
+        <h1>Quant Guardians <span style="font-size:0.5em; vertical-align:middle; color:#ef4444;">[LIVE]</span></h1>
+        <div class="pixel-font" style="color: #666; font-size: 0.8em;">Real-time Strategy Monitor // 实盘监控系统</div>
     </div>
 
     <div class="container">
         
-        <!-- BOSS 区域 (大盘) -->
-        <div class="boss-stage" id="bossStage">
-            <div class="pixel-font" style="color: #aaa; font-size: 0.8em; margin-bottom: 5px;">TARGET: MARKET INDEX</div>
-            <div class="market-status pixel-font" id="marketStatus">0.00%</div>
-            <div class="boss-health-bar">
-                <div class="boss-health-fill" id="bossHealth"></div>
-            </div>
-            <div id="bossMessage" style="color:red; font-weight:bold; height: 20px; margin-top:5px;"></div>
-        </div>
-
         <!-- 护卫队区域 -->
         <div class="guardians-grid">
             
             <!-- 01. 玄武 -->
             <div class="guardian-card g-genbu" id="card-genbu">
-                <div class="effect-overlay"></div>
                 <div class="avatar">🛡️</div>
                 <div class="pixel-font" style="color:var(--genbu-color); text-align:center;">GENBU</div>
-                <div style="text-align:center; font-size:0.7em;">LowVol_Guardian</div>
+                <div style="text-align:center; font-size:0.7em;">低波稳健 (LowVol)</div>
                 <div class="main-stat">
-                    Rtn: <span id="rtn-genbu">0.00%</span>
+                    Rtn: <span id="rtn-genbu">Wait...</span>
                 </div>
-                <div class="stats-row">
-                    <span>充能: <span id="power-genbu">0%</span></span>
-                    <span>状态: 待机</span>
+                <div class="stats-row" style="text-align:center; font-size:0.8em; color:#888;">
+                    仓位: <span id="power-genbu">0%</span>
                 </div>
-                <div style="font-size:0.7em; color:#888; margin-top:5px;">点击列表选择标的:</div>
                 <div class="holdings-list" id="list-genbu"></div>
-                <!-- 指挥官模式 -->
-                <div class="commander-section">
-                    <input type="number" class="commander-input" id="input-genbu" placeholder="等待数据...">
-                    <button class="action-btn" onclick="commanderAction('genbu')">Confirm</button>
-                    <div id="msg-genbu" style="font-size:0.7em; color: yellow; margin-top:4px; min-height:1.2em;"></div>
-                </div>
             </div>
 
             <!-- 02. 朱雀 -->
             <div class="guardian-card g-suzaku" id="card-suzaku">
-                <div class="effect-overlay"></div>
                 <div class="avatar">🔥</div>
                 <div class="pixel-font" style="color:var(--suzaku-color); text-align:center;">SUZAKU</div>
-                <div style="text-align:center; font-size:0.7em;">DaCheng_Striker</div>
+                <div style="text-align:center; font-size:0.7em;">大成优选 (DaCheng)</div>
                 <div class="main-stat">
-                    Rtn: <span id="rtn-suzaku">0.00%</span>
+                    Rtn: <span id="rtn-suzaku">Wait...</span>
                 </div>
-                <div class="stats-row">
-                    <span>充能: <span id="power-suzaku">0%</span></span>
-                    <span>状态: 待机</span>
+                <div class="stats-row" style="text-align:center; font-size:0.8em; color:#888;">
+                    仓位: <span id="power-suzaku">0%</span>
                 </div>
-                <div style="font-size:0.7em; color:#888; margin-top:5px;">点击列表选择标的:</div>
                 <div class="holdings-list" id="list-suzaku"></div>
-                <div class="commander-section">
-                    <input type="number" class="commander-input" id="input-suzaku" placeholder="等待数据...">
-                    <button class="action-btn" onclick="commanderAction('suzaku')">Confirm</button>
-                    <div id="msg-suzaku" style="font-size:0.7em; color: yellow; margin-top:4px; min-height:1.2em;"></div>
-                </div>
             </div>
 
             <!-- 03. 天狼 -->
             <div class="guardian-card g-sirius" id="card-sirius">
-                <div class="effect-overlay"></div>
                 <div class="avatar">🐺</div>
                 <div class="pixel-font" style="color:var(--sirius-color); text-align:center;">SIRIUS</div>
-                <div style="text-align:center; font-size:0.7em;">Inflow_Sniper</div>
+                <div style="text-align:center; font-size:0.7em;">资金流入 (Inflow)</div>
                 <div class="main-stat">
-                    Sharpe: <span id="sharpe-sirius">0.0</span>
+                    Rtn: <span id="rtn-sirius">Wait...</span>
                 </div>
-                <div class="stats-row">
-                    <span>充能: <span id="power-sirius">0%</span></span>
-                    <span>状态: 待机</span>
+                <div class="stats-row" style="text-align:center; font-size:0.8em; color:#888;">
+                    仓位: <span id="power-sirius">0%</span>
                 </div>
-                <div style="font-size:0.7em; color:#888; margin-top:5px;">点击列表选择标的:</div>
                 <div class="holdings-list" id="list-sirius"></div>
-                 <div class="commander-section">
-                    <input type="number" class="commander-input" id="input-sirius" placeholder="等待数据...">
-                    <button class="action-btn" onclick="commanderAction('sirius')">Confirm</button>
-                    <div id="msg-sirius" style="font-size:0.7em; color: yellow; margin-top:4px; min-height:1.2em;"></div>
-                </div>
             </div>
 
             <!-- 04. 麒麟 -->
             <div class="guardian-card g-kirin" id="card-kirin">
-                <div class="effect-overlay"></div>
                 <div class="avatar">🦄</div>
                 <div class="pixel-font" style="color:var(--kirin-color); text-align:center;">KIRIN</div>
-                <div style="text-align:center; font-size:0.7em;">DaZhi_Core</div>
+                <div style="text-align:center; font-size:0.7em;">大智核心 (DaZhi)</div>
                 <div class="main-stat">
-                    Yield: <span id="yield-kirin">0.00%</span>
+                    Rtn: <span id="rtn-kirin">Wait...</span>
                 </div>
-                <div class="stats-row">
-                    <span>充能: <span id="power-kirin">0%</span></span>
-                    <span>状态: 待机</span>
+                <div class="stats-row" style="text-align:center; font-size:0.8em; color:#888;">
+                    仓位: <span id="power-kirin">0%</span>
                 </div>
-                <div style="font-size:0.7em; color:#888; margin-top:5px;">点击列表选择标的:</div>
                 <div class="holdings-list" id="list-kirin"></div>
-                 <div class="commander-section">
-                    <input type="number" class="commander-input" id="input-kirin" placeholder="等待数据...">
-                    <button class="action-btn" onclick="commanderAction('kirin')">Confirm</button>
-                    <div id="msg-kirin" style="font-size:0.7em; color: yellow; margin-top:4px; min-height:1.2em;"></div>
-                </div>
             </div>
         </div>
 
         <!-- 操控区 -->
         <div class="controls-area">
-            <button id="engageBtn" class="engage-btn" onclick="startGame()">[ ENGAGE SYSTEM ]</button>
+            <div>
+                <button id="engageBtn" class="engage-btn" onclick="startSystem()">[ CONNECT API ]</button>
+                <div class="update-timer" id="updateTimer">Status: Offline</div>
+            </div>
         </div>
 
         <div class="log-console" id="gameLog">
-            <div class="log-entry">> System Initialized... Waiting for command.</div>
-        </div>
-
-        <!-- 结算图表 -->
-        <div class="settlement-panel" id="settlementPanel">
-            <h3 class="pixel-font" style="color: #fff; text-align:center;">历史战绩回放 (Settlement)</h3>
-            <canvas id="performanceChart" width="800" height="300"></canvas>
+            <div class="log-entry">> System Initialized. Ready to connect to market data feed.</div>
         </div>
 
     </div>
 
     <!-- JS 逻辑 -->
     <script>
-        // --- 1. GitHub 数据源配置 ---
+        // --- 配置 ---
         const GITHUB_USER = 'digital-era';
         const GITHUB_REPO = 'AIPEQModel';
         const GITHUB_BRANCH = 'main';
-        const FILE_DIRECTORY = '';
+        const API_BASE = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 
-        // 策略持仓文件 (用于游戏中间的持仓展示)
         const GUARDIAN_FILES = {
             genbu: '低波稳健模型_New.json',
             suzaku: '大成模型_New.json', 
@@ -451,31 +315,14 @@
             kirin: '大智模型_New.json'
         };
 
-        // 历史评估文件 (用于结算图表)
-        const EVALUATION_FILES = {
-            genbu: '低波稳健模型优化后评估.json',
-            suzaku: '大成模型优化后评估.json',
-            sirius: '流入模型优化后评估.json',
-            kirin: '大智模型优化后评估.json'
-        };
-
-        // --- 2. 游戏状态与数据存储 ---
-
         let gameState = {
             active: false,
             guardians: {
-                genbu: { id: 'genbu', name: '玄武', profit: 0, power: 0, holdings: [], selectedIndex: 0 },
-                suzaku: { id: 'suzaku', name: '朱雀', profit: 0, power: 0, holdings: [], selectedIndex: 0 },
-                sirius: { id: 'sirius', name: '天狼', profit: 0, power: 0, holdings: [], selectedIndex: 0 },
-                kirin: { id: 'kirin', name: '麒麟', profit: 0, power: 0, holdings: [], selectedIndex: 0 }
-            },
-            marketIndex: 0
-        };
-
-        // 用于存储结算时的图表数据
-        let settlementData = {
-            dates: [], // X轴日期
-            datasets: {} // 各角色的数据
+                genbu: { name: '玄武', holdings: [], power: 0 },
+                suzaku: { name: '朱雀', holdings: [], power: 0 },
+                sirius: { name: '天狼', holdings: [], power: 0 },
+                kirin: { name: '麒麟', holdings: [], power: 0 }
+            }
         };
 
         const LOG_ELEMENT = document.getElementById('gameLog');
@@ -484,377 +331,237 @@
             const time = new Date().toLocaleTimeString();
             const div = document.createElement('div');
             div.className = 'log-entry';
-            div.innerHTML = `<span class="log-time">[${time}]</span> <span style="color:${color}">${msg}</span>`;
+            div.innerHTML = `<span style="color:#666">[${time}]</span> <span style="color:${color}">${msg}</span>`;
             LOG_ELEMENT.prepend(div);
         }
 
-        function getFileUrl(filename) {
-            const path = FILE_DIRECTORY ? `${FILE_DIRECTORY}/${filename}` : filename;
-            return `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${path}?t=${new Date().getTime()}`;
-        }
-
-        // --- 交互功能 ---
-        function selectHolding(guardianId, index) {
-            const g = gameState.guardians[guardianId];
-            g.selectedIndex = index;
-            
-            const listEl = document.getElementById(`list-${guardianId}`);
-            const items = listEl.getElementsByClassName('holding-item');
-            
-            for (let i = 0; i < items.length; i++) {
-                if (i === index) items[i].classList.add('selected');
-                else items[i].classList.remove('selected');
-            }
-
-            const selectedStock = g.holdings[index];
-            const inputEl = document.getElementById(`input-${guardianId}`);
-            const msgEl = document.getElementById(`msg-${guardianId}`);
-            
-            if (selectedStock) {
-                inputEl.placeholder = `竞猜: ${selectedStock.name}`;
-                inputEl.value = ''; 
-                msgEl.innerText = ""; 
-            }
-        }
-
-        // --- 数据加载逻辑 ---
-
-        // 1. 加载持仓配置 (游戏开始时显示)
-        async function loadRemoteConfig() {
-            addLog("Initiating Uplink to GitHub Repo...", "cyan");
+        // --- 1. 初始化：加载配置文件 ---
+        async function loadConfigs() {
+            addLog("Loading Strategy Configurations...", "cyan");
             
             const promises = Object.keys(GUARDIAN_FILES).map(async (key) => {
-                const filename = GUARDIAN_FILES[key];
-                const url = getFileUrl(filename);
-                
+                const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GUARDIAN_FILES[key]}?t=${Date.now()}`;
                 try {
-                    addLog(`Downloading strategy: ${filename}...`, "#555");
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
-                    const json = await response.json();
-
-                    const data = json.结果 ? json.结果 : json; 
-                    if (!data.最优投资组合配置) throw new Error("Invalid Format");
-
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error("Fetch Error");
+                    const json = await res.json();
+                    const data = json.结果 || json;
+                    
                     const portfolio = data.最优投资组合配置.配置详情;
                     const factor = parseFloat(data.风控因子信息.综合建议仓位因子);
 
+                    // 解析持仓，保存 代码、昨收价 (RefPrice)、权重
                     gameState.guardians[key].power = factor;
                     gameState.guardians[key].holdings = portfolio.map(p => ({
                         name: p.名称,
+                        code: p.代码, // 假设JSON中有代码字段，如 600519
+                        refPrice: parseFloat(p.最近一日价格), // 昨收价
                         weight: parseFloat(p["最优权重(%)"]) / 100,
-                        price: p.最近一日价格,
-                        currentPrice: p.最近一日价格
+                        
+                        // 实时数据容器
+                        currentPrice: null,
+                        history: [] // 存放分钟线价格
                     }));
-                    gameState.guardians[key].selectedIndex = 0;
 
                     document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
-                    
-                    const listEl = document.getElementById(`list-${key}`);
-                    listEl.innerHTML = ''; 
+                    renderHoldingsStructure(key); // 渲染空列表结构
 
-                    portfolio.forEach((p, index) => {
-                        const div = document.createElement('div');
-                        div.className = 'holding-item';
-                        if (index === 0) div.classList.add('selected');
-                        div.innerHTML = `<span>${p.名称}</span> <span style="color:#666">${p["最优权重(%)"]}%</span>`;
-                        div.onclick = () => selectHolding(key, index);
-                        listEl.appendChild(div);
-                    });
-                    
-                    if (portfolio.length > 0) {
-                        document.getElementById(`input-${key}`).placeholder = `竞猜: ${portfolio[0].名称}`;
-                    }
-
-                    addLog(`[${key.toUpperCase()}] Systems Online.`, "var(--terminal-green)");
-
-                } catch (error) {
-                    addLog(`[${key.toUpperCase()}] Load Failed: ${error.message}`, "red");
-                    document.getElementById(`list-${key}`).innerHTML = `<div style="color:red; padding:10px;">OFFLINE</div>`;
+                } catch (e) {
+                    addLog(`Error loading ${key}: ${e.message}`, "red");
                 }
             });
 
             await Promise.all(promises);
+            addLog("Configuration Loaded. Waiting for API Connection...", "lime");
         }
 
-       // 2. 加载历史回测数据 (优化版：自动对齐日期)
-        async function loadSettlementData() {
-            addLog("Prefetching Historical Battle Records...", "#666");
+        // --- 2. 渲染列表骨架 ---
+        function renderHoldingsStructure(key) {
+            const listEl = document.getElementById(`list-${key}`);
+            listEl.innerHTML = '';
             
-            const keys = Object.keys(EVALUATION_FILES);
-            const requests = keys.map(key => fetch(getFileUrl(EVALUATION_FILES[key])).then(res => res.json()));
-
-            try {
-                const results = await Promise.all(requests);
+            gameState.guardians[key].holdings.forEach((stock, idx) => {
+                const div = document.createElement('div');
+                div.className = 'holding-item';
+                div.id = `item-${key}-${idx}`;
                 
-                // --- 核心修改：日期对齐逻辑 ---
-                
-                // 1. 收集所有文件中出现过的所有日期 (去重)
-                let allDatesSet = new Set();
-                results.forEach(json => {
-                    if(json && json.每日评估数据) {
-                        json.每日评估数据.forEach(item => allDatesSet.add(item.日期));
-                    }
-                });
-
-                // 2. 将日期排序，生成标准的 X 轴标签列表
-                // ISO 日期字符串 ("2025-12-12") 可以直接用字符串排序确保时间顺序
-                const sortedDates = Array.from(allDatesSet).sort();
-                settlementData.dates = sortedDates;
-
-                // 3. 将每个角色的数据映射到标准日期列表上
-                results.forEach((json, index) => {
-                    const key = keys[index];
-                    if (json && json.每日评估数据) {
-                        // 创建一个查找表: "2025-12-12" -> 10.5
-                        const dataMap = new Map();
-                        json.每日评估数据.forEach(d => {
-                            dataMap.set(d.日期, d.累计收益率 * 100);
-                        });
-
-                        // 按照排序后的 dates 生成对齐的数据数组
-                        // 如果某天没有数据，返回 null (图表会自动断开或跳过)
-                        const alignedData = sortedDates.map(date => {
-                            return dataMap.has(date) ? dataMap.get(date) : null;
-                        });
-
-                        settlementData.datasets[key] = alignedData;
-
-                        addLog(`[${key.toUpperCase()}] History Loaded. Points: ${alignedData.length}`, "gray");
-                    }
-                });
-                
-                addLog("Historical Data Synced & Aligned.", "var(--terminal-green)");
-
-            } catch (e) {
-                console.error(e);
-                addLog("Warning: Failed to load historical records.", "orange");
-            }
+                div.innerHTML = `
+                    <div>
+                        <div class="h-name">${stock.name}</div>
+                        <div class="h-code">${stock.code}</div>
+                    </div>
+                    <div class="h-price-box" id="price-box-${key}-${idx}">
+                        <span class="h-price">--</span>
+                        <span class="h-change">--%</span>
+                    </div>
+                    <div class="mini-chart-container">
+                        <canvas id="chart-${key}-${idx}" class="sparkline"></canvas>
+                    </div>
+                `;
+                listEl.appendChild(div);
+            });
         }
 
-        async function startGame() {
+        // --- 3. 核心：获取并处理实时数据 ---
+        async function fetchRealTimeData() {
+            addLog("Fetching real-time market data...", "#aaa");
+            const updateTimeStr = new Date().toLocaleTimeString();
+            document.getElementById('updateTimer').innerText = `Last Update: ${updateTimeStr} (Refreshing in 5m)`;
+
+            // 遍历所有护卫队
+            for (let key in gameState.guardians) {
+                const guardian = gameState.guardians[key];
+                let guardianTotalRtn = 0;
+                let activeWeight = 0;
+
+                // 并行获取该策略下所有股票的数据
+                const stockPromises = guardian.holdings.map(async (stock, idx) => {
+                    if (!stock.code) return;
+
+                    try {
+                        const res = await fetch(`${API_BASE}?code=${stock.code}&type=intraday`);
+                        const data = await res.json();
+
+                        if (Array.isArray(data) && data.length > 0) {
+                            // 1. 获取最新价格 (数组最后一个元素)
+                            const lastPoint = data[data.length - 1];
+                            stock.currentPrice = parseFloat(lastPoint.price);
+                            
+                            // 2. 提取历史价格用于画图
+                            stock.history = data.map(d => parseFloat(d.price));
+
+                            // 3. 计算个股涨跌幅 (相对于昨收 refPrice)
+                            const changePct = (stock.currentPrice - stock.refPrice) / stock.refPrice;
+                            
+                            // 4. 累加策略收益 (个股涨幅 * 权重)
+                            // 注意：这里的收益是基于持仓部分的。
+                            guardianTotalRtn += changePct * stock.weight;
+                            activeWeight += stock.weight;
+
+                            // 5. 更新单行 UI
+                            updateStockUI(key, idx, stock, changePct);
+                        }
+                    } catch (e) {
+                        console.error(`Failed to fetch ${stock.name}`, e);
+                    }
+                });
+
+                await Promise.all(stockPromises);
+
+                // 6. 更新护卫队大卡片的数据
+                // 策略总收益 = 持仓部分收益 * 仓位因子 (假设现金部分收益为0)
+                // 或者简单处理：仅显示持仓组合的加权平均收益
+                
+                // 这里采用：显示实际策略收益 (持仓收益 * 仓位 + 现金0)
+                // 如果只看选股能力，可以不乘 factor。这里为了拟真，乘以仓位。
+                const finalRtn = guardianTotalRtn * guardian.power; 
+                
+                const rtnEl = document.getElementById(`rtn-${key}`);
+                rtnEl.innerText = (finalRtn * 100).toFixed(2) + "%";
+                rtnEl.style.color = finalRtn >= 0 ? '#ef4444' : '#10b981';
+                
+                // 边框发光反馈
+                const card = document.getElementById(`card-${key}`);
+                if (finalRtn > 0) card.style.borderColor = getComputedStyle(card).getPropertyValue('--glow-color');
+                else card.style.borderColor = "#444";
+            }
+            
+            addLog("Market Data Updated.", "lime");
+        }
+
+        // --- 4. 更新单行股票 UI & 绘制 Sparkline ---
+        function updateStockUI(guardianKey, idx, stock, changePct) {
+            const priceBox = document.getElementById(`price-box-${guardianKey}-${idx}`);
+            const itemDiv = document.getElementById(`item-${guardianKey}-${idx}`);
+            const chartId = `chart-${guardianKey}-${idx}`;
+            
+            const pctStr = (changePct * 100).toFixed(2) + "%";
+            const colorClass = changePct >= 0 ? 'text-red' : 'text-green';
+            const borderColor = changePct >= 0 ? '#ef4444' : '#10b981';
+
+            // 更新文本
+            priceBox.innerHTML = `
+                <span class="h-price ${colorClass}">${stock.currentPrice.toFixed(2)}</span>
+                <span class="h-change ${colorClass}">${changePct > 0 ? '+' : ''}${pctStr}</span>
+            `;
+            
+            // 更新边框
+            itemDiv.style.borderLeftColor = borderColor;
+
+            // 绘制 Sparkline
+            drawSparkline(chartId, stock.history, stock.refPrice, borderColor);
+        }
+
+        function drawSparkline(canvasId, data, refPrice, color) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // 设置画布分辨率
+            const width = canvas.parentElement.offsetWidth;
+            const height = canvas.parentElement.offsetHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            if (data.length < 2) return;
+
+            const min = Math.min(...data, refPrice) * 0.998;
+            const max = Math.max(...data, refPrice) * 1.002;
+            const range = max - min;
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+
+            // 绘制虚线（昨日收盘价）
+            const yRef = height - ((refPrice - min) / range) * height;
+            ctx.beginPath();
+            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = "#555";
+            ctx.lineWidth = 1;
+            ctx.moveTo(0, yRef);
+            ctx.lineTo(width, yRef);
+            ctx.stroke();
+
+            // 绘制实线（今日走势）
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            const step = width / (data.length - 1);
+            
+            data.forEach((price, i) => {
+                const x = i * step;
+                const y = height - ((price - min) / range) * height; // Y轴翻转，Canvas原点在左上
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            
+            ctx.stroke();
+        }
+
+        // --- 5. 系统控制 ---
+        async function startSystem() {
             if (gameState.active) return;
             
             const btn = document.getElementById('engageBtn');
             btn.disabled = true;
             btn.innerText = "INITIALIZING...";
 
-            // 1. 加载持仓数据 (必须完成)
-            await loadRemoteConfig();
+            // 1. 加载配置
+            await loadConfigs();
 
-            // 2. 并在后台开始加载结算数据 (不阻塞游戏开始，但通常很快)
-            loadSettlementData();
+            // 2. 首次获取数据
+            await fetchRealTimeData();
+
+            // 3. 设置定时器 (5分钟 = 300000ms)
+            setInterval(fetchRealTimeData, 300000);
 
             gameState.active = true;
-            btn.innerText = "SYSTEM ENGAGED";
-            
-            addLog("BATTLE START! Live Data Stream Active.", "red");
-            
-            setInterval(battleTick, 2000); 
-            
-            // 30秒后展示结算
-            setTimeout(() => {
-                showSettlement();
-            }, 30000);
-        }
-
-        // --- 3. 战斗核心逻辑 (保持不变) ---
-
-        function battleTick() {
-            if (!gameState.active) return;
-
-            const marketMove = (Math.random() - 0.45) * 0.005; 
-            gameState.marketIndex += marketMove;
-            
-            const bossHealth = 100 - (gameState.marketIndex * 1000); 
-            document.getElementById('bossHealth').style.width = Math.max(0, Math.min(100, bossHealth)) + "%";
-            document.getElementById('marketStatus').innerText = (gameState.marketIndex * 100).toFixed(2) + "%";
-            
-            if (gameState.marketIndex < -0.01) {
-                document.body.classList.add('shake-screen');
-                document.getElementById('bossMessage').innerText = "MARKET DUMP DETECTED!";
-                setTimeout(() => document.body.classList.remove('shake-screen'), 500);
-            } else {
-                document.getElementById('bossMessage').innerText = "";
-            }
-
-            for (let key in gameState.guardians) {
-                const g = gameState.guardians[key];
-                updateGuardian(g, marketMove);
-            }
-        }
-
-        function updateGuardian(guardian, marketMove) {
-            const card = document.getElementById(`card-${guardian.id}`);
-            const effect = card.querySelector('.effect-overlay');
-            
-            let totalReturn = 0;
-            guardian.holdings.forEach(stock => {
-                const alpha = (Math.random() - 0.5) * 0.01;
-                const change = marketMove + alpha;
-                stock.currentPrice = stock.currentPrice * (1 + change);
-                totalReturn += change * stock.weight;
-            });
-
-            const realReturn = totalReturn * guardian.power;
-            guardian.profit += realReturn;
-
-            if (guardian.id === 'genbu') {
-                 if (marketMove < -0.005) {
-                     effect.style.opacity = 1; 
-                     addLog("GENBU: Absolute Field deployed!", "#10B981");
-                 } else {
-                     effect.style.opacity = 0;
-                 }
-                 document.getElementById('rtn-genbu').innerText = (guardian.profit * 100).toFixed(2) + "%";
-            }
-            else if (guardian.id === 'suzaku') {
-                if (realReturn > 0.002) { 
-                    effect.style.opacity = 1;
-                    addLog("SUZAKU: CRITICAL HIT! 🔥", "#EF4444");
-                } else {
-                    effect.style.opacity = 0;
-                }
-                document.getElementById('rtn-suzaku').innerText = (guardian.profit * 100).toFixed(2) + "%";
-            }
-            else if (guardian.id === 'sirius') {
-                const simulatedSharpe = (2 + Math.random()).toFixed(2);
-                document.getElementById('sharpe-sirius').innerText = simulatedSharpe;
-                if (simulatedSharpe > 2.5) {
-                    effect.style.opacity = 0.8;
-                } else {
-                    effect.style.opacity = 0;
-                }
-            }
-            else if (guardian.id === 'kirin') {
-                const yieldVal = (guardian.profit * 100).toFixed(2);
-                document.getElementById('yield-kirin').innerText = yieldVal + "%";
-                const brightness = Math.min(1, Math.max(0, guardian.profit * 10));
-                effect.style.opacity = brightness;
-            }
-
-            if (realReturn > 0) {
-                card.style.borderColor = getComputedStyle(card).getPropertyValue('--glow-color');
-            } else {
-                card.style.borderColor = "#444";
-            }
-        }
-
-        function commanderAction(id) {
-            const input = document.getElementById(`input-${id}`);
-            const msgEl = document.getElementById(`msg-${id}`);
-            const buyPrice = parseFloat(input.value);
-            const guardian = gameState.guardians[id];
-            
-            if (!buyPrice) return;
-            if(guardian.holdings.length === 0) {
-                msgEl.innerText = "无数据";
-                return;
-            }
-
-            const index = guardian.selectedIndex;
-            const targetStock = guardian.holdings[index];
-
-            if (!targetStock) {
-                msgEl.innerText = "请选择标的";
-                return;
-            }
-
-            const refPrice = targetStock.price;
-            const diff = (refPrice - buyPrice) / refPrice;
-
-            if (diff > 0 && diff <= 0.1) {
-                msgEl.innerText = `神之一手! ${targetStock.name} 低吸成功`;
-                msgEl.style.color = "#0f0";
-                addLog(`COMMANDER: Perfect entry on ${targetStock.name}.`, "gold");
-                guardian.profit += 0.002; 
-            } else if (diff > 0.1) {
-                msgEl.innerText = "挂单太低，未成交";
-                msgEl.style.color = "#888";
-            } else {
-                const quotes = [
-                    `现价才 ${refPrice.toFixed(2)}...`,
-                    "高位站岗？",
-                    "这就是你的策略？",
-                    `韭菜竟是我自己 (${targetStock.name})`
-                ];
-                const quote = quotes[Math.floor(Math.random() * quotes.length)];
-                msgEl.innerText = quote;
-                msgEl.style.color = "yellow";
-                addLog(`COMMANDER: Bad entry on ${targetStock.name}.`, "gray");
-            }
-        }
-
-        // --- 5. 结算图表 (已优化：支持数据断点连接) ---
-        function showSettlement() {
-            document.getElementById('settlementPanel').style.display = 'block';
-            addLog("Market Closed. Accessing History Database...", "white");
-
-            const ctx = document.getElementById('performanceChart').getContext('2d');
-            
-            let labels = settlementData.dates;
-            let datasets = [];
-
-            // 容错处理
-            if (!labels || labels.length === 0) {
-                addLog("Error: History data missing. Using simulation.", "red");
-                labels = Array.from({length: 30}, (_, i) => `Day ${i+1}`);
-                // 模拟数据...
-                datasets = [ /* ...省略模拟数据配置... */ ];
-            } else {
-                // 通用配置生成器
-                const createDataset = (label, color, dataKey) => ({
-                    label: label,
-                    borderColor: color,
-                    backgroundColor: color + '1A', // 增加透明度
-                    data: settlementData.datasets[dataKey] || [],
-                    tension: 0.2,
-                    pointRadius: 0,
-                    borderWidth: 2,
-                    spanGaps: true // <--- 关键：允许跨越缺失的数据点连线
-                });
-
-                datasets = [
-                    createDataset('Genbu (Cumulative %)', '#10B981', 'genbu'),
-                    createDataset('Suzaku (Cumulative %)', '#EF4444', 'suzaku'),
-                    createDataset('Sirius (Cumulative %)', '#8B5CF6', 'sirius'),
-                    createDataset('Kirin (Cumulative %)', '#3B82F6', 'kirin')
-                ];
-            }
-            
-            // 销毁旧图表（防止多次调用时重叠）
-            if (window.myChartInstance) {
-                window.myChartInstance.destroy();
-            }
-
-            window.myChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { labels: { color: 'white', font: {family: 'Roboto Mono'} } },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
-                    scales: {
-                        y: { 
-                            ticks: { color: '#aaa', callback: function(value) { return value + '%' } }, 
-                            grid: { color: '#333' },
-                            title: { display: true, text: 'Return (%)', color: '#666' }
-                        },
-                        x: { 
-                            ticks: { color: '#aaa', maxTicksLimit: 12 }, // 限制X轴标签数量，防止拥挤
-                            grid: { color: '#333' } 
-                        }
-                    }
-                }
-            });
-            
-            window.scrollTo(0, document.body.scrollHeight);
+            btn.innerText = "SYSTEM ONLINE";
+            addLog("Auto-refresh enabled (Interval: 5min).", "yellow");
         }
 
     </script>
