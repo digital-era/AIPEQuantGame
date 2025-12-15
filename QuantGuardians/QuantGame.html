@@ -495,21 +495,62 @@
         function commanderAction(key) {
             const g = gameState.guardians[key];
             const msgEl = document.getElementById(`msg-${key}`);
-            if (g.selectedIdx === -1) { msgEl.innerText = "Select Target First"; msgEl.style.color = "red"; return; }
+            
+            // 1. 校验是否选中了标的
+            if (g.selectedIdx === -1) { 
+                msgEl.innerText = "Select Target First"; 
+                msgEl.style.color = "red"; 
+                return; 
+            }
             
             const stock = g.holdings[g.selectedIdx];
-            const guess = parseFloat(document.getElementById(`input-${key}`).value);
-            if (!guess || !stock.currentPrice) return;
+            const inputEl = document.getElementById(`input-${key}`);
+            const guess = parseFloat(inputEl.value);
 
-            const diff = Math.abs(guess - stock.currentPrice) / stock.currentPrice;
-            if (diff < 0.01) {
-                msgEl.innerText = `>> PERFECT SYNC!`;
-                msgEl.style.color = "#0f0";
-                document.getElementById(`card-${key}`).style.boxShadow = "0 0 30px #fff";
-                setTimeout(() => document.getElementById(`card-${key}`).style.boxShadow = "", 500);
+            // 2. 校验输入有效性
+            if (!guess || !stock.currentPrice) {
+                msgEl.innerText = "Waiting for Data...";
+                return;
+            }
+
+            const current = stock.currentPrice;
+
+            // --- 3. 核心判断逻辑 (修改版) ---
+            
+            if (guess < current) {
+                // 情景 A: 价格小于当前价 -> Too Low
+                msgEl.innerText = `Too Low (Curr: ${current})`;
+                msgEl.style.color = "#5af"; // 浅蓝色提示偏低
             } else {
-                msgEl.innerText = guess > stock.currentPrice ? `Too High (${stock.currentPrice})` : `Too Low (${stock.currentPrice})`;
-                msgEl.style.color = guess > stock.currentPrice ? "#f55" : "#5af";
+                // 情景 B: 价格大于等于当前价
+                // 计算误差比例: (猜的价格 - 现价) / 现价
+                const diff = (guess - current) / current;
+
+                if (diff < 0.01) {
+                    // 情景 B1: 误差 < 1% -> 完美
+                    msgEl.innerText = `>> PERFECT SYNC!`;
+                    msgEl.style.color = "#0f0"; // 绿色
+                    
+                    // 触发闪烁特效 (白色高亮)
+                    const card = document.getElementById(`card-${key}`);
+                    // 临时覆盖样式
+                    const originalShadow = card.style.boxShadow;
+                    const originalBorder = card.style.borderColor;
+                    
+                    card.style.boxShadow = "0 0 30px #fff";
+                    card.style.borderColor = "#fff";
+                    
+                    // 0.5秒后恢复
+                    setTimeout(() => {
+                        card.style.boxShadow = originalShadow;
+                        card.style.borderColor = originalBorder;
+                    }, 500);
+
+                } else {
+                    // 情景 B2: 误差 >= 1% -> Too High
+                    msgEl.innerText = `Too High (Curr: ${current})`;
+                    msgEl.style.color = "#f55"; // 红色提示偏高
+                }
             }
         }
 
