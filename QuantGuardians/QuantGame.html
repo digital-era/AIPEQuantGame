@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
+        /* --- 保持原有样式不变 --- */
         :root {
             --bg-color: #050510;
             --panel-bg: #111122;
@@ -16,61 +17,35 @@
             --suzaku-color: #EF4444;
             --sirius-color: #8B5CF6;
             --kirin-color: #3B82F6;
-            --user-gold: #FFD700; /* 用户战绩专用色 */
+            --user-gold: #FFD700;
         }
-
         * { box-sizing: border-box; }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Roboto Mono', monospace;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
+        body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Roboto Mono', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         h1, .pixel-font { font-family: 'Press Start 2P', cursive; text-transform: uppercase; }
-
         .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; width: 100%; max-width: 1400px; }
         .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
-
-        /* 卡片样式 */
         .guardian-card { background: var(--panel-bg); border: 2px solid #444; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5); min-height: 600px; }
         .guardian-card.active { border-color: var(--glow-color); box-shadow: 0 0 20px var(--glow-color); }
-        
         .g-genbu { --glow-color: var(--genbu-color); }
         .g-suzaku { --glow-color: var(--suzaku-color); }
         .g-sirius { --glow-color: var(--sirius-color); }
         .g-kirin { --glow-color: var(--kirin-color); }
-
         .card-header { display: flex; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
         .avatar { font-size: 2.5em; margin-right: 15px; text-shadow: 0 0 10px var(--glow-color); }
         .role-info h2 { margin: 0; font-size: 1.2em; color: var(--glow-color); }
         .role-desc { font-size: 0.6em; color: #888; }
-
-        /* 指标区域升级 */
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
         .sub-stat { font-size: 0.7em; color: #666; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px;}
-
-        /* 持仓列表 */
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 250px; }
         .holding-item { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; background: #1a1a2e; margin-bottom: 4px; padding: 8px 6px; border-left: 3px solid #444; cursor: pointer; transition: background 0.2s; align-items: center; }
         .holding-item:hover { background: #252540; }
-        
-        /* 选中态 */
         .holding-item.selected { background: #303050; border-left-color: #fff; }
-        /* 锁定态 (User Sync) */
-        .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 0.8; }
+        .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 1; /* 确保不透明，看清数据 */ } 
         .holding-item.locked .h-name { color: var(--user-gold); }
-
         .h-info { display: flex; flex-direction: column; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; }
         .h-weight { font-size: 0.75em; color: #aaa; margin-top: 2px; }
@@ -79,57 +54,42 @@
         .h-pct { font-size: 0.7em; }
         .text-up { color: #EF4444; }
         .text-down { color: #10B981; }
-
         .mini-chart-container { position: relative; width: 100%; height: 35px; }
         canvas.sparkline { width: 100%; height: 100%; }
-
-        /* 指挥官区域 */
         .commander-section { margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
         .cmd-label { font-size: 0.7em; color: var(--glow-color); margin-bottom: 5px; display: block; }
         .cmd-controls { display: flex; gap: 5px; }
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 5px; flex-grow: 1; font-size: 0.8em; }
-        .cmd-input:disabled { background: #222; color: #555; border-color: #333; cursor: not-allowed; }
+        .cmd-input:disabled { background: #222; color: #ffd700; border-color: #ffd700; cursor: not-allowed; font-weight:bold;}
         .cmd-btn { background: #222; color: var(--glow-color); border: 1px solid var(--glow-color); cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.6em; padding: 5px 10px; }
-        .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; color: #555; }
+        .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .cmd-msg { height: 20px; font-size: 0.7em; margin-top: 5px; color: #ffff00; }
-
-        /* 历史面板 */
         .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .settlement-header { text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color: #fff; }
         .chart-wrapper { position: relative; height: 400px; width: 100%; }
-
-        /* 底部控制 */
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 10px #0f0; margin-bottom: 10px; }
         .start-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
-        
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
     </style>
 </head>
 <body>
-
+    <!-- HTML 结构保持不变 -->
     <div class="header">
         <h1>Quant Guardians</h1>
         <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Real-time Battle System // 四方战纪实盘</div>
     </div>
-
     <div class="container">
-        <!-- 01. 玄武 -->
+        <!-- 4张卡片结构，ID保持不变 -->
         <div class="guardian-card g-genbu" id="card-genbu">
             <div class="card-header"><div class="avatar">🛡️</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
             <div class="main-stat-box">
-                <div class="stat-group">
-                    <span class="stat-label">System Rtn:</span>
-                    <span class="stat-value" id="rtn-genbu">--.--%</span>
-                </div>
-                <div class="stat-group">
-                    <span class="stat-label" style="color:#ffd700;">User Rtn:</span>
-                    <span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span>
-                </div>
+                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
+                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
                 <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
             </div>
             <div class="holdings-list" id="list-genbu"></div>
@@ -139,19 +99,11 @@
                 <div class="cmd-msg" id="msg-genbu"></div>
             </div>
         </div>
-
-        <!-- 02. 朱雀 -->
         <div class="guardian-card g-suzaku" id="card-suzaku">
             <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
             <div class="main-stat-box">
-                <div class="stat-group">
-                    <span class="stat-label">System Rtn:</span>
-                    <span class="stat-value" id="rtn-suzaku">--.--%</span>
-                </div>
-                <div class="stat-group">
-                    <span class="stat-label" style="color:#ffd700;">User Rtn:</span>
-                    <span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span>
-                </div>
+                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div>
+                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div>
                 <div class="sub-stat">Power: <span id="power-suzaku">0%</span></div>
             </div>
             <div class="holdings-list" id="list-suzaku"></div>
@@ -161,19 +113,11 @@
                 <div class="cmd-msg" id="msg-suzaku"></div>
             </div>
         </div>
-
-        <!-- 03. 天狼 -->
         <div class="guardian-card g-sirius" id="card-sirius">
             <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
             <div class="main-stat-box">
-                <div class="stat-group">
-                    <span class="stat-label">System Rtn:</span>
-                    <span class="stat-value" id="rtn-sirius">--.--%</span>
-                </div>
-                <div class="stat-group">
-                    <span class="stat-label" style="color:#ffd700;">User Rtn:</span>
-                    <span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span>
-                </div>
+                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div>
+                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div>
                 <div class="sub-stat">Power: <span id="power-sirius">0%</span></div>
             </div>
             <div class="holdings-list" id="list-sirius"></div>
@@ -183,19 +127,11 @@
                 <div class="cmd-msg" id="msg-sirius"></div>
             </div>
         </div>
-
-        <!-- 04. 麒麟 -->
         <div class="guardian-card g-kirin" id="card-kirin">
             <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
             <div class="main-stat-box">
-                <div class="stat-group">
-                    <span class="stat-label">System Rtn:</span>
-                    <span class="stat-value" id="rtn-kirin">--.--%</span>
-                </div>
-                <div class="stat-group">
-                    <span class="stat-label" style="color:#ffd700;">User Rtn:</span>
-                    <span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span>
-                </div>
+                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div>
+                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div>
                 <div class="sub-stat">Power: <span id="power-kirin">0%</span></div>
             </div>
             <div class="holdings-list" id="list-kirin"></div>
@@ -219,32 +155,27 @@
     </div>
 
     <script>
-        // --- 1. 基础配置 ---
         const GITHUB_USER = 'digital-era';
         const GITHUB_REPO = 'AIPEQModel';
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
         
         const GUARDIAN_FILES = {
-            genbu: '低波稳健模型_New.json',
-            suzaku: '大成模型_New.json', 
-            sirius: '流入模型_New.json',
-            kirin: '大智模型_New.json'
+            genbu: '低波稳健模型_New.json', suzaku: '大成模型_New.json', 
+            sirius: '流入模型_New.json', kirin: '大智模型_New.json'
         };
         const HISTORY_FILES = {
-            genbu: '低波稳健模型优化后评估.json',
-            suzaku: '大成模型优化后评估.json',
-            sirius: '流入模型优化后评估.json',
-            kirin: '大智模型优化后评估.json'
+            genbu: '低波稳健模型优化后评估.json', suzaku: '大成模型优化后评估.json',
+            sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
         };
 
         let gameState = {
             active: false,
             guardians: {
-                genbu: { name: '玄武', holdings: [], power: 0, selectedIdx: -1 },
-                suzaku: { name: '朱雀', holdings: [], power: 0, selectedIdx: -1 },
-                sirius: { name: '天狼', holdings: [], power: 0, selectedIdx: -1 },
-                kirin: { name: '麒麟', holdings: [], power: 0, selectedIdx: -1 }
+                genbu: { holdings: [], power: 0, selectedIdx: -1 },
+                suzaku: { holdings: [], power: 0, selectedIdx: -1 },
+                sirius: { holdings: [], power: 0, selectedIdx: -1 },
+                kirin: { holdings: [], power: 0, selectedIdx: -1 }
             }
         };
         let historyData = { dates: [], datasets: {} };
@@ -259,7 +190,6 @@
             box.prepend(div);
         }
 
-        // --- 2. 加载策略 ---
         async function loadStrategies() {
             log("Loading Configs...", "cyan");
             const promises = Object.keys(GUARDIAN_FILES).map(async (key) => {
@@ -281,9 +211,7 @@
                             refPrice: parseFloat(p.最近一日价格),
                             weight: w,
                             currentPrice: null, history: [], changePct: 0,
-                            // User Rtn 相关字段
-                            isLocked: false,
-                            userPrice: null
+                            isLocked: false, userPrice: null
                         };
                     });
                     document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
@@ -293,7 +221,6 @@
             await Promise.all(promises);
         }
 
-        // --- 3. 历史数据 ---
         async function loadHistoryData() {
             const keys = Object.keys(HISTORY_FILES);
             const requests = keys.map(key => {
@@ -342,8 +269,6 @@
             });
         }
 
-        // --- 4. 实时交互 & User RTN ---
-
         function renderList(key) {
             const listEl = document.getElementById(`list-${key}`);
             listEl.innerHTML = '';
@@ -351,12 +276,12 @@
             g.holdings.forEach((stock, idx) => {
                 const div = document.createElement('div');
                 div.className = 'holding-item';
-                if(stock.isLocked) div.classList.add('locked'); // 增加锁定样式
+                if(stock.isLocked) div.classList.add('locked');
                 div.id = `item-${key}-${idx}`;
                 div.onclick = () => selectStock(key, idx);
                 
                 let nameHtml = stock.name;
-                if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; // 增加锁定图标
+                if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
 
                 div.innerHTML = `
                     <div class="h-info">
@@ -383,13 +308,11 @@
             const btn = document.getElementById(`btn-${key}`);
             const msgEl = document.getElementById(`msg-${key}`);
 
-            // 锁定逻辑判断
             if (stock.isLocked) {
                 input.value = stock.userPrice;
                 input.disabled = true;
                 btn.disabled = true;
-                input.placeholder = "LOCKED";
-                msgEl.innerText = "Target Locked. Sync Complete.";
+                msgEl.innerText = "LOCKED: Sync Complete";
                 msgEl.style.color = "#FFD700";
             } else {
                 input.value = '';
@@ -406,7 +329,7 @@
             if (g.selectedIdx === -1) { msgEl.innerText = "Select Target"; msgEl.style.color = "red"; return; }
             
             const stock = g.holdings[g.selectedIdx];
-            if (stock.isLocked) return; // 双重保险
+            if (stock.isLocked) return; 
 
             const inputEl = document.getElementById(`input-${key}`);
             const guess = parseFloat(inputEl.value);
@@ -420,20 +343,23 @@
             } else {
                 const diff = (guess - current) / current;
                 if (diff < 0.01) {
-                    // === PERFECT SYNC & LOCK ===
                     msgEl.innerText = `>> PERFECT SYNC! LOCKED!`;
-                    msgEl.style.color = "#FFD700"; // 金色
+                    msgEl.style.color = "#FFD700";
                     
                     // 1. 锁定标的
                     stock.isLocked = true;
                     stock.userPrice = guess;
 
-                    // 2. 更新 User Rtn
+                    // 2. 更新 User Rtn (得分固定)
                     calculateUserRtn(key);
 
-                    // 3. UI 锁定反馈
-                    renderList(key); // 刷新列表显示锁
-                    selectStock(key, g.selectedIdx); // 刷新输入框状态
+                    // 3. UI 锁定反馈 (关键修复：先重置DOM，然后立刻恢复数据显示)
+                    renderList(key); 
+                    selectStock(key, g.selectedIdx); 
+                    
+                    // *修复关键*：因为 renderList 刚才清空了 DOM，
+                    // 我们必须立刻把内存里的价格和图表画回去，否则会显示空白直到下一次API刷新
+                    restoreGroupUI(key);
 
                     // 4. 特效
                     const card = document.getElementById(`card-${key}`);
@@ -447,26 +373,28 @@
             }
         }
 
-        // 新增：计算用户收益率
+        // 新增：辅助函数，用于 renderList 重置 DOM 后立刻恢复数据
+        function restoreGroupUI(key) {
+            const g = gameState.guardians[key];
+            g.holdings.forEach((stock, idx) => {
+                if (stock.currentPrice !== null) {
+                    const basePrice = parseFloat(stock.refPrice.toFixed(2));
+                    updateRowUI(key, idx, stock, stock.changePct, basePrice);
+                }
+            });
+        }
+
         function calculateUserRtn(key) {
             const g = gameState.guardians[key];
             let userTotalRtn = 0;
-            
             g.holdings.forEach(stock => {
                 if (stock.isLocked && stock.userPrice) {
-                    // User Rtn 公式： (用户锁定的确认价 - 策略基准价) / 策略基准价
-                    // 这里 basePrice 需要与 updateMarketData 里的逻辑一致 (JSON refPrice)
                     const basePrice = parseFloat(stock.refPrice.toFixed(2));
                     const userReturn = (stock.userPrice - basePrice) / basePrice;
-                    
-                    // 加权
                     userTotalRtn += userReturn * stock.weight;
                 }
             });
-
-            // 乘以仓位因子
             const finalUserRtn = userTotalRtn * g.power;
-            
             const el = document.getElementById(`user-rtn-${key}`);
             const sign = finalUserRtn > 0 ? "+" : "";
             el.innerText = sign + (finalUserRtn * 100).toFixed(2) + "%";
@@ -507,6 +435,8 @@
                     const el = document.getElementById(`rtn-${key}`);
                     el.innerText = (finalRtn > 0 ? "+" : "") + (finalRtn * 100).toFixed(2) + "%";
                     el.style.color = finalRtn >= 0 ? "#EF4444" : "#10B981";
+                    
+                    // 如果有收益且未锁定，则发光；锁定后也可以发光，或者用金色区分
                     if(finalRtn > 0) document.getElementById(`card-${key}`).classList.add('active');
                     else document.getElementById(`card-${key}`).classList.remove('active');
                 }
@@ -517,8 +447,11 @@
         function updateRowUI(key, idx, stock, change, base) {
             const el = document.getElementById(`price-box-${key}-${idx}`);
             const row = document.getElementById(`item-${key}-${idx}`);
-            // 如果被锁定，保持金色边框，否则根据涨跌显示
-            if (!stock.isLocked) {
+            
+            // 锁定状态下，边框保持金色，不再随涨跌变色
+            if (stock.isLocked) {
+                row.style.borderLeftColor = 'var(--user-gold)';
+            } else {
                 row.style.borderLeftColor = change >= 0 ? '#EF4444' : '#10B981';
             }
             
