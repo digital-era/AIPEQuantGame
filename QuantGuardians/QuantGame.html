@@ -386,72 +386,18 @@
 
     <!-- JS 逻辑 -->
     <script>
-        // --- 1. 模拟数据源 (基于Prompt提供的JSON样例) ---
-        // 为了演示方便，这里将JSON硬编码。实际应用可替换为 fetch('filename.json')
-        
-        const MOCK_DATA = {
-            genbu: { // 低波稳健
-                config: {
-                    "结果": {
-                        "最优投资组合配置": {
-                            "配置详情": [
-                                { "名称": "浦发银行", "最优权重(%)": "10.00%", "最近一日价格": 11.61 },
-                                { "名称": "比亚迪", "最优权重(%)": "10.00%", "最近一日价格": 97.00 },
-                                { "名称": "鼎阳科技", "最优权重(%)": "10.00%", "最近一日价格": 36.54 }
-                            ]
-                        },
-                        "风控因子信息": { "综合建议仓位因子": "0.50" }
-                    }
-                },
-                eval: {
-                    "每日评估数据": Array.from({length: 30}, (_, i) => ({ "日期": `Day ${i}`, "累计收益率": Math.random() * 0.05 })) // 简化模拟
-                }
-            },
-            suzaku: { // 大成模型
-                config: {
-                    "结果": {
-                        "最优投资组合配置": {
-                            "配置详情": [
-                                { "名称": "顺灏股份", "最优权重(%)": "21.64%", "最近一日价格": 15.95 },
-                                { "名称": "杰瑞股份", "最优权重(%)": "21.59%", "最近一日价格": 75.87 },
-                                { "名称": "中钨高新", "最优权重(%)": "13.83%", "最近一日价格": 24.90 }
-                            ]
-                        },
-                        "风控因子信息": { "综合建议仓位因子": "0.51" }
-                    }
-                },
-                eval: { "每日评估数据": [] }
-            },
-            sirius: { // 流入模型
-                config: {
-                    "结果": {
-                        "最优投资组合配置": {
-                            "配置详情": [
-                                { "名称": "再升科技", "最优权重(%)": "27.86%", "最近一日价格": 8.43 },
-                                { "名称": "东睦股份", "最优权重(%)": "18.06%", "最近一日价格": 30.53 },
-                                { "名称": "铁流股份", "最优权重(%)": "16.52%", "最近一日价格": 15.99 }
-                            ]
-                        },
-                        "风控因子信息": { "综合建议仓位因子": "0.37" }
-                    }
-                },
-                eval: { "每日评估数据": [] }
-            },
-            kirin: { // 大智模型
-                config: {
-                    "结果": {
-                        "最优投资组合配置": {
-                            "配置详情": [
-                                { "名称": "宇通客车", "最优权重(%)": "26.52%", "最近一日价格": 33.60 },
-                                { "名称": "云铝股份", "最优权重(%)": "24.74%", "最近一日价格": 27.42 },
-                                { "名称": "紫金矿业", "最优权重(%)": "17.65%", "最近一日价格": 31.70 }
-                            ]
-                        },
-                        "风控因子信息": { "综合建议仓位因子": "0.38" }
-                    }
-                },
-                eval: { "每日评估数据": [] }
-            }
+        // --- 1. GitHub 数据源配置 ---
+        const GITHUB_USER = 'digital-era';
+        const GITHUB_REPO = 'AIPEQModel';
+        const GITHUB_BRANCH = 'main';
+        const FILE_DIRECTORY = '';
+
+        // 请确保这些文件名与仓库中的文件一致
+        const GUARDIAN_FILES = {
+            genbu: '低波稳健模型_New.json',   // 建议修改为实际文件名，如 strategy_low_vol.json
+            suzaku: '大成模型_New.json', 
+            sirius: '流入模型_New.json',
+            kirin: '大智模型_New.json'
         };
 
         // --- 2. 游戏状态与逻辑 ---
@@ -477,39 +423,76 @@
             LOG_ELEMENT.prepend(div);
         }
 
-        function parseConfig() {
-            addLog("Reading Configuration Files...", "cyan");
+        function getFileUrl(filename) {
+            // 构建完整的 GitHub Raw 路径
+            const path = FILE_DIRECTORY ? `${FILE_DIRECTORY}/${filename}` : filename;
+            return `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${path}?t=${new Date().getTime()}`;
+        }
+
+        async function loadRemoteConfig() {
+            addLog("Initiating Uplink to GitHub Repo...", "cyan");
             
-            for (let key in MOCK_DATA) {
-                const data = MOCK_DATA[key].config.结果;
-                const portfolio = data.最优投资组合配置.配置详情;
-                const factor = parseFloat(data.风控因子信息.综合建议仓位因子);
+            const promises = Object.keys(GUARDIAN_FILES).map(async (key) => {
+                const filename = GUARDIAN_FILES[key];
+                const url = getFileUrl(filename);
+                
+                try {
+                    addLog(`Downloading strategy: ${filename}...`, "#555");
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+                    const json = await response.json();
 
-                gameState.guardians[key].power = factor;
-                gameState.guardians[key].holdings = portfolio.map(p => ({
-                    name: p.名称,
-                    weight: parseFloat(p["最优权重(%)"]) / 100,
-                    price: p.最近一日价格,
-                    currentPrice: p.最近一日价格 // 初始
-                }));
+                    // 解析逻辑 (假设JSON结构包含 "结果": { ... })
+                    // 如果文件直接是内容，可以去掉 .结果
+                    const data = json.结果 ? json.结果 : json; 
+                    
+                    if (!data.最优投资组合配置) {
+                        throw new Error("Invalid Format");
+                    }
 
-                // Update UI Setup
-                document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
-                const listEl = document.getElementById(`list-${key}`);
-                listEl.innerHTML = portfolio.map(p => `<div>${p.名称} (${p["最优权重(%)"]})</div>`).join('');
-            }
+                    const portfolio = data.最优投资组合配置.配置详情;
+                    const factor = parseFloat(data.风控因子信息.综合建议仓位因子);
+
+                    gameState.guardians[key].power = factor;
+                    gameState.guardians[key].holdings = portfolio.map(p => ({
+                        name: p.名称,
+                        weight: parseFloat(p["最优权重(%)"]) / 100,
+                        price: p.最近一日价格,
+                        currentPrice: p.最近一日价格 // 初始
+                    }));
+
+                    // 更新 UI
+                    document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
+                    const listEl = document.getElementById(`list-${key}`);
+                    listEl.innerHTML = portfolio.map(p => `<div>${p.名称} (${p["最优权重(%)"]})</div>`).join('');
+                    
+                    addLog(`[${key.toUpperCase()}] Systems Online.`, "var(--terminal-green)");
+
+                } catch (error) {
+                    addLog(`[${key.toUpperCase()}] Load Failed: ${error.message}`, "red");
+                    // 填充空数据防止游戏崩溃
+                    document.getElementById(`list-${key}`).innerHTML = `<div style="color:red">OFFLINE</div>`;
+                }
+            });
+
+            await Promise.all(promises);
             addLog("Weapons Loaded. Systems Optimized.");
         }
 
-        function startGame() {
+        async function startGame() {
             if (gameState.active) return;
             
-            parseConfig();
+            const btn = document.getElementById('engageBtn');
+            btn.disabled = true;
+            btn.innerText = "INITIALIZING...";
+
+            // 等待数据加载
+            await loadRemoteConfig();
+
             gameState.active = true;
-            document.getElementById('engageBtn').innerText = "SYSTEM ENGAGED";
-            document.getElementById('engageBtn').disabled = true;
+            btn.innerText = "SYSTEM ENGAGED";
             
-            addLog("BATTLE START! Connection to yfinance (Simulation) established.", "red");
+            addLog("BATTLE START! Live Data Stream Active.", "red");
             
             // 开启战斗循环
             setInterval(battleTick, 2000); // 每2秒模拟一次市场跳动
@@ -625,6 +608,12 @@
             const buyPrice = parseFloat(input.value);
             
             if (!buyPrice) return;
+            
+            // 确保有持仓数据
+            if(gameState.guardians[id].holdings.length === 0) {
+                msgEl.innerText = "无数据";
+                return;
+            }
 
             // 简单取第一个持仓的昨收价做对比
             const refPrice = gameState.guardians[id].holdings[0].price;
