@@ -425,7 +425,7 @@
                         if (Array.isArray(data) && data.length > 0) {
                             // 1. 获取最新价格 (数组最后一个元素)
                             const lastPoint = data[data.length - 1];
-                            stock.currentPrice = parseFloat(lastPoint.price);
+                            stock.currentPrice = parseFloat(parseFloat(lastPoint.price).toFixed(2));
                             
                             // 2. 提取历史价格用于画图
                             stock.history = data.map(d => parseFloat(d.price));
