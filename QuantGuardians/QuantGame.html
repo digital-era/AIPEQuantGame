@@ -28,7 +28,22 @@
         * { box-sizing: border-box; }
         body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Roboto Mono', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         h1, .pixel-font { font-family: 'Press Start 2P', cursive; text-transform: uppercase; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; width: 100%; max-width: 1400px; position: relative;}
+        
+        /* --- 修改过的 Header 样式 --- */
+        .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            border-bottom: 2px solid #333; 
+            padding-bottom: 20px; 
+            width: 100%; 
+            max-width: 1400px; 
+            position: relative; /* 桌面端保持相对定位基准 */
+            display: flex;      /* 使用Flex布局以便更好地控制对齐 */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
         .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
         .guardian-card { background: var(--panel-bg); border: 2px solid #444; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5); min-height: 600px; }
         .guardian-card.active { border-color: var(--glow-color); box-shadow: 0 0 20px var(--glow-color); }
@@ -86,18 +101,49 @@
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
         
-        /* 新增：OSS同步按钮样式 */
+        /* --- 修改后的 OSS同步按钮样式 --- */
         .oss-btn {
-            position: absolute; right: 0; top: 0;
-            background: #224; color: #fff; border: 1px solid #66a;
-            padding: 10px 15px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.6em;
-            display: flex; align-items: center; gap: 8px;
+            position: absolute; 
+            right: 0; 
+            top: 20px; /* 稍微靠下一点，与文字视觉对齐 */
+            background: #224; 
+            color: #fff; 
+            border: 1px solid #66a;
+            /* 减小Padding和字体大小，使其更精致 */
+            padding: 8px 12px; 
+            cursor: pointer; 
+            font-family: 'Press Start 2P'; 
+            font-size: 10px; /* 明确使用更小的像素值 */
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+            border-radius: 4px; /* 添加圆角 */
+            transition: all 0.2s;
         }
-        .oss-btn:hover { background: #335; box-shadow: 0 0 10px #66f; }
-        .oss-status { width: 8px; height: 8px; border-radius: 50%; background: #666; display: inline-block;}
+        .oss-btn:hover { background: #335; box-shadow: 0 0 10px #66f; transform: translateY(-1px); }
+        .oss-status { width: 6px; height: 6px; border-radius: 50%; background: #666; display: inline-block;}
         .oss-status.syncing { background: #ff0; box-shadow: 0 0 5px #ff0; animation: blink 1s infinite; }
         .oss-status.done { background: #0f0; box-shadow: 0 0 5px #0f0; }
         @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* --- 响应式布局：解决手机/小屏幕重叠问题 --- */
+        @media (max-width: 768px) {
+            .header {
+                /* 在小屏幕下不需要严格定位 */
+                position: static;
+                padding-top: 10px;
+            }
+            .oss-btn {
+                /* 取消绝对定位，改为流式布局 */
+                position: relative;
+                right: auto;
+                top: auto;
+                margin-top: 15px; /* 在标题下方留出空隙 */
+                width: auto;
+            }
+            /* 调整手机端标题大小，避免过大 */
+            h1 { font-size: 1.5em; margin: 10px 0; }
+        }
 
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #000; }
@@ -112,10 +158,11 @@
         <!-- OSS Button -->
         <button class="oss-btn" onclick="syncToCloud()">
             <span class="oss-status" id="ossStatusDot"></span>
-            ☁️ SYNC CLOUD
+            SYNC CLOUD
         </button>
     </div>
 
+    <!-- 下方内容保持不变 -->
     <div class="container">
         <!-- GENBU -->
         <div class="guardian-card g-genbu" id="card-genbu">
@@ -219,7 +266,7 @@
         const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
         
         // 这些配置可以公开
-        const OSS_BUCKET = 'YOUR_BUCKET_NAME'; 
+        const OSS_BUCKET = 'aiep-users'; 
         const OSS_REGION = 'oss-cn-hangzhou'; 
         const OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
         
