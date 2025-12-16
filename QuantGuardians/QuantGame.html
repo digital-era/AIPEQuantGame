@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- 保持原有样式不变 --- */
+        /* --- 保持原有基础样式 --- */
         :root {
             --bg-color: #050510;
             --panel-bg: #111122;
@@ -49,7 +49,10 @@
         .h-info { display: flex; flex-direction: column; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; }
         .h-weight { font-size: 0.75em; color: #aaa; margin-top: 2px; }
-        .user-weight-display { color: var(--user-gold); font-size: 0.9em; margin-left: 5px; } /* 新增样式 */
+        
+        /* 修改点1：调整用户权重显示的样式，保持黄色 */
+        .user-weight-display { color: var(--user-gold); font-size: 0.9em; margin-left: 5px; font-weight: bold; }
+        
         .h-price-col { text-align: right; display: flex; flex-direction: column; justify-content: center; padding-right: 5px;}
         .h-price { font-size: 0.85em; font-weight: bold; }
         .h-pct { font-size: 0.7em; }
@@ -58,21 +61,63 @@
         .mini-chart-container { position: relative; width: 100%; height: 35px; }
         canvas.sparkline { width: 100%; height: 100%; }
         
-        /* 修改后的 Commander 区域样式 */
+        /* --- Commander 区域样式优化 --- */
         .commander-section { margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
         .cmd-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .cmd-label { font-size: 0.7em; color: var(--glow-color); display: block; }
         .calc-res { font-size: 0.7em; color: var(--user-gold); font-weight: bold; text-shadow: 0 0 5px rgba(255,215,0,0.5); }
-        .cmd-controls { display: flex; gap: 5px; }
-        /* 两个输入框的样式 */
-        .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 5px; font-size: 0.8em; }
-        .input-price { flex-grow: 2; }
-        .input-weight { flex-grow: 1; width: 60px; color: var(--user-gold); border-color: #554400; }
+        
+        /* 修改点2：优化 Input 组布局 */
+        .cmd-controls { 
+            display: flex; 
+            gap: 4px; /* 间距缩小一点 */
+            width: 100%;
+            align-items: center;
+        }
+        
+        .cmd-input { 
+            background: #000; 
+            border: 1px solid #555; 
+            color: #fff; 
+            font-family: 'Roboto Mono'; 
+            padding: 5px; 
+            font-size: 0.8em; 
+            height: 30px; /* 统一高度 */
+        }
+
+        /* 价格输入框：自适应宽度，但允许缩小，不挤压按钮 */
+        .input-price { 
+            flex: 1;        /* 占据剩余空间 */
+            min-width: 0;   /* 关键：允许 Flex 子项缩小到内容以下，防止撑破容器 */
+        }
+
+        /* 权重输入框：固定宽度，够写百分比即可 */
+        .input-weight { 
+            width: 50px; 
+            flex: 0 0 50px; /* 不伸缩，固定宽度 */
+            color: var(--user-gold); 
+            border-color: #554400; 
+            text-align: center;
+        }
+
         .cmd-input:disabled { background: #222; color: #888; border-color: #444; cursor: not-allowed; }
         .cmd-input.locked-input { color: #ffd700; border-color: #ffd700; font-weight: bold; }
 
-        .cmd-btn { background: #222; color: var(--glow-color); border: 1px solid var(--glow-color); cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.6em; padding: 5px 10px; }
+        /* 按钮：不换行，固定大小 */
+        .cmd-btn { 
+            background: #222; 
+            color: var(--glow-color); 
+            border: 1px solid var(--glow-color); 
+            cursor: pointer; 
+            font-family: 'Press Start 2P'; 
+            font-size: 0.6em; 
+            padding: 0 8px; /* 减少内边距 */
+            height: 30px;   /* 统一高度 */
+            white-space: nowrap; /* 关键：防止文字换行 */
+            flex: 0 0 auto; /* 关键：防止按钮被挤压变形 */
+        }
         .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        
         .cmd-msg { height: 20px; font-size: 0.7em; margin-top: 5px; color: #ffff00; }
         
         .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
@@ -110,7 +155,7 @@
                 </div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-genbu" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-genbu" placeholder="Wgt%">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-genbu" placeholder="%">
                     <button class="cmd-btn" id="btn-genbu" onclick="commanderAction('genbu')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-genbu"></div>
@@ -133,7 +178,7 @@
                 </div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-suzaku" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-suzaku" placeholder="Wgt%">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-suzaku" placeholder="%">
                     <button class="cmd-btn" id="btn-suzaku" onclick="commanderAction('suzaku')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-suzaku"></div>
@@ -156,7 +201,7 @@
                 </div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-sirius" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-sirius" placeholder="Wgt%">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-sirius" placeholder="%">
                     <button class="cmd-btn" id="btn-sirius" onclick="commanderAction('sirius')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-sirius"></div>
@@ -179,7 +224,7 @@
                 </div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-kirin" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-kirin" placeholder="Wgt%">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-kirin" placeholder="%">
                     <button class="cmd-btn" id="btn-kirin" onclick="commanderAction('kirin')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-kirin"></div>
@@ -256,7 +301,7 @@
                             weight: w,
                             currentPrice: null, history: [], changePct: 0,
                             isLocked: false, userPrice: null,
-                            userWeight: 0 // 初始化用户当前权重为 0%
+                            userWeight: 0
                         };
                     });
                     document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
@@ -328,8 +373,8 @@
                 let nameHtml = stock.name;
                 if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
 
-                // 增强：显示用户当前权重 (黄色)
-                const userWeightHtml = `<span class="user-weight-display">(Curr:${stock.userWeight}%)</span>`;
+                // 修改点1：更改显示格式为 [x%]
+                const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight}%]</span>`;
 
                 div.innerHTML = `
                     <div class="h-info">
@@ -357,41 +402,31 @@
             const btn = document.getElementById(`btn-${key}`);
             const msgEl = document.getElementById(`msg-${key}`);
 
-            // 重置消息
             msgEl.innerText = "";
             document.getElementById(`calc-res-${key}`).innerText = "";
 
             if (stock.isLocked) {
-                // 已锁定状态
                 inputPrice.value = stock.userPrice;
                 inputPrice.disabled = true;
                 inputPrice.classList.add('locked-input');
-                
-                // 即使价格锁定，理论上也可以继续加仓，这里逻辑允许用户在价格锁定的情况下继续增加权重
-                // 如果需要完全禁止操作，可以把 inputWeight 也 disable
-                // 这里假设 CONFIRM 只是为了锁定价格，如果价格已锁定，逻辑上可能不需要再次 confirm 价格
-                // 为了增强逻辑，如果已锁定，我们允许修改权重来增加投入
                 inputWeight.disabled = false;
                 
-                // 计算剩余建议权重
                 const suggestedWgt = stock.weight * 100;
                 const remaining = Math.max(0, suggestedWgt - stock.userWeight);
                 inputWeight.value = remaining.toFixed(1);
 
-                btn.disabled = false; // 允许再次点击 Confirm 来加仓
+                btn.disabled = false;
                 msgEl.innerText = "Target Locked. Add Wgt?";
                 msgEl.style.color = "#FFD700";
 
             } else {
-                // 未锁定状态
                 inputPrice.value = '';
                 inputPrice.disabled = false;
                 inputPrice.classList.remove('locked-input');
-                inputPrice.placeholder = `Price: ${stock.name}`;
+                inputPrice.placeholder = `Price`;
                 
                 inputWeight.disabled = false;
                 
-                // 计算默认权重：建议权重 - 当前权重
                 const suggestedWgt = stock.weight * 100;
                 const remaining = Math.max(0, suggestedWgt - stock.userWeight);
                 inputWeight.value = remaining.toFixed(1);
@@ -419,11 +454,9 @@
 
             const current = stock.currentPrice;
 
-            // 价格校验逻辑
             let priceConfirmed = false;
             
             if (stock.isLocked) {
-                // 已经锁定的，直接认为价格一致
                 priceConfirmed = true;
             } else {
                 if (guessPrice < current) {
@@ -443,9 +476,6 @@
             }
 
             if (priceConfirmed) {
-                // --- 执行确认逻辑 ---
-                
-                // 1. 锁定逻辑
                 if (!stock.isLocked) {
                     stock.isLocked = true;
                     stock.userPrice = guessPrice;
@@ -455,25 +485,13 @@
                 }
                 msgEl.style.color = "#FFD700";
 
-                // 2. 更新用户权重 (累加)
                 if (!isNaN(guessWeight) && guessWeight > 0) {
                     stock.userWeight = parseFloat((stock.userWeight + guessWeight).toFixed(2));
-                    // 清空输入框以便下次输入? 或者保留? 这里保留显示
-                    
-                    // 3. 计算资金/手数
-                    // 公式：10万元 / confirm的价格 * 用户输入权重 * Power百分比
-                    // 注意：权重输入是百分比数值(如10)，Power是小数(0.8)，公式描述较为模糊，
-                    // 假设输入权重10代表10%，即0.1。如果输入10代表10，则结果会大100倍。
-                    // 通常投资组合权重是百分比，这里按百分比处理：输入10 -> 0.1
-                    // 但提示是"用户输入权重"，假设直接乘输入值，或者乘输入值/100。
-                    // 结合 "10万元 / 价格 * 权重"，如果权重是10(%), 10万*10% = 1万。1万/价格 = 股数。
-                    // 所以应该是： (100000 / Price) * (InputWeight / 100) * Power
                     
                     const totalCapital = 100000;
                     const w_pct = guessWeight / 100;
                     const power = g.power;
                     
-                    // 计算公式
                     const calculatedVol = (totalCapital / stock.userPrice) * w_pct * power;
                     
                     resEl.innerText = `VOL: ${calculatedVol.toFixed(0)}`;
@@ -481,13 +499,11 @@
                     resEl.innerText = "VOL: 0";
                 }
 
-                // 4. 更新 UI 列表显示新的权重
-                calculateUserRtn(key); // 更新收益
+                calculateUserRtn(key); 
                 renderList(key); 
-                selectStock(key, g.selectedIdx); // 重新选中以保持高亮
-                restoreGroupUI(key); // 恢复动态数据
+                selectStock(key, g.selectedIdx); 
+                restoreGroupUI(key); 
 
-                // 5. 特效
                 const card = document.getElementById(`card-${key}`);
                 card.style.boxShadow = "0 0 30px #FFD700";
                 setTimeout(() => card.style.boxShadow = "", 800);
@@ -511,13 +527,9 @@
                 if (stock.isLocked && stock.userPrice) {
                     const basePrice = parseFloat(stock.refPrice.toFixed(2));
                     const userReturn = (stock.userPrice - basePrice) / basePrice;
-                    // 用户收益按实际持仓权重计算
                     userTotalRtn += userReturn * (stock.userWeight / 100);
                 }
             });
-            // 这里是否还需要乘 Power? 
-            // 通常 System Rtn 是 (Sum of w*r) * Power.
-            // 用户收益也应该反映 Power 的影响。
             const finalUserRtn = userTotalRtn * g.power;
             const el = document.getElementById(`user-rtn-${key}`);
             const sign = finalUserRtn > 0 ? "+" : "";
