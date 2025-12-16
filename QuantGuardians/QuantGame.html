@@ -40,12 +40,11 @@
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
         
-        /* Power 字体改为白色 */
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
         
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 250px; }
         
-        /* item 布局：名称一行，权重一行 */
+        /* item 布局 */
         .holding-item { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; background: #1a1a2e; margin-bottom: 4px; padding: 8px 6px; border-left: 3px solid #444; cursor: pointer; transition: background 0.2s; align-items: center; }
         .holding-item:hover { background: #252540; }
         .holding-item.selected { background: #303050; border-left-color: #fff; }
@@ -55,7 +54,6 @@
         .h-info { display: flex; flex-direction: column; justify-content: center; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} 
         
-        /* 第二行容器，包含建议权重和用户权重 */
         .h-weight-row { display: flex; align-items: center; font-size: 0.75em; }
         .h-weight { color: #aaa; margin-right: 8px; }
         .user-weight-display { color: var(--user-gold); font-weight: bold; }
@@ -78,19 +76,8 @@
         
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 5px; font-size: 0.8em; height: 30px; }
         
-        /* 修改点：输入框宽度调整 */
-        .input-price { 
-            flex: 1; 
-            min-width: 0; 
-        }
-
-        .input-weight { 
-            width: 75px; 
-            flex: 0 0 75px; 
-            color: var(--user-gold); 
-            border-color: #554400; 
-            text-align: center; 
-        }
+        .input-price { flex: 1; min-width: 0; }
+        .input-weight { width: 75px; flex: 0 0 75px; color: var(--user-gold); border-color: #554400; text-align: center; }
 
         .cmd-input:disabled { background: #222; color: #888; border-color: #444; cursor: not-allowed; }
         .cmd-input.locked-input { color: #ffd700; border-color: #ffd700; font-weight: bold; }
@@ -134,8 +121,9 @@
                     <span class="calc-res" id="calc-res-genbu"></span>
                 </div>
                 <div class="cmd-controls">
-                    <input type="number" class="cmd-input input-price" id="input-price-genbu" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-genbu" placeholder="%">
+                    <!-- 添加了 oninput 事件实现自动计算 -->
+                    <input type="number" class="cmd-input input-price" id="input-price-genbu" placeholder="Price" oninput="calcRealTime('genbu')">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-genbu" placeholder="%" oninput="calcRealTime('genbu')">
                     <button class="cmd-btn" id="btn-genbu" onclick="commanderAction('genbu')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-genbu"></div>
@@ -157,8 +145,8 @@
                     <span class="calc-res" id="calc-res-suzaku"></span>
                 </div>
                 <div class="cmd-controls">
-                    <input type="number" class="cmd-input input-price" id="input-price-suzaku" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-suzaku" placeholder="%">
+                    <input type="number" class="cmd-input input-price" id="input-price-suzaku" placeholder="Price" oninput="calcRealTime('suzaku')">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-suzaku" placeholder="%" oninput="calcRealTime('suzaku')">
                     <button class="cmd-btn" id="btn-suzaku" onclick="commanderAction('suzaku')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-suzaku"></div>
@@ -180,8 +168,8 @@
                     <span class="calc-res" id="calc-res-sirius"></span>
                 </div>
                 <div class="cmd-controls">
-                    <input type="number" class="cmd-input input-price" id="input-price-sirius" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-sirius" placeholder="%">
+                    <input type="number" class="cmd-input input-price" id="input-price-sirius" placeholder="Price" oninput="calcRealTime('sirius')">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-sirius" placeholder="%" oninput="calcRealTime('sirius')">
                     <button class="cmd-btn" id="btn-sirius" onclick="commanderAction('sirius')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-sirius"></div>
@@ -203,8 +191,8 @@
                     <span class="calc-res" id="calc-res-kirin"></span>
                 </div>
                 <div class="cmd-controls">
-                    <input type="number" class="cmd-input input-price" id="input-price-kirin" placeholder="Price">
-                    <input type="number" class="cmd-input input-weight" id="input-weight-kirin" placeholder="%">
+                    <input type="number" class="cmd-input input-price" id="input-price-kirin" placeholder="Price" oninput="calcRealTime('kirin')">
+                    <input type="number" class="cmd-input input-weight" id="input-weight-kirin" placeholder="%" oninput="calcRealTime('kirin')">
                     <button class="cmd-btn" id="btn-kirin" onclick="commanderAction('kirin')">CONFIRM</button>
                 </div>
                 <div class="cmd-msg" id="msg-kirin"></div>
@@ -291,6 +279,23 @@
             await Promise.all(promises);
         }
 
+        // --- 新增：实时计算函数 ---
+        function calcRealTime(key) {
+            const price = parseFloat(document.getElementById(`input-price-${key}`).value);
+            const weight = parseFloat(document.getElementById(`input-weight-${key}`).value);
+            const resEl = document.getElementById(`calc-res-${key}`);
+            const g = gameState.guardians[key];
+
+            if (price > 0 && weight > 0) {
+                const totalCapital = 100000;
+                // 公式：10万 / 价格 * 权重(小数) * Power
+                const vol = (totalCapital / price) * (weight / 100) * g.power;
+                resEl.innerText = `Buy Qty: ${vol.toFixed(0)}`;
+            } else {
+                resEl.innerText = "";
+            }
+        }
+
         async function loadHistoryData() {
             const keys = Object.keys(HISTORY_FILES);
             const requests = keys.map(key => {
@@ -354,7 +359,7 @@
                 if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
 
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(1)}%]</span>`;
-                const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight}%]</span>`;
+                const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(1)}%]</span>`;
 
                 div.innerHTML = `
                     <div class="h-info">
@@ -390,24 +395,24 @@
                 inputPrice.value = stock.userPrice;
                 inputPrice.disabled = true;
                 inputPrice.classList.add('locked-input');
-                inputWeight.disabled = false;
                 
+                inputWeight.disabled = false;
+                // 计算剩余建议权重
                 const suggestedWgt = stock.weight * 100;
                 const remaining = Math.max(0, suggestedWgt - stock.userWeight);
-                inputWeight.value = remaining.toFixed(1);
+                inputWeight.value = remaining > 0 ? remaining.toFixed(1) : "";
 
                 btn.disabled = false;
-                msgEl.innerText = "Target Locked. Add Wgt?";
+                // 修改提示文案
+                msgEl.innerText = "Position Full.";
                 msgEl.style.color = "#FFD700";
 
             } else {
-                // --- 修改开始：默认填充当前价格 ---
                 if (stock.currentPrice !== null) {
                     inputPrice.value = stock.currentPrice;
                 } else {
                     inputPrice.value = '';
                 }
-                // --- 修改结束 ---
                 
                 inputPrice.disabled = false;
                 inputPrice.classList.remove('locked-input');
@@ -421,6 +426,9 @@
 
                 btn.disabled = false;
                 msgEl.innerText = "";
+                
+                // 触发一次自动计算
+                calcRealTime(key);
             }
         }
 
@@ -445,7 +453,7 @@
             let priceConfirmed = false;
             
             if (stock.isLocked) {
-                priceConfirmed = true;
+                priceConfirmed = true; // 已锁定状态下，价格认为是确认的（或者用户在调整仓位）
             } else {
                 if (guessPrice < current) {
                     msgEl.innerText = `Too Low (Curr: ${current})`;
@@ -464,28 +472,23 @@
             }
 
             if (priceConfirmed) {
-                if (!stock.isLocked) {
-                    stock.isLocked = true;
-                    stock.userPrice = guessPrice;
-                    msgEl.innerText = `>> LOCKED & LOADED!`;
-                } else {
-                    msgEl.innerText = `>> WEIGHT UPDATED!`;
-                }
-                msgEl.style.color = "#FFD700";
+                stock.userPrice = guessPrice; // 更新用户成本价
 
                 if (!isNaN(guessWeight) && guessWeight > 0) {
                     stock.userWeight = parseFloat((stock.userWeight + guessWeight).toFixed(2));
-                    
-                    const totalCapital = 100000;
-                    const w_pct = guessWeight / 100;
-                    const power = g.power;
-                    
-                    const calculatedVol = (totalCapital / stock.userPrice) * w_pct * power;
-                    
-                    resEl.innerText = `VOL: ${calculatedVol.toFixed(0)}`;
-                } else {
-                    resEl.innerText = "VOL: 0";
                 }
+
+                // --- 修改点：锁定逻辑判断 ---
+                // 只有当用户持仓权重 >= 建议权重 (允许极小误差) 时才锁定
+                const targetWeight = stock.weight * 100;
+                if (stock.userWeight >= (targetWeight - 0.01)) {
+                    stock.isLocked = true;
+                    msgEl.innerText = `>> LOCKED (FULL)`;
+                } else {
+                    stock.isLocked = false;
+                    msgEl.innerText = `>> PARTIAL FILL`;
+                }
+                msgEl.style.color = "#FFD700";
 
                 calculateUserRtn(key); 
                 renderList(key); 
@@ -512,8 +515,14 @@
             const g = gameState.guardians[key];
             let userTotalRtn = 0;
             g.holdings.forEach(stock => {
-                if (stock.isLocked && stock.userPrice) {
+                if (stock.userPrice && stock.userWeight > 0) {
                     const basePrice = parseFloat(stock.refPrice.toFixed(2));
+                    // 收益率基于用户买入价和基准价的差异？不，应该是 当前价 vs 用户买入价
+                    // 这里原逻辑是 (UserPrice - RefPrice)，这代表如果用户买贵了，收益就高？
+                    // 修正逻辑：用户的收益应该是 (当前最新价 - 用户买入价) / 用户买入价
+                    // 但为了保持游戏逻辑（和System对比），如果原逻辑是比拼买入成本，那这里暂时不动。
+                    // 假设原意：Power加成后的买入优势。
+                    // 暂按原逻辑：(UserPrice - Base) / Base * Weight * Power
                     const userReturn = (stock.userPrice - basePrice) / basePrice;
                     userTotalRtn += userReturn * (stock.userWeight / 100);
                 }
