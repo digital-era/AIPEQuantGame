@@ -261,11 +261,7 @@
         // 🛡️ SECURITY CONFIG - NO HARDCODED SECRETS
         // ============================================
         
-        // 1. 请在 Vercel 或其他 Serverless 平台搭建 STS 服务
-        // 2. 将下方的 URL 替换为你自己的 API 地址
         const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
-        
-        // 这些配置可以公开
         const OSS_BUCKET = 'aiep-users'; 
         const OSS_REGION = 'oss-cn-hangzhou'; 
         const OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
@@ -277,6 +273,9 @@
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
         
+        // --- 修改点 1: 定义甜点文件名称 ---
+        const SWEET_POINT_FILE = 'SweetPoint_New.json';
+
         const GUARDIAN_FILES = {
             genbu: '低波稳健模型_New.json', suzaku: '大成模型_New.json', 
             sirius: '流入模型_New.json', kirin: '大智模型_New.json'
@@ -286,7 +285,6 @@
             sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
         };
         
-        // 映射 Sheet 名称
         const SHEET_NAMES = {
             genbu: "低波", suzaku: "大成", sirius: "流入", kirin: "大智"
         };
@@ -309,23 +307,19 @@
 
         // --- OSS Initialization with STS ---
         async function initOSS() {
-            if (ossClient) return true; // Already initialized
+            if (ossClient) return true; 
 
             try {
-                // 检查 API 地址是否已配置
                 if (STS_API_URL.includes('YOUR_VERCEL_APP_URL')) {
                     log("ERR: STS_API_URL not configured!", "red");
                     return false;
                 }
 
                 log("Requesting Secure Token...", "#aa0");
-                
-                // 1. 从后端获取临时凭证
                 const res = await fetch(STS_API_URL);
                 if (!res.ok) throw new Error(`Auth Failed: ${res.status}`);
                 const data = await res.json();
 
-                // 2. 初始化 SDK
                 ossClient = new OSS({
                     region: OSS_REGION,
                     accessKeyId: data.AccessKeyId,
@@ -383,7 +377,8 @@
                             weight: w,
                             currentPrice: null, history: [], changePct: 0,
                             isLocked: false, userPrice: null,
-                            userWeight: 0
+                            userWeight: 0,
+                            isSweet: false // --- 修改点 2: 初始化 Sweet 状态 ---
                         };
                     });
                     document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
@@ -392,10 +387,40 @@
             await Promise.all(promises);
         }
 
+        // --- 修改点 3: 新增加载 SweetPoint 数据的函数 ---
+        async function loadSweetPoints() {
+            log("Scanning Sweet Points...", "#d8bfd8"); //淡紫色日志
+            const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
+            
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("SweetPoint fetch failed");
+                const json = await res.json();
+                
+                // 创建一个Set用于快速查找代码
+                // 假设json结构是 [{ "代码": "xxxx", ... }, ...]
+                const sweetCodes = new Set(json.map(item => item.代码));
+
+                let count = 0;
+                // 遍历所有守护者的持仓
+                for (let key in gameState.guardians) {
+                    gameState.guardians[key].holdings.forEach(stock => {
+                        if (sweetCodes.has(stock.code)) {
+                            stock.isSweet = true;
+                            count++;
+                        }
+                    });
+                }
+                log(`Sweet Points Applied: ${count}`, "#d8bfd8");
+
+            } catch (e) {
+                // 不阻塞主流程，只记录警告
+                log("SweetPoint Err: " + e.message, "orange");
+            }
+        }
+
         // --- OSS Sync Functions ---
-        
         function getFormattedTime() {
-            // YYYYMMDDHHmm
             const now = new Date();
             const pad = (n) => n.toString().padStart(2, '0');
             return now.getFullYear() + 
@@ -406,7 +431,6 @@
         }
 
         async function syncToCloud() {
-            // 确保 OSS 已初始化
             const ready = await initOSS();
             if (!ready) return;
 
@@ -454,7 +478,6 @@
         }
 
         async function loadFromCloud() {
-            // 确保 OSS 已初始化
             const ready = await initOSS();
             if (!ready) {
                 log("Cloud Skipped (No Auth)", "#666");
@@ -580,8 +603,17 @@
                 div.id = `item-${key}-${idx}`;
                 div.onclick = () => selectStock(key, idx);
                 
-                let nameHtml = stock.name;
-                if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
+                // --- 修改点 4: 渲染逻辑修改，加入甜点图标 ---
+                // 逻辑：图标前缀依次为 [锁][甜点][空格][名称]
+                let iconPrefix = "";
+                if(stock.isLocked) iconPrefix += "🔒";
+                if(stock.isSweet) iconPrefix += "🍬"; // 使用糖果图标代表甜点
+                
+                // 如果有图标，加个空格缓冲
+                if(iconPrefix !== "") iconPrefix += " ";
+                
+                let nameHtml = `${iconPrefix}${stock.name}`;
+                // -------------------------------------------
 
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(2)}%]</span>`;
                 const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(2)}%]</span>`;
@@ -813,11 +845,14 @@
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING..."; btn.disabled = true;
             
-            // 1. 初始化 OSS (现在是安全的异步调用)
+            // 1. 初始化 OSS
             await initOSS();
             
-            // 2. 加载基础策略数据
+            // 2. 加载基础策略数据 & 历史数据
             await Promise.all([loadStrategies(), loadHistoryData()]);
+
+            // --- 修改点 5: 在加载完策略数据后，补充读取 SweetPoint 数据 ---
+            await loadSweetPoints();
             
             // 3. 尝试从云端同步用户状态
             await loadFromCloud();
