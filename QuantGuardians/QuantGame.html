@@ -261,8 +261,8 @@
                     
                     gameState.guardians[key].power = factor;
                     gameState.guardians[key].holdings = portfolio.map(p => {
-                        let w = parseFloat(p["最优权重(%)"]);
-                        if (w > 1) w = w / 100;
+                        let w = parseFloat(p["最优权重(%)"]) || 0;
+                        w = w / 100;
                         return {
                             name: p.名称, code: p.代码,
                             refPrice: parseFloat(p.最近一日价格),
@@ -358,7 +358,7 @@
                 let nameHtml = stock.name;
                 if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
 
-                const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(1)}%]</span>`;
+                const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(2)}%]</span>`;
                 const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(1)}%]</span>`;
 
                 div.innerHTML = `
