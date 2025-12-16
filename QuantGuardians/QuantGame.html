@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量子护卫队：四方战纪 | Quant Guardians</title>
+    <!-- 引入 Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入 SheetJS (用于操作Excel) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- 引入 Ali-OSS SDK -->
+    <script src="https://gosspublic.alicdn.com/aliyun-oss-sdk-6.18.0.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- 保持原有基础样式 --- */
+        /* --- 保持原有基础样式不变 --- */
         :root {
             --bg-color: #050510;
             --panel-bg: #111122;
@@ -22,7 +28,7 @@
         * { box-sizing: border-box; }
         body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Roboto Mono', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         h1, .pixel-font { font-family: 'Press Start 2P', cursive; text-transform: uppercase; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; width: 100%; max-width: 1400px; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; width: 100%; max-width: 1400px; position: relative;}
         .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
         .guardian-card { background: var(--panel-bg); border: 2px solid #444; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5); min-height: 600px; }
         .guardian-card.active { border-color: var(--glow-color); box-shadow: 0 0 20px var(--glow-color); }
@@ -39,25 +45,18 @@
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
-        
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
-        
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 250px; }
-        
-        /* item 布局 */
         .holding-item { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; background: #1a1a2e; margin-bottom: 4px; padding: 8px 6px; border-left: 3px solid #444; cursor: pointer; transition: background 0.2s; align-items: center; }
         .holding-item:hover { background: #252540; }
         .holding-item.selected { background: #303050; border-left-color: #fff; }
         .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 1; } 
         .holding-item.locked .h-name { color: var(--user-gold); }
-        
         .h-info { display: flex; flex-direction: column; justify-content: center; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} 
-        
         .h-weight-row { display: flex; align-items: center; font-size: 0.75em; }
         .h-weight { color: #aaa; margin-right: 8px; }
         .user-weight-display { color: var(--user-gold); font-weight: bold; }
-        
         .h-price-col { text-align: right; display: flex; flex-direction: column; justify-content: center; padding-right: 5px;}
         .h-price { font-size: 0.85em; font-weight: bold; }
         .h-pct { font-size: 0.7em; }
@@ -65,28 +64,19 @@
         .text-down { color: #10B981; }
         .mini-chart-container { position: relative; width: 100%; height: 35px; }
         canvas.sparkline { width: 100%; height: 100%; }
-        
-        /* --- Commander 区域样式 --- */
         .commander-section { margin-top: 15px; border-top: 1px solid #333; padding-top: 10px; }
         .cmd-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .cmd-label { font-size: 0.7em; color: var(--glow-color); display: block; }
         .calc-res { font-size: 0.7em; color: var(--user-gold); font-weight: bold; text-shadow: 0 0 5px rgba(255,215,0,0.5); }
-        
         .cmd-controls { display: flex; gap: 4px; width: 100%; align-items: center; }
-        
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 5px; font-size: 0.8em; height: 30px; }
-        
         .input-price { flex: 1; min-width: 0; }
         .input-weight { width: 75px; flex: 0 0 75px; color: var(--user-gold); border-color: #554400; text-align: center; }
-
         .cmd-input:disabled { background: #222; color: #888; border-color: #444; cursor: not-allowed; }
         .cmd-input.locked-input { color: #ffd700; border-color: #ffd700; font-weight: bold; }
-
         .cmd-btn { background: #222; color: var(--glow-color); border: 1px solid var(--glow-color); cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.6em; padding: 0 8px; height: 30px; white-space: nowrap; flex: 0 0 auto; }
         .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        
         .cmd-msg { height: 20px; font-size: 0.7em; margin-top: 5px; color: #ffff00; }
-        
         .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .settlement-header { text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; color: #fff; }
         .chart-wrapper { position: relative; height: 400px; width: 100%; }
@@ -95,6 +85,20 @@
         .start-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
+        
+        /* 新增：OSS同步按钮样式 */
+        .oss-btn {
+            position: absolute; right: 0; top: 0;
+            background: #224; color: #fff; border: 1px solid #66a;
+            padding: 10px 15px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.6em;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .oss-btn:hover { background: #335; box-shadow: 0 0 10px #66f; }
+        .oss-status { width: 8px; height: 8px; border-radius: 50%; background: #666; display: inline-block;}
+        .oss-status.syncing { background: #ff0; box-shadow: 0 0 5px #ff0; animation: blink 1s infinite; }
+        .oss-status.done { background: #0f0; box-shadow: 0 0 5px #0f0; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
@@ -104,7 +108,14 @@
     <div class="header">
         <h1>Quant Guardians</h1>
         <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Real-time Battle System</div>
+        
+        <!-- OSS Button -->
+        <button class="oss-btn" onclick="syncToCloud()">
+            <span class="oss-status" id="ossStatusDot"></span>
+            ☁️ SYNC CLOUD
+        </button>
     </div>
+
     <div class="container">
         <!-- GENBU -->
         <div class="guardian-card g-genbu" id="card-genbu">
@@ -116,12 +127,8 @@
             </div>
             <div class="holdings-list" id="list-genbu"></div>
             <div class="commander-section">
-                <div class="cmd-top-row">
-                    <span class="cmd-label">COMMANDER:</span>
-                    <span class="calc-res" id="calc-res-genbu"></span>
-                </div>
+                <div class="cmd-top-row"><span class="cmd-label">COMMANDER:</span><span class="calc-res" id="calc-res-genbu"></span></div>
                 <div class="cmd-controls">
-                    <!-- 添加了 oninput 事件实现自动计算 -->
                     <input type="number" class="cmd-input input-price" id="input-price-genbu" placeholder="Price" oninput="calcRealTime('genbu')">
                     <input type="number" class="cmd-input input-weight" id="input-weight-genbu" placeholder="%" oninput="calcRealTime('genbu')">
                     <button class="cmd-btn" id="btn-genbu" onclick="commanderAction('genbu')">CONFIRM</button>
@@ -140,10 +147,7 @@
             </div>
             <div class="holdings-list" id="list-suzaku"></div>
             <div class="commander-section">
-                <div class="cmd-top-row">
-                    <span class="cmd-label">COMMANDER:</span>
-                    <span class="calc-res" id="calc-res-suzaku"></span>
-                </div>
+                <div class="cmd-top-row"><span class="cmd-label">COMMANDER:</span><span class="calc-res" id="calc-res-suzaku"></span></div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-suzaku" placeholder="Price" oninput="calcRealTime('suzaku')">
                     <input type="number" class="cmd-input input-weight" id="input-weight-suzaku" placeholder="%" oninput="calcRealTime('suzaku')">
@@ -163,10 +167,7 @@
             </div>
             <div class="holdings-list" id="list-sirius"></div>
             <div class="commander-section">
-                <div class="cmd-top-row">
-                    <span class="cmd-label">COMMANDER:</span>
-                    <span class="calc-res" id="calc-res-sirius"></span>
-                </div>
+                <div class="cmd-top-row"><span class="cmd-label">COMMANDER:</span><span class="calc-res" id="calc-res-sirius"></span></div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-sirius" placeholder="Price" oninput="calcRealTime('sirius')">
                     <input type="number" class="cmd-input input-weight" id="input-weight-sirius" placeholder="%" oninput="calcRealTime('sirius')">
@@ -186,10 +187,7 @@
             </div>
             <div class="holdings-list" id="list-kirin"></div>
             <div class="commander-section">
-                <div class="cmd-top-row">
-                    <span class="cmd-label">COMMANDER:</span>
-                    <span class="calc-res" id="calc-res-kirin"></span>
-                </div>
+                <div class="cmd-top-row"><span class="cmd-label">COMMANDER:</span><span class="calc-res" id="calc-res-kirin"></span></div>
                 <div class="cmd-controls">
                     <input type="number" class="cmd-input input-price" id="input-price-kirin" placeholder="Price" oninput="calcRealTime('kirin')">
                     <input type="number" class="cmd-input input-weight" id="input-weight-kirin" placeholder="%" oninput="calcRealTime('kirin')">
@@ -212,6 +210,22 @@
     </div>
 
     <script>
+        // ============================================
+        // 🛡️ SECURITY CONFIG - NO HARDCODED SECRETS
+        // ============================================
+        
+        // 1. 请在 Vercel 或其他 Serverless 平台搭建 STS 服务
+        // 2. 将下方的 URL 替换为你自己的 API 地址
+        // 例如: https://quant-guardians-api.vercel.app/api/sts
+        const STS_API_URL = 'https://YOUR_VERCEL_APP_URL/api/sts'; 
+        
+        // 这些配置可以公开
+        const OSS_BUCKET = 'YOUR_BUCKET_NAME'; 
+        const OSS_REGION = 'oss-cn-hangzhou'; 
+        const OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
+        
+        // ============================================
+
         const GITHUB_USER = 'digital-era';
         const GITHUB_REPO = 'AIPEQModel';
         const GITHUB_BRANCH = 'main';
@@ -225,6 +239,14 @@
             genbu: '低波稳健模型优化后评估.json', suzaku: '大成模型优化后评估.json',
             sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
         };
+        
+        // 映射 Sheet 名称
+        const SHEET_NAMES = {
+            genbu: "低波", suzaku: "大成", sirius: "流入", kirin: "大智"
+        };
+        const SHEET_NAMES_REV = {
+            "低波": "genbu", "大成": "suzaku", "流入": "sirius", "大智": "kirin"
+        };
 
         let gameState = {
             active: false,
@@ -237,6 +259,52 @@
         };
         let historyData = { dates: [], datasets: {} };
         let myChart = null;
+        let ossClient = null;
+
+        // --- OSS Initialization with STS ---
+        async function initOSS() {
+            if (ossClient) return true; // Already initialized
+
+            try {
+                // 检查 API 地址是否已配置
+                if (STS_API_URL.includes('YOUR_VERCEL_APP_URL')) {
+                    log("ERR: STS_API_URL not configured!", "red");
+                    return false;
+                }
+
+                log("Requesting Secure Token...", "#aa0");
+                
+                // 1. 从后端获取临时凭证
+                const res = await fetch(STS_API_URL);
+                if (!res.ok) throw new Error(`Auth Failed: ${res.status}`);
+                const data = await res.json();
+
+                // 2. 初始化 SDK
+                ossClient = new OSS({
+                    region: OSS_REGION,
+                    accessKeyId: data.AccessKeyId,
+                    accessKeySecret: data.AccessKeySecret,
+                    stsToken: data.SecurityToken,
+                    bucket: OSS_BUCKET,
+                    refreshSTSToken: async () => {
+                        const r = await fetch(STS_API_URL);
+                        const d = await r.json();
+                        return {
+                            accessKeyId: d.AccessKeyId,
+                            accessKeySecret: d.AccessKeySecret,
+                            stsToken: d.SecurityToken
+                        };
+                    }
+                });
+
+                log("Cloud Connection Secure.", "#0f0");
+                return true;
+            } catch (e) {
+                log("OSS Init Fail: " + e.message, "red");
+                console.error(e);
+                return false;
+            }
+        }
 
         function log(msg, color="#0f0") {
             const box = document.getElementById('systemLog');
@@ -247,6 +315,7 @@
             box.prepend(div);
         }
 
+        // --- Core Logic ---
         async function loadStrategies() {
             log("Loading Configs...", "cyan");
             const promises = Object.keys(GUARDIAN_FILES).map(async (key) => {
@@ -261,8 +330,7 @@
                     
                     gameState.guardians[key].power = factor;
                     gameState.guardians[key].holdings = portfolio.map(p => {
-                        let w = parseFloat(p["最优权重(%)"]) || 0;
-                        w = w / 100;
+                        let w = parseFloat(p["最优权重(%)"]) / 100;
                         return {
                             name: p.名称, code: p.代码,
                             refPrice: parseFloat(p.最近一日价格),
@@ -273,13 +341,125 @@
                         };
                     });
                     document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
-                    renderList(key);
                 } catch (e) { log(`[${key}] Err: ${e.message}`, "red"); }
             });
             await Promise.all(promises);
         }
 
-        // --- 新增：实时计算函数 ---
+        // --- OSS Sync Functions ---
+        
+        function getFormattedTime() {
+            // YYYYMMDDHHmm
+            const now = new Date();
+            const pad = (n) => n.toString().padStart(2, '0');
+            return now.getFullYear() + 
+                   pad(now.getMonth()+1) + 
+                   pad(now.getDate()) + 
+                   pad(now.getHours()) + 
+                   pad(now.getMinutes());
+        }
+
+        async function syncToCloud() {
+            // 确保 OSS 已初始化
+            const ready = await initOSS();
+            if (!ready) return;
+
+            const btn = document.querySelector('.oss-btn');
+            const dot = document.getElementById('ossStatusDot');
+            
+            try {
+                dot.className = "oss-status syncing";
+                log("Cloud Uploading...", "#ff0");
+
+                const wb = XLSX.utils.book_new();
+                const timeStr = getFormattedTime();
+
+                for (let key in gameState.guardians) {
+                    const g = gameState.guardians[key];
+                    const sheetName = SHEET_NAMES[key];
+                    
+                    const rows = g.holdings.map(h => ({
+                        '组合名称': sheetName,
+                        '股票代码': h.code,
+                        '股票名称': h.name,
+                        '来源': 'QuantGuardians',
+                        '建议比例 (%)': (h.weight * 100).toFixed(2),
+                        '配置比例 (%)': (h.userWeight).toFixed(2),
+                        '修改时间': timeStr
+                    }));
+
+                    const ws = XLSX.utils.json_to_sheet(rows);
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                }
+
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const buffer = new Blob([wbout], { type: "application/octet-stream" });
+                
+                await ossClient.put(OSS_FILE_NAME, buffer);
+                
+                log("Cloud Sync Complete.", "#0f0");
+                dot.className = "oss-status done";
+                setTimeout(() => dot.className = "oss-status", 3000);
+
+            } catch (e) {
+                log("Sync Fail: " + e.message, "red");
+                dot.className = "oss-status";
+            }
+        }
+
+        async function loadFromCloud() {
+            // 确保 OSS 已初始化
+            const ready = await initOSS();
+            if (!ready) {
+                log("Cloud Skipped (No Auth)", "#666");
+                return;
+            }
+
+            log("Checking Cloud Save...", "#888");
+            
+            try {
+                const result = await ossClient.get(OSS_FILE_NAME);
+                if (!result || !result.content) {
+                    log("No Cloud Save Found.", "#888");
+                    return;
+                }
+
+                const wb = XLSX.read(result.content, { type: 'array' });
+                
+                wb.SheetNames.forEach(sheetName => {
+                    const key = SHEET_NAMES_REV[sheetName];
+                    if (!key) return;
+
+                    const ws = wb.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(ws);
+                    
+                    const g = gameState.guardians[key];
+                    if (!g) return;
+
+                    json.forEach(row => {
+                        const code = row['股票代码'];
+                        const savedWeight = parseFloat(row['配置比例 (%)']);
+                        
+                        const stock = g.holdings.find(h => h.code == code);
+                        if (stock) {
+                            stock.userWeight = isNaN(savedWeight) ? 0 : savedWeight;
+                            if (stock.userWeight > 0) {
+                                stock.isLocked = true;
+                                stock.userPrice = stock.refPrice; 
+                            }
+                        }
+                    });
+                });
+                log("Cloud Data Restored.", "#0f0");
+            } catch (e) {
+                if (e.code === 'NoSuchKey') {
+                    log("New Game Session.", "#888");
+                } else {
+                    log("Cloud Load Err: " + e.message, "red");
+                }
+            }
+        }
+
         function calcRealTime(key) {
             const price = parseFloat(document.getElementById(`input-price-${key}`).value);
             const weight = parseFloat(document.getElementById(`input-weight-${key}`).value);
@@ -288,7 +468,6 @@
 
             if (price > 0 && weight > 0) {
                 const totalCapital = 100000;
-                // 公式：10万 / 价格 * 权重(小数) * Power
                 const vol = (totalCapital / price) * (weight / 100) * g.power;
                 resEl.innerText = `Buy Qty: ${vol.toFixed(0)}`;
             } else {
@@ -359,7 +538,7 @@
                 if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
 
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(2)}%]</span>`;
-                const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(1)}%]</span>`;
+                const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(2)}%]</span>`;
 
                 div.innerHTML = `
                     <div class="h-info">
@@ -392,18 +571,16 @@
             document.getElementById(`calc-res-${key}`).innerText = "";
 
             if (stock.isLocked) {
-                inputPrice.value = stock.userPrice;
+                inputPrice.value = stock.userPrice || stock.refPrice; 
                 inputPrice.disabled = true;
                 inputPrice.classList.add('locked-input');
                 
                 inputWeight.disabled = false;
-                // 计算剩余建议权重
                 const suggestedWgt = stock.weight * 100;
                 const remaining = Math.max(0, suggestedWgt - stock.userWeight);
                 inputWeight.value = remaining > 0 ? remaining.toFixed(1) : "";
 
                 btn.disabled = false;
-                // 修改提示文案
                 msgEl.innerText = "Position Full.";
                 msgEl.style.color = "#FFD700";
 
@@ -426,8 +603,6 @@
 
                 btn.disabled = false;
                 msgEl.innerText = "";
-                
-                // 触发一次自动计算
                 calcRealTime(key);
             }
         }
@@ -435,7 +610,6 @@
         function commanderAction(key) {
             const g = gameState.guardians[key];
             const msgEl = document.getElementById(`msg-${key}`);
-            const resEl = document.getElementById(`calc-res-${key}`);
             
             if (g.selectedIdx === -1) { msgEl.innerText = "Select Target"; msgEl.style.color = "red"; return; }
             
@@ -449,11 +623,10 @@
             if (!guessPrice || !stock.currentPrice) { msgEl.innerText = "Waiting Data/Input..."; return; }
 
             const current = stock.currentPrice;
-
             let priceConfirmed = false;
             
             if (stock.isLocked) {
-                priceConfirmed = true; // 已锁定状态下，价格认为是确认的（或者用户在调整仓位）
+                priceConfirmed = true; 
             } else {
                 if (guessPrice < current) {
                     msgEl.innerText = `Too Low (Curr: ${current})`;
@@ -472,14 +645,12 @@
             }
 
             if (priceConfirmed) {
-                stock.userPrice = guessPrice; // 更新用户成本价
+                stock.userPrice = guessPrice;
 
                 if (!isNaN(guessWeight) && guessWeight > 0) {
                     stock.userWeight = parseFloat((stock.userWeight + guessWeight).toFixed(2));
                 }
 
-                // --- 修改点：锁定逻辑判断 ---
-                // 只有当用户持仓权重 >= 建议权重 (允许极小误差) 时才锁定
                 const targetWeight = stock.weight * 100;
                 if (stock.userWeight >= (targetWeight - 0.01)) {
                     stock.isLocked = true;
@@ -493,22 +664,7 @@
                 calculateUserRtn(key); 
                 renderList(key); 
                 selectStock(key, g.selectedIdx); 
-                restoreGroupUI(key); 
-
-                const card = document.getElementById(`card-${key}`);
-                card.style.boxShadow = "0 0 30px #FFD700";
-                setTimeout(() => card.style.boxShadow = "", 800);
             }
-        }
-
-        function restoreGroupUI(key) {
-            const g = gameState.guardians[key];
-            g.holdings.forEach((stock, idx) => {
-                if (stock.currentPrice !== null) {
-                    const basePrice = parseFloat(stock.refPrice.toFixed(2));
-                    updateRowUI(key, idx, stock, stock.changePct, basePrice);
-                }
-            });
         }
 
         function calculateUserRtn(key) {
@@ -517,12 +673,6 @@
             g.holdings.forEach(stock => {
                 if (stock.userPrice && stock.userWeight > 0) {
                     const basePrice = parseFloat(stock.refPrice.toFixed(2));
-                    // 收益率基于用户买入价和基准价的差异？不，应该是 当前价 vs 用户买入价
-                    // 这里原逻辑是 (UserPrice - RefPrice)，这代表如果用户买贵了，收益就高？
-                    // 修正逻辑：用户的收益应该是 (当前最新价 - 用户买入价) / 用户买入价
-                    // 但为了保持游戏逻辑（和System对比），如果原逻辑是比拼买入成本，那这里暂时不动。
-                    // 假设原意：Power加成后的买入优势。
-                    // 暂按原逻辑：(UserPrice - Base) / Base * Weight * Power
                     const userReturn = (stock.userPrice - basePrice) / basePrice;
                     userTotalRtn += userReturn * (stock.userWeight / 100);
                 }
@@ -616,9 +766,26 @@
             if (gameState.active) return;
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING..."; btn.disabled = true;
+            
+            // 1. 初始化 OSS (现在是安全的异步调用)
+            await initOSS();
+            
+            // 2. 加载基础策略数据
             await Promise.all([loadStrategies(), loadHistoryData()]);
+            
+            // 3. 尝试从云端同步用户状态
+            await loadFromCloud();
+
+            // 4. 渲染UI
+            for(let key in gameState.guardians) {
+                renderList(key);
+                calculateUserRtn(key);
+            }
+
+            // 5. 开始行情轮询
             await updateMarketData();
             setInterval(updateMarketData, 300000);
+            
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
             btn.style.boxShadow = "0 0 20px #0f0";
