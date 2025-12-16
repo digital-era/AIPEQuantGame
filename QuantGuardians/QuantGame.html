@@ -79,13 +79,11 @@
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 5px; font-size: 0.8em; height: 30px; }
         
         /* 修改点：输入框宽度调整 */
-        /* 价格输入框：flex: 1 自动占据剩余空间，会被权重框挤小 */
         .input-price { 
             flex: 1; 
             min-width: 0; 
         }
 
-        /* 权重输入框：从 50px 增加到 75px，显示更宽松 */
         .input-weight { 
             width: 75px; 
             flex: 0 0 75px; 
@@ -403,7 +401,14 @@
                 msgEl.style.color = "#FFD700";
 
             } else {
-                inputPrice.value = '';
+                // --- 修改开始：默认填充当前价格 ---
+                if (stock.currentPrice !== null) {
+                    inputPrice.value = stock.currentPrice;
+                } else {
+                    inputPrice.value = '';
+                }
+                // --- 修改结束 ---
+                
                 inputPrice.disabled = false;
                 inputPrice.classList.remove('locked-input');
                 inputPrice.placeholder = `Price`;
