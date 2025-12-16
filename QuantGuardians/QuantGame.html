@@ -40,26 +40,25 @@
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
         
-        /* 修改点2：将 Power 字体改为白色，更醒目 */
+        /* Power 字体改为白色 */
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
         
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 250px; }
         
-        /* item 布局微调，方便两行显示 */
+        /* item 布局：名称一行，权重一行 */
         .holding-item { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; background: #1a1a2e; margin-bottom: 4px; padding: 8px 6px; border-left: 3px solid #444; cursor: pointer; transition: background 0.2s; align-items: center; }
         .holding-item:hover { background: #252540; }
         .holding-item.selected { background: #303050; border-left-color: #fff; }
         .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 1; } 
         .holding-item.locked .h-name { color: var(--user-gold); }
         
-        /* 修改点1：优化列表信息布局，实现分行显示 */
         .h-info { display: flex; flex-direction: column; justify-content: center; }
-        .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} /* 第一行：名称 */
+        .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} 
         
-        /* 新增：第二行容器，包含建议权重和用户权重 */
+        /* 第二行容器，包含建议权重和用户权重 */
         .h-weight-row { display: flex; align-items: center; font-size: 0.75em; }
-        .h-weight { color: #aaa; margin-right: 8px; } /* 建议权重 */
-        .user-weight-display { color: var(--user-gold); font-weight: bold; } /* 用户权重 */
+        .h-weight { color: #aaa; margin-right: 8px; }
+        .user-weight-display { color: var(--user-gold); font-weight: bold; }
         
         .h-price-col { text-align: right; display: flex; flex-direction: column; justify-content: center; padding-right: 5px;}
         .h-price { font-size: 0.85em; font-weight: bold; }
@@ -76,9 +75,25 @@
         .calc-res { font-size: 0.7em; color: var(--user-gold); font-weight: bold; text-shadow: 0 0 5px rgba(255,215,0,0.5); }
         
         .cmd-controls { display: flex; gap: 4px; width: 100%; align-items: center; }
+        
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 5px; font-size: 0.8em; height: 30px; }
-        .input-price { flex: 1; min-width: 0; }
-        .input-weight { width: 50px; flex: 0 0 50px; color: var(--user-gold); border-color: #554400; text-align: center; }
+        
+        /* 修改点：输入框宽度调整 */
+        /* 价格输入框：flex: 1 自动占据剩余空间，会被权重框挤小 */
+        .input-price { 
+            flex: 1; 
+            min-width: 0; 
+        }
+
+        /* 权重输入框：从 50px 增加到 75px，显示更宽松 */
+        .input-weight { 
+            width: 75px; 
+            flex: 0 0 75px; 
+            color: var(--user-gold); 
+            border-color: #554400; 
+            text-align: center; 
+        }
+
         .cmd-input:disabled { background: #222; color: #888; border-color: #444; cursor: not-allowed; }
         .cmd-input.locked-input { color: #ffd700; border-color: #ffd700; font-weight: bold; }
 
@@ -112,7 +127,6 @@
             <div class="main-stat-box">
                 <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
-                <!-- Power 颜色已在CSS中改为白色 -->
                 <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
             </div>
             <div class="holdings-list" id="list-genbu"></div>
@@ -341,7 +355,6 @@
                 let nameHtml = stock.name;
                 if(stock.isLocked) nameHtml = `🔒 ${stock.name}`; 
 
-                // 修改点1：更改渲染结构，将权重放入独立的 div (.h-weight-row) 中
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(1)}%]</span>`;
                 const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight}%]</span>`;
 
