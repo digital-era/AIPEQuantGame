@@ -285,13 +285,19 @@
             sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
         };
         
+        // --- 替换原有的 SHEET_NAMES 配置 ---
+        const GUARDIAN_CONFIG = {
+            genbu:  { key: 'genbu',  simpleName: "低波", eySheet: "低波EY" },
+            suzaku: { key: 'suzaku', simpleName: "大成", eySheet: "大成EY" },
+            sirius: { key: 'sirius', simpleName: "流入", eySheet: "流入EY" },
+            kirin:  { key: 'kirin',  simpleName: "大智", eySheet: "大智EY" }
+        };
+        
+        // 为了兼容旧代码引用，保留一个简单的映射（如果其他地方用到了 SHEET_NAMES）
         const SHEET_NAMES = {
             genbu: "低波EY", suzaku: "大成EY", sirius: "流入EY", kirin: "大智EY"
         };
-        const SHEET_NAMES_REV = {
-            "低波EY": "genbu", "大成EY": "suzaku", "流入EY": "sirius", "大智EY": "kirin"
-        };
-
+        
         // --- 全局内存数据框，用于存储操作记录 ---
         let memoryDataFrame = []; 
 
@@ -423,7 +429,7 @@
                 dot.className = "oss-status syncing";
                 log("Syncing Cloud Data...", "#ff0");
 
-                // 1. 尝试读取现有文件 (Read Mode)
+                // 1. 读取云端文件
                 let wb;
                 try {
                     const result = await ossClient.get(OSS_FILE_NAME);
@@ -438,49 +444,96 @@
                     }
                 }
 
-                const currentOpTime = getFormattedTime(); // Format: 202512161523
-                const timeForGrouping = currentOpTime.substring(0, 10); // Not strictly needed for logic but good for debug
+                const currentOpTime = getFormattedTime(); // Format: 202512161619
+                const todayDateStr = currentOpTime.substring(0, 8); // 20251216
 
-                // 2. 遍历每个 Sheet (Group)
-                for (let key in SHEET_NAMES) {
-                    const sheetName = SHEET_NAMES[key];
+                // ==========================================
+                // PHASE 1: 生成/更新 4个持仓快照 Sheet (低波, 大成...)
+                // ==========================================
+                for (let k in GUARDIAN_CONFIG) {
+                    const config = GUARDIAN_CONFIG[k];
+                    const sheetName = config.simpleName; // 例如 "低波"
+                    let snapshotData = [];
+
+                    // A. 如果 Sheet 存在，读取并移除“当天”的记录
+                    if (wb.Sheets[sheetName]) {
+                        const rawData = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+                        // 过滤掉修改时间为今天的记录 (保留历史天数)
+                        snapshotData = rawData.filter(row => {
+                            const rowTime = String(row['修改时间']);
+                            return rowTime.substring(0, 8) !== todayDateStr;
+                        });
+                    }
+
+                    // B. 从 gameState 生成最新的当前持仓记录
+                    const guardianData = gameState.guardians[config.key];
+                    if (guardianData && guardianData.holdings) {
+                        guardianData.holdings.forEach(stock => {
+                            // 只有当有配置比例或建议比例时才记录 (或者全部记录，看需求，这里全部记录)
+                            snapshotData.push({
+                                "组合名称": config.simpleName,
+                                "股票代码": stock.code,
+                                "股票名称": stock.name,
+                                "来源": "QuantGuardians",
+                                "建议比例 (%)": (stock.weight * 100).toFixed(2),
+                                "配置比例 (%)": stock.userWeight.toFixed(2), // 当前用户的实际配置
+                                "修改时间": currentOpTime
+                            });
+                        });
+                    }
+
+                    // C. 写入 Sheet
+                    if (snapshotData.length > 0) {
+                        const newWs = XLSX.utils.json_to_sheet(snapshotData, {
+                            header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "配置比例 (%)", "修改时间"]
+                        });
+                        if (wb.Sheets[sheetName]) wb.Sheets[sheetName] = newWs;
+                        else XLSX.utils.book_append_sheet(wb, newWs, sheetName);
+                    }
+                }
+
+                // ==========================================
+                // PHASE 2: 生成/更新 4个流水 Sheet (低波EY, 大成EY...)
+                // ==========================================
+                for (let k in GUARDIAN_CONFIG) {
+                    const config = GUARDIAN_CONFIG[k];
+                    const sheetName = config.eySheet; // 例如 "低波EY"
                     let existingData = [];
-                    
-                    // 读取现有 Sheet 数据
+
+                    // A. 读取现有数据
                     if (wb.Sheets[sheetName]) {
                         existingData = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
                     }
 
-                    // 获取当前 key 对应的内存记录
+                    // B. 获取内存中的新交易记录
+                    // 注意：内存中的 '组合名称' 可能存的是旧的 '低波EY'，我们需要在保存时改为 '低波'
                     const newRecords = memoryDataFrame.filter(item => item['组合名称'] === sheetName);
 
-                    // 3. 追加记录 (去重逻辑)
+                    // C. 合并数据 (去重)
                     newRecords.forEach(record => {
-                        // 检查是否已存在：组合名称, 股票代码, 股票名称, 配置比例, 标的数量, 价格, 价值, 修改时间 相同
+                        // 创建副本并修改组合名称为简称
+                        const recordToSave = { ...record, '组合名称': config.simpleName };
+
                         const exists = existingData.some(row => 
-                            row['组合名称'] === record['组合名称'] &&
-                            row['股票代码'] === record['股票代码'] &&
-                            row['配置比例 (%)'] == record['配置比例 (%)'] &&
-                            row['标的数量'] == record['标的数量'] &&
-                            row['价格'] == record['价格'] &&
-                            row['价值'] == record['价值'] &&
-                            row['修改时间'] == record['修改时间']
+                            row['组合名称'] === recordToSave['组合名称'] &&
+                            row['股票代码'] === recordToSave['股票代码'] &&
+                            row['配置比例 (%)'] == recordToSave['配置比例 (%)'] &&
+                            row['标的数量'] == recordToSave['标的数量'] &&
+                            row['价格'] == recordToSave['价格'] &&
+                            row['价值'] == recordToSave['价值'] &&
+                            row['修改时间'] == recordToSave['修改时间']
                         );
 
                         if (!exists) {
-                            existingData.push({ ...record }); // 添加副本
+                            existingData.push(recordToSave);
                         }
                     });
 
-                    // 4. 总价值计算
-                   // --- 修改开始：按日期 (YYYYMMDD) 分组计算总价值 ---
+                    // D. 计算总价值 (按日期分组: YYYYMMDD)
                     const groupByDate = {};
                     existingData.forEach(row => {
                         const t = row['修改时间'];
-                        // 确保时间字符串存在且长度足够截取日期 (格式: 202512171530 -> 12位)
                         if (!t || String(t).length < 8) return;
-                        
-                        // 截取前8位作为日期 Key (例如: "20251217")
                         const dateKey = String(t).substring(0, 8);
                         
                         if (!groupByDate[dateKey]) groupByDate[dateKey] = 0;
@@ -488,7 +541,7 @@
                         groupByDate[dateKey] += val;
                     });
 
-                    // 更新总价值字段
+                    // 回填总价值
                     existingData.forEach(row => {
                          const t = row['修改时间'];
                          if (t && String(t).length >= 8) {
@@ -498,34 +551,25 @@
                              }
                          }
                     });
-                    // --- 修改结束 ---
 
-                    // 5. 写回 Sheet
-                    // 只有当有数据时才创建 sheet
+                    // E. 写入 Sheet
                     if (existingData.length > 0) {
                         const newWs = XLSX.utils.json_to_sheet(existingData, {
                             header: ["组合名称", "股票代码", "股票名称", "配置比例 (%)", "标的数量", "价格", "价值", "总价值", "修改时间"]
                         });
-                        // 替换或添加到 Workbook
-                        if (wb.Sheets[sheetName]) {
-                            wb.Sheets[sheetName] = newWs;
-                        } else {
-                            XLSX.utils.book_append_sheet(wb, newWs, sheetName);
-                        }
+                        if (wb.Sheets[sheetName]) wb.Sheets[sheetName] = newWs;
+                        else XLSX.utils.book_append_sheet(wb, newWs, sheetName);
                     }
                 }
 
-                // 6. 上传 (Upload)
+                // 3. 上传文件
                 const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                 const buffer = new Blob([wbout], { type: "application/octet-stream" });
                 await ossClient.put(OSS_FILE_NAME, buffer);
                 
-                log("Cloud Sync Complete.", "#0f0");
+                log("Cloud Sync Complete (Snapshot+Log).", "#0f0");
                 dot.className = "oss-status done";
                 setTimeout(() => dot.className = "oss-status", 3000);
-                
-                // 可选：清空内存中已同步的数据，防止重复处理 (根据需求这里暂时保留，靠去重逻辑处理)
-                // memoryDataFrame = []; 
 
             } catch (e) {
                 log("Sync Fail: " + e.message, "red");
@@ -767,7 +811,6 @@
             }
 
             if (priceConfirmed) {
-                // --- 更新 UI 状态 ---
                 stock.userPrice = guessPrice;
                 if (!isNaN(guessWeight) && guessWeight > 0) {
                     stock.userWeight = parseFloat((stock.userWeight + guessWeight).toFixed(2));
@@ -777,35 +820,29 @@
                 else { stock.isLocked = false; msgEl.innerText = `>> PARTIAL FILL`; }
                 msgEl.style.color = "#FFD700";
 
-                // --- 新增：记录到内存数据框 ---
-                // --- 修改开始：先取整数量，再算价值 ---
+                // --- 价值计算修正 ---
                 const totalCapital = 100000;
-                // 1. 计算理论股数
                 const rawQty = (totalCapital / guessPrice) * (guessWeight / 100) * g.power;
-                // 2. 四舍五入取整 (得到标的数量)
-                const finalQty = Math.round(rawQty);
-                // 3. 用 价格 * 整数数量 计算最终价值
-                const val = guessPrice * finalQty;
+                const finalQty = Math.round(rawQty); // 取整
+                const val = guessPrice * finalQty;   // 精确价值
                 
-                const timeStr = getFormattedTime(); // YYMMDDHHMM
+                const timeStr = getFormattedTime();
 
                 const record = {
-                    '组合名称': SHEET_NAMES[key],
+                    '组合名称': SHEET_NAMES[key], // 这里保持 "低波EY"，Sync时会改为 "低波"
                     '股票代码': stock.code,
                     '股票名称': stock.name,
                     '配置比例 (%)': guessWeight, 
-                    '标的数量': finalQty,     // 存储整数
+                    '标的数量': finalQty,
                     '价格': guessPrice,
-                    '价值': val.toFixed(2),   // 存储精确的成交额 (例如 22 * 136 = 2992.00)
+                    '价值': val.toFixed(2),
                     '总价值': '', 
                     '修改时间': timeStr
                 };
-                // --- 修改结束 ---
 
                 memoryDataFrame.push(record);
                 log(`Record Added: ${stock.name} (${guessWeight}%)`, "#FFD700");
 
-                // --- 刷新 UI ---
                 calculateUserRtn(key); 
                 renderList(key); 
                 selectStock(key, g.selectedIdx); 
