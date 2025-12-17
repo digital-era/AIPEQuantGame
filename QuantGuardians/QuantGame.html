@@ -29,7 +29,7 @@
         body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Roboto Mono', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         h1, .pixel-font { font-family: 'Press Start 2P', cursive; text-transform: uppercase; }
         
-        /* --- 修改过的 Header 样式 --- */
+        /* --- Header 样式 --- */
         .header { 
             text-align: center; 
             margin-bottom: 30px; 
@@ -37,8 +37,8 @@
             padding-bottom: 20px; 
             width: 100%; 
             max-width: 1400px; 
-            position: relative; /* 桌面端保持相对定位基准 */
-            display: flex;      /* 使用Flex布局以便更好地控制对齐 */
+            position: relative; 
+            display: flex;      
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -62,11 +62,50 @@
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 250px; }
-        .holding-item { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; background: #1a1a2e; margin-bottom: 4px; padding: 8px 6px; border-left: 3px solid #444; cursor: pointer; transition: background 0.2s; align-items: center; }
+        
+        /* --- 修改点 1：为 holding-item 添加 relative 定位，以便放置绝对定位的图标 --- */
+        .holding-item { 
+            display: grid; 
+            grid-template-columns: 1.4fr 0.8fr 1fr; 
+            background: #1a1a2e; 
+            margin-bottom: 4px; 
+            padding: 8px 6px; 
+            border-left: 3px solid #444; 
+            cursor: pointer; 
+            transition: background 0.2s; 
+            align-items: center; 
+            position: relative; /* 新增：为了定位右上角图标 */
+        }
         .holding-item:hover { background: #252540; }
         .holding-item.selected { background: #303050; border-left-color: #fff; }
         .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 1; } 
         .holding-item.locked .h-name { color: var(--user-gold); }
+
+        /* --- 修改点 2：新增右上角分析图标样式 --- */
+        .analysis-link {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 14px;
+            height: 14px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #555;
+            border-radius: 2px;
+            color: #888;
+            font-size: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+        .analysis-link:hover {
+            background: #3B82F6;
+            color: #fff;
+            border-color: #3B82F6;
+        }
+
         .h-info { display: flex; flex-direction: column; justify-content: center; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} 
         .h-weight-row { display: flex; align-items: center; font-size: 0.75em; }
@@ -101,23 +140,22 @@
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
         
-        /* --- 修改后的 OSS同步按钮样式 --- */
+        /* --- OSS同步按钮样式 --- */
         .oss-btn {
             position: absolute; 
             right: 0; 
-            top: 20px; /* 稍微靠下一点，与文字视觉对齐 */
+            top: 20px; 
             background: #224; 
             color: #fff; 
             border: 1px solid #66a;
-            /* 减小Padding和字体大小，使其更精致 */
             padding: 8px 12px; 
             cursor: pointer; 
             font-family: 'Press Start 2P'; 
-            font-size: 10px; /* 明确使用更小的像素值 */
+            font-size: 10px; 
             display: flex; 
             align-items: center; 
             gap: 6px;
-            border-radius: 4px; /* 添加圆角 */
+            border-radius: 4px;
             transition: all 0.2s;
         }
         .oss-btn:hover { background: #335; box-shadow: 0 0 10px #66f; transform: translateY(-1px); }
@@ -126,22 +164,9 @@
         .oss-status.done { background: #0f0; box-shadow: 0 0 5px #0f0; }
         @keyframes blink { 50% { opacity: 0.5; } }
 
-        /* --- 响应式布局：解决手机/小屏幕重叠问题 --- */
         @media (max-width: 768px) {
-            .header {
-                /* 在小屏幕下不需要严格定位 */
-                position: static;
-                padding-top: 10px;
-            }
-            .oss-btn {
-                /* 取消绝对定位，改为流式布局 */
-                position: relative;
-                right: auto;
-                top: auto;
-                margin-top: 15px; /* 在标题下方留出空隙 */
-                width: auto;
-            }
-            /* 调整手机端标题大小，避免过大 */
+            .header { position: static; padding-top: 10px; }
+            .oss-btn { position: relative; right: auto; top: auto; margin-top: 15px; width: auto; }
             h1 { font-size: 1.5em; margin: 10px 0; }
         }
 
@@ -162,7 +187,7 @@
         </button>
     </div>
 
-    <!-- 下方内容保持不变 -->
+    <!-- 下方内容 -->
     <div class="container">
         <!-- GENBU -->
         <div class="guardian-card g-genbu" id="card-genbu">
@@ -258,7 +283,7 @@
 
     <script>
         // ============================================
-        // 🛡️ SECURITY CONFIG - NO HARDCODED SECRETS
+        // 🛡️ SECURITY CONFIG
         // ============================================
         
         const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
@@ -273,7 +298,6 @@
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
         
-        // --- 修改点 1: 定义甜点文件名称 ---
         const SWEET_POINT_FILE = 'SweetPoint_New.json';
 
         const GUARDIAN_FILES = {
@@ -305,21 +329,18 @@
         let myChart = null;
         let ossClient = null;
 
-        // --- OSS Initialization with STS ---
+        // --- OSS Initialization ---
         async function initOSS() {
             if (ossClient) return true; 
-
             try {
                 if (STS_API_URL.includes('YOUR_VERCEL_APP_URL')) {
                     log("ERR: STS_API_URL not configured!", "red");
                     return false;
                 }
-
                 log("Requesting Secure Token...", "#aa0");
                 const res = await fetch(STS_API_URL);
                 if (!res.ok) throw new Error(`Auth Failed: ${res.status}`);
                 const data = await res.json();
-
                 ossClient = new OSS({
                     region: OSS_REGION,
                     accessKeyId: data.AccessKeyId,
@@ -329,14 +350,9 @@
                     refreshSTSToken: async () => {
                         const r = await fetch(STS_API_URL);
                         const d = await r.json();
-                        return {
-                            accessKeyId: d.AccessKeyId,
-                            accessKeySecret: d.AccessKeySecret,
-                            stsToken: d.SecurityToken
-                        };
+                        return { accessKeyId: d.AccessKeyId, accessKeySecret: d.AccessKeySecret, stsToken: d.SecurityToken };
                     }
                 });
-
                 log("Cloud Connection Secure.", "#0f0");
                 return true;
             } catch (e) {
@@ -378,7 +394,7 @@
                             currentPrice: null, history: [], changePct: 0,
                             isLocked: false, userPrice: null,
                             userWeight: 0,
-                            isSweet: false // --- 修改点 2: 初始化 Sweet 状态 ---
+                            isSweet: false
                         };
                     });
                     document.getElementById(`power-${key}`).innerText = (factor * 100).toFixed(0) + "%";
@@ -387,22 +403,16 @@
             await Promise.all(promises);
         }
 
-        // --- 修改点 3: 新增加载 SweetPoint 数据的函数 ---
         async function loadSweetPoints() {
-            log("Scanning Sweet Points...", "#d8bfd8"); //淡紫色日志
+            log("Scanning Sweet Points...", "#d8bfd8");
             const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
-            
             try {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("SweetPoint fetch failed");
                 const json = await res.json();
-                
-                // 创建一个Set用于快速查找代码
-                // 假设json结构是 [{ "代码": "xxxx", ... }, ...]
                 const sweetCodes = new Set(json.map(item => item.代码));
 
                 let count = 0;
-                // 遍历所有守护者的持仓
                 for (let key in gameState.guardians) {
                     gameState.guardians[key].holdings.forEach(stock => {
                         if (sweetCodes.has(stock.code)) {
@@ -412,65 +422,44 @@
                     });
                 }
                 log(`Sweet Points Applied: ${count}`, "#d8bfd8");
-
-            } catch (e) {
-                // 不阻塞主流程，只记录警告
-                log("SweetPoint Err: " + e.message, "orange");
-            }
+            } catch (e) { log("SweetPoint Err: " + e.message, "orange"); }
         }
 
         // --- OSS Sync Functions ---
         function getFormattedTime() {
             const now = new Date();
             const pad = (n) => n.toString().padStart(2, '0');
-            return now.getFullYear() + 
-                   pad(now.getMonth()+1) + 
-                   pad(now.getDate()) + 
-                   pad(now.getHours()) + 
-                   pad(now.getMinutes());
+            return now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + pad(now.getHours()) + pad(now.getMinutes());
         }
 
         async function syncToCloud() {
             const ready = await initOSS();
             if (!ready) return;
-
             const btn = document.querySelector('.oss-btn');
             const dot = document.getElementById('ossStatusDot');
             
             try {
                 dot.className = "oss-status syncing";
                 log("Cloud Uploading...", "#ff0");
-
                 const wb = XLSX.utils.book_new();
                 const timeStr = getFormattedTime();
 
                 for (let key in gameState.guardians) {
                     const g = gameState.guardians[key];
                     const sheetName = SHEET_NAMES[key];
-                    
                     const rows = g.holdings.map(h => ({
-                        '组合名称': sheetName,
-                        '股票代码': h.code,
-                        '股票名称': h.name,
-                        '来源': 'QuantGuardians',
-                        '建议比例 (%)': (h.weight * 100).toFixed(2),
-                        '配置比例 (%)': (h.userWeight).toFixed(2),
-                        '修改时间': timeStr
+                        '组合名称': sheetName, '股票代码': h.code, '股票名称': h.name, '来源': 'QuantGuardians',
+                        '建议比例 (%)': (h.weight * 100).toFixed(2), '配置比例 (%)': (h.userWeight).toFixed(2), '修改时间': timeStr
                     }));
-
                     const ws = XLSX.utils.json_to_sheet(rows);
                     XLSX.utils.book_append_sheet(wb, ws, sheetName);
                 }
-
                 const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                 const buffer = new Blob([wbout], { type: "application/octet-stream" });
-                
                 await ossClient.put(OSS_FILE_NAME, buffer);
-                
                 log("Cloud Sync Complete.", "#0f0");
                 dot.className = "oss-status done";
                 setTimeout(() => dot.className = "oss-status", 3000);
-
             } catch (e) {
                 log("Sync Fail: " + e.message, "red");
                 dot.className = "oss-status";
@@ -479,53 +468,33 @@
 
         async function loadFromCloud() {
             const ready = await initOSS();
-            if (!ready) {
-                log("Cloud Skipped (No Auth)", "#666");
-                return;
-            }
-
+            if (!ready) { log("Cloud Skipped (No Auth)", "#666"); return; }
             log("Checking Cloud Save...", "#888");
-            
             try {
                 const result = await ossClient.get(OSS_FILE_NAME);
-                if (!result || !result.content) {
-                    log("No Cloud Save Found.", "#888");
-                    return;
-                }
-
+                if (!result || !result.content) { log("No Cloud Save Found.", "#888"); return; }
                 const wb = XLSX.read(result.content, { type: 'array' });
-                
                 wb.SheetNames.forEach(sheetName => {
                     const key = SHEET_NAMES_REV[sheetName];
                     if (!key) return;
-
                     const ws = wb.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(ws);
-                    
                     const g = gameState.guardians[key];
                     if (!g) return;
-
                     json.forEach(row => {
                         const code = row['股票代码'];
                         const savedWeight = parseFloat(row['配置比例 (%)']);
-                        
                         const stock = g.holdings.find(h => h.code == code);
                         if (stock) {
                             stock.userWeight = isNaN(savedWeight) ? 0 : savedWeight;
-                            if (stock.userWeight > 0) {
-                                stock.isLocked = true;
-                                stock.userPrice = stock.refPrice; 
-                            }
+                            if (stock.userWeight > 0) { stock.isLocked = true; stock.userPrice = stock.refPrice; }
                         }
                     });
                 });
                 log("Cloud Data Restored.", "#0f0");
             } catch (e) {
-                if (e.code === 'NoSuchKey') {
-                    log("New Game Session.", "#888");
-                } else {
-                    log("Cloud Load Err: " + e.message, "red");
-                }
+                if (e.code === 'NoSuchKey') { log("New Game Session.", "#888"); }
+                else { log("Cloud Load Err: " + e.message, "red"); }
             }
         }
 
@@ -534,14 +503,11 @@
             const weight = parseFloat(document.getElementById(`input-weight-${key}`).value);
             const resEl = document.getElementById(`calc-res-${key}`);
             const g = gameState.guardians[key];
-
             if (price > 0 && weight > 0) {
                 const totalCapital = 100000;
                 const vol = (totalCapital / price) * (weight / 100) * g.power;
                 resEl.innerText = `Buy Qty: ${vol.toFixed(0)}`;
-            } else {
-                resEl.innerText = "";
-            }
+            } else { resEl.innerText = ""; }
         }
 
         async function loadHistoryData() {
@@ -592,6 +558,7 @@
             });
         }
 
+        // --- 修改点 3: 在渲染列表时生成跳转链接 ---
         function renderList(key) {
             const listEl = document.getElementById(`list-${key}`);
             listEl.innerHTML = '';
@@ -601,24 +568,33 @@
                 div.className = 'holding-item';
                 if(stock.isLocked) div.classList.add('locked');
                 div.id = `item-${key}-${idx}`;
+                // 点击整个条目选择股票
                 div.onclick = () => selectStock(key, idx);
                 
-                // --- 修改点 4: 渲染逻辑修改，加入甜点图标 ---
-                // 逻辑：图标前缀依次为 [锁][甜点][空格][名称]
                 let iconPrefix = "";
                 if(stock.isLocked) iconPrefix += "🔒";
-                if(stock.isSweet) iconPrefix += "🍬"; // 使用糖果图标代表甜点
-                
-                // 如果有图标，加个空格缓冲
+                if(stock.isSweet) iconPrefix += "🍬"; 
                 if(iconPrefix !== "") iconPrefix += " ";
                 
                 let nameHtml = `${iconPrefix}${stock.name}`;
-                // -------------------------------------------
-
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(2)}%]</span>`;
                 const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(2)}%]</span>`;
 
+                // --- 构筑 URL ---
+                const baseUrl = 'https://aipeinvestmentagent.pages.dev';
+                const encodedStockName = encodeURIComponent(stock.name);
+                const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
+
+                // --- 创建右上角小按钮 ---
+                // 注意：onclick="event.stopPropagation()" 非常重要，防止触发父级 div 的 selectStock 事件
+                const analysisBtn = `
+                    <a href="${stockUrl}" target="_blank" class="analysis-link" onclick="event.stopPropagation()" title="Open Analytics">
+                        ↗
+                    </a>
+                `;
+
                 div.innerHTML = `
+                    ${analysisBtn} 
                     <div class="h-info">
                         <div class="h-name">${nameHtml}</div>
                         <div class="h-weight-row">${suggestedWeight} ${userWeightHtml}</div>
@@ -674,7 +650,6 @@
                 inputPrice.placeholder = `Price`;
                 
                 inputWeight.disabled = false;
-                
                 const suggestedWgt = stock.weight * 100;
                 const remaining = Math.max(0, suggestedWgt - stock.userWeight);
                 inputWeight.value = remaining.toFixed(1);
@@ -688,13 +663,11 @@
         function commanderAction(key) {
             const g = gameState.guardians[key];
             const msgEl = document.getElementById(`msg-${key}`);
-            
             if (g.selectedIdx === -1) { msgEl.innerText = "Select Target"; msgEl.style.color = "red"; return; }
             
             const stock = g.holdings[g.selectedIdx];
             const inputPrice = document.getElementById(`input-price-${key}`);
             const inputWeight = document.getElementById(`input-weight-${key}`);
-            
             const guessPrice = parseFloat(inputPrice.value);
             const guessWeight = parseFloat(inputWeight.value);
 
@@ -702,43 +675,25 @@
 
             const current = stock.currentPrice;
             let priceConfirmed = false;
-            
-            if (stock.isLocked) {
-                priceConfirmed = true; 
-            } else {
-                if (guessPrice < current) {
-                    msgEl.innerText = `Too Low (Curr: ${current})`;
-                    msgEl.style.color = "#5af";
-                    return;
-                } else {
+            if (stock.isLocked) { priceConfirmed = true; } 
+            else {
+                if (guessPrice < current) { msgEl.innerText = `Too Low (Curr: ${current})`; msgEl.style.color = "#5af"; return; } 
+                else {
                     const diff = (guessPrice - current) / current;
-                    if (diff < 0.01) {
-                        priceConfirmed = true;
-                    } else {
-                        msgEl.innerText = `Too High (Curr: ${current})`;
-                        msgEl.style.color = "#f55";
-                        return;
-                    }
+                    if (diff < 0.01) { priceConfirmed = true; } 
+                    else { msgEl.innerText = `Too High (Curr: ${current})`; msgEl.style.color = "#f55"; return; }
                 }
             }
 
             if (priceConfirmed) {
                 stock.userPrice = guessPrice;
-
                 if (!isNaN(guessWeight) && guessWeight > 0) {
                     stock.userWeight = parseFloat((stock.userWeight + guessWeight).toFixed(2));
                 }
-
                 const targetWeight = stock.weight * 100;
-                if (stock.userWeight >= (targetWeight - 0.01)) {
-                    stock.isLocked = true;
-                    msgEl.innerText = `>> LOCKED (FULL)`;
-                } else {
-                    stock.isLocked = false;
-                    msgEl.innerText = `>> PARTIAL FILL`;
-                }
+                if (stock.userWeight >= (targetWeight - 0.01)) { stock.isLocked = true; msgEl.innerText = `>> LOCKED (FULL)`; } 
+                else { stock.isLocked = false; msgEl.innerText = `>> PARTIAL FILL`; }
                 msgEl.style.color = "#FFD700";
-
                 calculateUserRtn(key); 
                 renderList(key); 
                 selectStock(key, g.selectedIdx); 
@@ -766,20 +721,17 @@
             for (let key in gameState.guardians) {
                 const g = gameState.guardians[key];
                 let totalRtn = 0, valid = 0;
-                
                 const promises = g.holdings.map(async (stock, idx) => {
                     if (!stock.code) return;
                     try {
                         const target = `${REAL_API_URL}?code=${stock.code}&type=intraday&_t=${Date.now()}`;
                         const res = await fetch(target);
                         const data = await res.json();
-                        
                         if (Array.isArray(data) && data.length > 0) {
                             const last = data[data.length - 1];
                             const price = parseFloat(parseFloat(last.price).toFixed(2));
                             stock.currentPrice = price;
                             stock.history = data.map(d => parseFloat(d.price));
-                            
                             const base = parseFloat(stock.refPrice.toFixed(2));
                             const change = (price - base) / base;
                             stock.changePct = change;
@@ -790,13 +742,11 @@
                     } catch (e) { console.error(e); }
                 });
                 await Promise.all(promises);
-
                 if (valid > 0) {
                     const finalRtn = totalRtn * g.power;
                     const el = document.getElementById(`rtn-${key}`);
                     el.innerText = (finalRtn > 0 ? "+" : "") + (finalRtn * 100).toFixed(2) + "%";
                     el.style.color = finalRtn >= 0 ? "#EF4444" : "#10B981";
-                    
                     if(finalRtn > 0) document.getElementById(`card-${key}`).classList.add('active');
                     else document.getElementById(`card-${key}`).classList.remove('active');
                 }
@@ -807,16 +757,10 @@
         function updateRowUI(key, idx, stock, change, base) {
             const el = document.getElementById(`price-box-${key}-${idx}`);
             const row = document.getElementById(`item-${key}-${idx}`);
-            
-            if (stock.isLocked) {
-                row.style.borderLeftColor = 'var(--user-gold)';
-            } else {
-                row.style.borderLeftColor = change >= 0 ? '#EF4444' : '#10B981';
-            }
-            
+            if (stock.isLocked) { row.style.borderLeftColor = 'var(--user-gold)'; } 
+            else { row.style.borderLeftColor = change >= 0 ? '#EF4444' : '#10B981'; }
             const cls = change >= 0 ? 'text-up' : 'text-down';
             el.innerHTML = `<span class="h-price ${cls}">${stock.currentPrice.toFixed(2)}</span><span class="h-pct ${cls}">${change>0?'+':''}${(change*100).toFixed(2)}%</span>`;
-            
             drawSpark(`chart-${key}-${idx}`, stock.history, base, change >= 0 ? '#EF4444' : '#10B981');
         }
 
@@ -829,7 +773,6 @@
             const range = (max - min) || 0.01;
             const pad = range * 0.2;
             const effMin = min - pad, effRange = range + 2*pad;
-
             ctx.clearRect(0,0,w,h);
             const yBase = h - ((base - effMin) / effRange) * h;
             ctx.beginPath(); ctx.setLineDash([2,2]); ctx.strokeStyle="#444"; 
@@ -844,29 +787,16 @@
             if (gameState.active) return;
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING..."; btn.disabled = true;
-            
-            // 1. 初始化 OSS
             await initOSS();
-            
-            // 2. 加载基础策略数据 & 历史数据
             await Promise.all([loadStrategies(), loadHistoryData()]);
-
-            // --- 修改点 5: 在加载完策略数据后，补充读取 SweetPoint 数据 ---
             await loadSweetPoints();
-            
-            // 3. 尝试从云端同步用户状态
             await loadFromCloud();
-
-            // 4. 渲染UI
             for(let key in gameState.guardians) {
                 renderList(key);
                 calculateUserRtn(key);
             }
-
-            // 5. 开始行情轮询
             await updateMarketData();
             setInterval(updateMarketData, 300000);
-            
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
             btn.style.boxShadow = "0 0 20px #0f0";
