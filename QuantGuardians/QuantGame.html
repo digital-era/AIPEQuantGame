@@ -75,14 +75,12 @@
             transition: background 0.2s; 
             align-items: center; 
             position: relative; 
-            user-select: none; /* 防止双击时选中文字 */
+            user-select: none; 
         }
         .holding-item:hover { background: #252540; }
         .holding-item.selected { background: #303050; border-left-color: #fff; }
         .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 1; } 
         .holding-item.locked .h-name { color: var(--user-gold); }
-
-        /* 已移除 .analysis-link 相关样式 */
 
         .h-info { display: flex; flex-direction: column; justify-content: center; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} 
@@ -288,11 +286,14 @@
         };
         
         const SHEET_NAMES = {
-            genbu: "低波", suzaku: "大成", sirius: "流入", kirin: "大智"
+            genbu: "低波EY", suzaku: "大成EY", sirius: "流入EY", kirin: "大智EY"
         };
         const SHEET_NAMES_REV = {
-            "低波": "genbu", "大成": "suzaku", "流入": "sirius", "大智": "kirin"
+            "低波EY": "genbu", "大成EY": "suzaku", "流入EY": "sirius", "大智EY": "kirin"
         };
+
+        // --- 全局内存数据框，用于存储操作记录 ---
+        let memoryDataFrame = []; 
 
         let gameState = {
             active: false,
@@ -403,13 +404,15 @@
             } catch (e) { log("SweetPoint Err: " + e.message, "orange"); }
         }
 
-        // --- OSS Sync Functions ---
+        // --- 时间格式化: YYMMDDHHMM/202512161523 ---
         function getFormattedTime() {
             const now = new Date();
             const pad = (n) => n.toString().padStart(2, '0');
+            // getFullYear() 返回 2025，直接拼接
             return now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + pad(now.getHours()) + pad(now.getMinutes());
         }
 
+        // --- OSS Sync Functions (Modified) ---
         async function syncToCloud() {
             const ready = await initOSS();
             if (!ready) return;
@@ -418,28 +421,109 @@
             
             try {
                 dot.className = "oss-status syncing";
-                log("Cloud Uploading...", "#ff0");
-                const wb = XLSX.utils.book_new();
-                const timeStr = getFormattedTime();
+                log("Syncing Cloud Data...", "#ff0");
 
-                for (let key in gameState.guardians) {
-                    const g = gameState.guardians[key];
-                    const sheetName = SHEET_NAMES[key];
-                    const rows = g.holdings.map(h => ({
-                        '组合名称': sheetName, '股票代码': h.code, '股票名称': h.name, '来源': 'QuantGuardians',
-                        '建议比例 (%)': (h.weight * 100).toFixed(2), '配置比例 (%)': (h.userWeight).toFixed(2), '修改时间': timeStr
-                    }));
-                    const ws = XLSX.utils.json_to_sheet(rows);
-                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                // 1. 尝试读取现有文件 (Read Mode)
+                let wb;
+                try {
+                    const result = await ossClient.get(OSS_FILE_NAME);
+                    wb = XLSX.read(result.content, { type: 'array' });
+                    log("Remote File Loaded.", "#88f");
+                } catch (e) {
+                    if (e.code === 'NoSuchKey' || e.name === 'NoSuchKeyError') {
+                        wb = XLSX.utils.book_new();
+                        log("Creating New Cloud File.", "#88f");
+                    } else {
+                        throw e;
+                    }
                 }
+
+                const currentOpTime = getFormattedTime(); // Format: 202512161523
+                const timeForGrouping = currentOpTime.substring(0, 10); // Not strictly needed for logic but good for debug
+
+                // 2. 遍历每个 Sheet (Group)
+                for (let key in SHEET_NAMES) {
+                    const sheetName = SHEET_NAMES[key];
+                    let existingData = [];
+                    
+                    // 读取现有 Sheet 数据
+                    if (wb.Sheets[sheetName]) {
+                        existingData = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+                    }
+
+                    // 获取当前 key 对应的内存记录
+                    const newRecords = memoryDataFrame.filter(item => item['组合名称'] === sheetName);
+
+                    // 3. 追加记录 (去重逻辑)
+                    newRecords.forEach(record => {
+                        // 检查是否已存在：组合名称, 股票代码, 股票名称, 配置比例, 标的数量, 价格, 价值, 修改时间 相同
+                        const exists = existingData.some(row => 
+                            row['组合名称'] === record['组合名称'] &&
+                            row['股票代码'] === record['股票代码'] &&
+                            row['配置比例 (%)'] == record['配置比例 (%)'] &&
+                            row['标的数量'] == record['标的数量'] &&
+                            row['价格'] == record['价格'] &&
+                            row['价值'] == record['价值'] &&
+                            row['修改时间'] == record['修改时间']
+                        );
+
+                        if (!exists) {
+                            existingData.push({ ...record }); // 添加副本
+                        }
+                    });
+
+                    // 4. 总价值计算
+                    // 逻辑：对修改时间与当前操作时间为同一天的（截断HHMM获得）进行总价值计算
+                    // 此处实现：对整个 Sheet 的数据按 '修改时间' 分组，对每一组计算 '价值' 之和，更新该组所有行的 '总价值'
+                    
+                    const groupByTime = {};
+                    existingData.forEach(row => {
+                        const t = row['修改时间'];
+                        if (!t) return;
+                        if (!groupByTime[t]) groupByTime[t] = 0;
+                        // 确保价值是数值
+                        const val = parseFloat(row['价值']) || 0;
+                        groupByTime[t] += val;
+                    });
+
+                    // 更新总价值字段
+                    existingData.forEach(row => {
+                         const t = row['修改时间'];
+                         if (t && groupByTime[t] !== undefined) {
+                             row['总价值'] = groupByTime[t].toFixed(2);
+                         }
+                    });
+
+                    // 5. 写回 Sheet
+                    // 只有当有数据时才创建 sheet
+                    if (existingData.length > 0) {
+                        const newWs = XLSX.utils.json_to_sheet(existingData, {
+                            header: ["组合名称", "股票代码", "股票名称", "配置比例 (%)", "标的数量", "价格", "价值", "总价值", "修改时间"]
+                        });
+                        // 替换或添加到 Workbook
+                        if (wb.Sheets[sheetName]) {
+                            wb.Sheets[sheetName] = newWs;
+                        } else {
+                            XLSX.utils.book_append_sheet(wb, newWs, sheetName);
+                        }
+                    }
+                }
+
+                // 6. 上传 (Upload)
                 const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                 const buffer = new Blob([wbout], { type: "application/octet-stream" });
                 await ossClient.put(OSS_FILE_NAME, buffer);
+                
                 log("Cloud Sync Complete.", "#0f0");
                 dot.className = "oss-status done";
                 setTimeout(() => dot.className = "oss-status", 3000);
+                
+                // 可选：清空内存中已同步的数据，防止重复处理 (根据需求这里暂时保留，靠去重逻辑处理)
+                // memoryDataFrame = []; 
+
             } catch (e) {
                 log("Sync Fail: " + e.message, "red");
+                console.error(e);
                 dot.className = "oss-status";
             }
         }
@@ -459,13 +543,33 @@
                     const json = XLSX.utils.sheet_to_json(ws);
                     const g = gameState.guardians[key];
                     if (!g) return;
+                    
+                    // 这里仅恢复当前持仓状态，不恢复所有历史记录到内存 DataFrame
+                    // 逻辑：如果某股票在云端有最新记录且配置比例>0，则锁定
+                    // 简化处理：累加配置比例
+                    
+                    // 为了简化，这里只恢复 UI 状态 (锁和已买入比例)
+                    // 实际操作中，可能需要更复杂的逻辑来从历史记录恢复当前持仓
+                    const latestHoldings = {}; // code -> weight
                     json.forEach(row => {
-                        const code = row['股票代码'];
-                        const savedWeight = parseFloat(row['配置比例 (%)']);
-                        const stock = g.holdings.find(h => h.code == code);
-                        if (stock) {
-                            stock.userWeight = isNaN(savedWeight) ? 0 : savedWeight;
-                            if (stock.userWeight > 0) { stock.isLocked = true; stock.userPrice = stock.refPrice; }
+                         // 简单的累加逻辑可能不准确，这里假设最后一次操作代表最终状态? 
+                         // 不，需求是记录流水。
+                         // 这里维持原有逻辑：从云端恢复 '已买入' 状态 (需要根据云端逻辑调整)
+                         // 暂且保留原来的逻辑，假设云端有字段 '配置比例 (%)' 代表当时的买入量
+                         // 如果要恢复状态，需要遍历整个历史累计
+                         const code = row['股票代码'];
+                         const w = parseFloat(row['配置比例 (%)']);
+                         if(!latestHoldings[code]) latestHoldings[code] = 0;
+                         latestHoldings[code] += w; // 累加
+                    });
+
+                    g.holdings.forEach(stock => {
+                        if (latestHoldings[stock.code]) {
+                            stock.userWeight = latestHoldings[stock.code];
+                            if (stock.userWeight >= (stock.weight*100 - 0.1)) { // 接近目标
+                                stock.isLocked = true; 
+                                stock.userPrice = stock.refPrice; // 简化处理
+                            }
                         }
                     });
                 });
@@ -536,7 +640,6 @@
             });
         }
 
-        // --- 修改点：渲染列表时绑定双击事件，移除图标 ---
         function renderList(key) {
             const listEl = document.getElementById(`list-${key}`);
             listEl.innerHTML = '';
@@ -547,10 +650,8 @@
                 if(stock.isLocked) div.classList.add('locked');
                 div.id = `item-${key}-${idx}`;
                 
-                // 单击：选择股票 (保持原有逻辑)
                 div.onclick = () => selectStock(key, idx);
 
-                // --- 修改开始：双击跳转逻辑 ---
                 const baseUrl = 'https://aipeinvestmentagent.pages.dev';
                 const encodedStockName = encodeURIComponent(stock.name);
                 const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
@@ -558,7 +659,6 @@
                 div.ondblclick = () => {
                     window.open(stockUrl, '_blank');
                 };
-                // --- 修改结束 ---
                 
                 let iconPrefix = "";
                 if(stock.isLocked) iconPrefix += "🔒";
@@ -569,7 +669,6 @@
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(2)}%]</span>`;
                 const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(2)}%]</span>`;
 
-                // 移除了之前的 analysisBtn，界面更整洁
                 div.innerHTML = `
                     <div class="h-info">
                         <div class="h-name">${nameHtml}</div>
@@ -662,6 +761,7 @@
             }
 
             if (priceConfirmed) {
+                // --- 更新 UI 状态 ---
                 stock.userPrice = guessPrice;
                 if (!isNaN(guessWeight) && guessWeight > 0) {
                     stock.userWeight = parseFloat((stock.userWeight + guessWeight).toFixed(2));
@@ -670,6 +770,30 @@
                 if (stock.userWeight >= (targetWeight - 0.01)) { stock.isLocked = true; msgEl.innerText = `>> LOCKED (FULL)`; } 
                 else { stock.isLocked = false; msgEl.innerText = `>> PARTIAL FILL`; }
                 msgEl.style.color = "#FFD700";
+
+                // --- 新增：记录到内存数据框 ---
+                // 计算逻辑与 calcRealTime 保持一致，但这里计算具体价值
+                const totalCapital = 100000;
+                const quantity = (totalCapital / guessPrice) * (guessWeight / 100) * g.power;
+                const val = guessPrice * quantity;
+                const timeStr = getFormattedTime(); // YYMMDDHHMM
+
+                const record = {
+                    '组合名称': SHEET_NAMES[key],
+                    '股票代码': stock.code,
+                    '股票名称': stock.name,
+                    '配置比例 (%)': guessWeight, // 本次操作的比例
+                    '标的数量': quantity.toFixed(0),
+                    '价格': guessPrice,
+                    '价值': val.toFixed(2),
+                    '总价值': '', // 暂时为空，Sync时计算
+                    '修改时间': timeStr
+                };
+
+                memoryDataFrame.push(record);
+                log(`Record Added: ${stock.name} (${guessWeight}%)`, "#FFD700");
+
+                // --- 刷新 UI ---
                 calculateUserRtn(key); 
                 renderList(key); 
                 selectStock(key, g.selectedIdx); 
