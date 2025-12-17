@@ -473,26 +473,32 @@
                     });
 
                     // 4. 总价值计算
-                    // 逻辑：对修改时间与当前操作时间为同一天的（截断HHMM获得）进行总价值计算
-                    // 此处实现：对整个 Sheet 的数据按 '修改时间' 分组，对每一组计算 '价值' 之和，更新该组所有行的 '总价值'
-                    
-                    const groupByTime = {};
+                   // --- 修改开始：按日期 (YYYYMMDD) 分组计算总价值 ---
+                    const groupByDate = {};
                     existingData.forEach(row => {
                         const t = row['修改时间'];
-                        if (!t) return;
-                        if (!groupByTime[t]) groupByTime[t] = 0;
-                        // 确保价值是数值
+                        // 确保时间字符串存在且长度足够截取日期 (格式: 202512171530 -> 12位)
+                        if (!t || String(t).length < 8) return;
+                        
+                        // 截取前8位作为日期 Key (例如: "20251217")
+                        const dateKey = String(t).substring(0, 8);
+                        
+                        if (!groupByDate[dateKey]) groupByDate[dateKey] = 0;
                         const val = parseFloat(row['价值']) || 0;
-                        groupByTime[t] += val;
+                        groupByDate[dateKey] += val;
                     });
 
                     // 更新总价值字段
                     existingData.forEach(row => {
                          const t = row['修改时间'];
-                         if (t && groupByTime[t] !== undefined) {
-                             row['总价值'] = groupByTime[t].toFixed(2);
+                         if (t && String(t).length >= 8) {
+                             const dateKey = String(t).substring(0, 8);
+                             if (groupByDate[dateKey] !== undefined) {
+                                 row['总价值'] = groupByDate[dateKey].toFixed(2);
+                             }
                          }
                     });
+                    // --- 修改结束 ---
 
                     // 5. 写回 Sheet
                     // 只有当有数据时才创建 sheet
@@ -772,23 +778,29 @@
                 msgEl.style.color = "#FFD700";
 
                 // --- 新增：记录到内存数据框 ---
-                // 计算逻辑与 calcRealTime 保持一致，但这里计算具体价值
+                // --- 修改开始：先取整数量，再算价值 ---
                 const totalCapital = 100000;
-                const quantity = (totalCapital / guessPrice) * (guessWeight / 100) * g.power;
-                const val = guessPrice * quantity;
+                // 1. 计算理论股数
+                const rawQty = (totalCapital / guessPrice) * (guessWeight / 100) * g.power;
+                // 2. 四舍五入取整 (得到标的数量)
+                const finalQty = Math.round(rawQty);
+                // 3. 用 价格 * 整数数量 计算最终价值
+                const val = guessPrice * finalQty;
+                
                 const timeStr = getFormattedTime(); // YYMMDDHHMM
 
                 const record = {
                     '组合名称': SHEET_NAMES[key],
                     '股票代码': stock.code,
                     '股票名称': stock.name,
-                    '配置比例 (%)': guessWeight, // 本次操作的比例
-                    '标的数量': quantity.toFixed(0),
+                    '配置比例 (%)': guessWeight, 
+                    '标的数量': finalQty,     // 存储整数
                     '价格': guessPrice,
-                    '价值': val.toFixed(2),
-                    '总价值': '', // 暂时为空，Sync时计算
+                    '价值': val.toFixed(2),   // 存储精确的成交额 (例如 22 * 136 = 2992.00)
+                    '总价值': '', 
                     '修改时间': timeStr
                 };
+                // --- 修改结束 ---
 
                 memoryDataFrame.push(record);
                 log(`Record Added: ${stock.name} (${guessWeight}%)`, "#FFD700");
