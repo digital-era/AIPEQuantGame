@@ -843,9 +843,21 @@
                 memoryDataFrame.push(record);
                 log(`Record Added: ${stock.name} (${guessWeight}%)`, "#FFD700");
 
+                // --- 刷新 UI ---
                 calculateUserRtn(key); 
-                renderList(key); 
-                selectStock(key, g.selectedIdx); 
+                renderList(key); // 重建 HTML 结构
+
+                // 【新增】立即利用内存中的数据恢复价格和图表显示
+                g.holdings.forEach((s, i) => {
+                    // 只有当该股票已有行情数据时才恢复
+                    if (s.currentPrice !== null && s.history.length > 0) {
+                        const base = parseFloat(s.refPrice.toFixed(2));
+                        // s.changePct 在 updateMarketData 中已经计算并存入对象
+                        updateRowUI(key, i, s, s.changePct, base);
+                    }
+                });
+                
+                selectStock(key, g.selectedIdx);
             }
         }
 
