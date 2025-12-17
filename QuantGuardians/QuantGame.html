@@ -63,7 +63,7 @@
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 250px; }
         
-        /* --- 修改点 1：为 holding-item 添加 relative 定位，以便放置绝对定位的图标 --- */
+        /* --- 列表项样式 --- */
         .holding-item { 
             display: grid; 
             grid-template-columns: 1.4fr 0.8fr 1fr; 
@@ -74,37 +74,15 @@
             cursor: pointer; 
             transition: background 0.2s; 
             align-items: center; 
-            position: relative; /* 新增：为了定位右上角图标 */
+            position: relative; 
+            user-select: none; /* 防止双击时选中文字 */
         }
         .holding-item:hover { background: #252540; }
         .holding-item.selected { background: #303050; border-left-color: #fff; }
         .holding-item.locked { border-left-color: var(--user-gold); background: #2a2a10; opacity: 1; } 
         .holding-item.locked .h-name { color: var(--user-gold); }
 
-        /* --- 修改点 2：新增右上角分析图标样式 --- */
-        .analysis-link {
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            width: 14px;
-            height: 14px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid #555;
-            border-radius: 2px;
-            color: #888;
-            font-size: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            z-index: 10;
-            transition: all 0.2s;
-        }
-        .analysis-link:hover {
-            background: #3B82F6;
-            color: #fff;
-            border-color: #3B82F6;
-        }
+        /* 已移除 .analysis-link 相关样式 */
 
         .h-info { display: flex; flex-direction: column; justify-content: center; }
         .h-name { font-weight: bold; font-size: 0.9em; color: #ddd; display: block; margin-bottom: 2px;} 
@@ -558,7 +536,7 @@
             });
         }
 
-        // --- 修改点 3: 在渲染列表时生成跳转链接 ---
+        // --- 修改点：渲染列表时绑定双击事件，移除图标 ---
         function renderList(key) {
             const listEl = document.getElementById(`list-${key}`);
             listEl.innerHTML = '';
@@ -568,8 +546,19 @@
                 div.className = 'holding-item';
                 if(stock.isLocked) div.classList.add('locked');
                 div.id = `item-${key}-${idx}`;
-                // 点击整个条目选择股票
+                
+                // 单击：选择股票 (保持原有逻辑)
                 div.onclick = () => selectStock(key, idx);
+
+                // --- 修改开始：双击跳转逻辑 ---
+                const baseUrl = 'https://aipeinvestmentagent.pages.dev';
+                const encodedStockName = encodeURIComponent(stock.name);
+                const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
+
+                div.ondblclick = () => {
+                    window.open(stockUrl, '_blank');
+                };
+                // --- 修改结束 ---
                 
                 let iconPrefix = "";
                 if(stock.isLocked) iconPrefix += "🔒";
@@ -580,21 +569,8 @@
                 const suggestedWeight = `<span class="h-weight">[${(stock.weight*100).toFixed(2)}%]</span>`;
                 const userWeightHtml = `<span class="user-weight-display">[${stock.userWeight.toFixed(2)}%]</span>`;
 
-                // --- 构筑 URL ---
-                const baseUrl = 'https://aipeinvestmentagent.pages.dev';
-                const encodedStockName = encodeURIComponent(stock.name);
-                const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
-
-                // --- 创建右上角小按钮 ---
-                // 注意：onclick="event.stopPropagation()" 非常重要，防止触发父级 div 的 selectStock 事件
-                const analysisBtn = `
-                    <a href="${stockUrl}" target="_blank" class="analysis-link" onclick="event.stopPropagation()" title="Open Analytics">
-                        ↗
-                    </a>
-                `;
-
+                // 移除了之前的 analysisBtn，界面更整洁
                 div.innerHTML = `
-                    ${analysisBtn} 
                     <div class="h-info">
                         <div class="h-name">${nameHtml}</div>
                         <div class="h-weight-row">${suggestedWeight} ${userWeightHtml}</div>
