@@ -5,22 +5,143 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuantGame Index</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        h1 { text-align: center; }
-        ul { list-style-type: none; padding: 0; }
-        li { margin: 10px 0; }
-        a { text-decoration: none; color: #007bff; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 40px; 
+            background-color: #f4f4f9;
+        }
+        h1 { text-align: center; color: #333; }
+        p { text-align: center; color: #666; }
+        
+        ul { 
+            list-style-type: none; 
+            padding: 0; 
+            max-width: 600px; 
+            margin: 0 auto; 
+        }
+
+        /* 将列表项样式化为卡片 */
+        li { 
+            background: white;
+            margin: 15px 0; 
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative; /* 关键：为了让内部的图标按钮绝对定位 */
+            transition: transform 0.2s;
+        }
+
+        li:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        a { 
+            text-decoration: none; 
+            color: #007bff; 
+            font-size: 18px;
+            font-weight: 500;
+            display: block; /* 让链接占据大部分点击区域 */
+        }
         a:hover { text-decoration: underline; }
+
+        /* 右上角图标按钮样式 */
+        .analytics-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ccc;
+            transition: background-color 0.2s;
+        }
+
+        .analytics-btn:hover {
+            background-color: #e0e0e0;
+            border-color: #bbb;
+        }
+
+        /* SVG 图标样式 */
+        .analytics-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: #555;
+        }
     </style>
 </head>
 <body>
     <h1>Welcome to the QuantGame PlayGround</h1>
     <p>Select a QuantGame below to navigate:</p>
+    
     <ul>
-        <li><a href="QuantGuardians/QuantGame.html">QuantGuardians Game</a></li>
-        <!-- Add new links here as needed, e.g.:
-        <li><a href="AnotherSubdirectory/AnotherPage.html">Another Page</a></li>
+        <!-- 
+           建议添加 data-stock 属性来指定具体的标的代码。
+           如果没写 data-stock，JS代码会默认使用 <a> 标签里的文本。
         -->
+        <li data-stock="QuantGuardians">
+            <a href="QuantGuardians/QuantGame.html">QuantGuardians Game</a>
+        </li>
+        
+        <!-- 示例：另一个标的 -->
+        <li data-stock="AAPL">
+            <a href="#">Apple Inc Analysis</a>
+        </li>
     </ul>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const listItems = document.querySelectorAll('ul li');
+
+            // 基础 URL 配置
+            const baseUrl = 'https://aipeinvestmentagent.pages.dev';
+
+            // 图标 SVG (这里用了一个简单的图表形状)
+            const iconSvg = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 3v18h18v-2H5V3H3zm4 14h2v-4H7v4zm4 0h2V7h-2v10zm4 0h2v-7h-2v7z"/>
+                </svg>
+            `;
+
+            listItems.forEach(item => {
+                // 1. 获取 Stock 名称
+                // 优先读取 data-stock 属性，如果没有，则读取链接的文本内容
+                const link = item.querySelector('a');
+                let stockName = item.getAttribute('data-stock');
+                
+                if (!stockName && link) {
+                    stockName = link.innerText.trim();
+                }
+
+                if (stockName) {
+                    // 2. 创建按钮元素
+                    const btn = document.createElement('div');
+                    btn.className = 'analytics-btn';
+                    btn.innerHTML = iconSvg;
+                    btn.title = `View Analytics for ${stockName}`; // 鼠标悬停提示
+
+                    // 3. 添加点击事件
+                    btn.addEventListener('click', (e) => {
+                        // 阻止冒泡，防止触发 li 或 a 的点击（如果 li 也有点击事件的话）
+                        e.stopPropagation();
+
+                        const encodedStockName = encodeURIComponent(stockName);
+                        const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
+                        
+                        // 在新标签页打开
+                        window.open(stockUrl, '_blank');
+                    });
+
+                    // 4. 将按钮添加到 li 中
+                    item.appendChild(btn);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
