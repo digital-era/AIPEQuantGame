@@ -656,6 +656,7 @@
             listEl.innerHTML = '';
             g.strategy.forEach((s, i) => {
                 const el = createRow(key, s, i, 'strategy');
+                // 注意：由于 createRow 内部绑定了 ondblclick，这里单击逻辑保留
                 el.onclick = () => selectStrategyItem(key, i);
                 if(g.selectedBuy === i) el.classList.add('selected');
                 listEl.appendChild(el);
@@ -666,7 +667,9 @@
             g.portfolio.forEach((p, i) => {
                 const el = createRow(key, p, i, 'portfolio');
                 if (p.isCash) el.classList.add('is-cash');
-                else el.onclick = () => selectPortfolioItem(key, i);
+                else {
+                    el.onclick = () => selectPortfolioItem(key, i);
+                }
                 
                 if(g.selectedSell === i && !p.isCash) el.classList.add('selected');
                 portEl.appendChild(el);
@@ -677,6 +680,18 @@
             const div = document.createElement('div');
             div.className = 'holding-item';
             
+            // --- [新增跳转功能整合] ---
+            if (!item.isCash) {
+                const baseUrl = 'https://aipeinvestmentagent.pages.dev';
+                const encodedStockName = encodeURIComponent(item.name);
+                const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
+                div.ondblclick = (e) => {
+                    e.stopPropagation(); // 防止触发父级单击选中逻辑
+                    window.open(stockUrl, '_blank');
+                };
+            }
+            // ------------------------
+
             // 5. 如果是甜点，添加糖果图标
             let iconPrefix = "";
             // if(item.isLocked) iconPrefix += "🔒"; // 预留
