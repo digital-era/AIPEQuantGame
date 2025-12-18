@@ -304,6 +304,9 @@
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 
+        // 1. 定义甜点文件名常量
+        const SWEET_POINT_FILE = 'SweetPoint_New.json';
+
         const GUARDIAN_CONFIG = {
             genbu:  { simpleName: "低波", flowName: "低波OR", file: '低波稳健模型_New.json' },
             suzaku: { simpleName: "大成", flowName: "大成OR", file: '大成模型_New.json' },
@@ -391,12 +394,42 @@
                     gameState.guardians[key].strategy = data.最优投资组合配置.配置详情.map(p => ({
                         name: p.名称, code: p.代码, refPrice: parseFloat(p.最近一日价格),
                         weight: parseFloat(p["最优权重(%)"]), 
-                        currentPrice: null, history: []
+                        currentPrice: null, history: [],
+                        isSweet: false // 2. 初始化默认为 false
                     }));
                     document.getElementById(`power-${key}`).innerText = (gameState.guardians[key].power * 100).toFixed(0) + "%";
                 } catch (e) { log(`[${key}] Model Err`, "red"); }
             });
             await Promise.all(promises);
+        }
+
+        // 3. 加载并标记 Sweet Points 的函数
+        async function loadSweetPoints() {
+            log("Scanning Sweet Points...", "#d8bfd8");
+            // 构建 GitHub URL
+            const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("SweetPoint fetch failed");
+                const json = await res.json();
+                
+                // 创建代码集合用于快速匹配
+                const sweetCodes = new Set(json.map(item => item.代码));
+
+                let count = 0;
+                // 遍历所有守护者（genbu, suzaku, etc.）
+                for (let key in gameState.guardians) {
+                    // 注意：原代码中建议列表存储在 strategy 数组中
+                    gameState.guardians[key].strategy.forEach(stock => {
+                        // 如果当前建议仓位代码在甜点列表中
+                        if (sweetCodes.has(stock.code)) {
+                            stock.isSweet = true; // 标记为真
+                            count++;
+                        }
+                    });
+                }
+                log(`Sweet Points Applied: ${count}`, "#d8bfd8");
+            } catch (e) { log("SweetPoint Err: " + e.message, "orange"); }
         }
 
         async function loadCloudPortfolio() {
@@ -644,7 +677,14 @@
             const div = document.createElement('div');
             div.className = 'holding-item';
             
-            let nameHtml = item.name;
+            // 5. 如果是甜点，添加糖果图标
+            let iconPrefix = "";
+            // if(item.isLocked) iconPrefix += "🔒"; // 预留
+            if(item.isSweet) iconPrefix += "🍬"; 
+            if(iconPrefix !== "") iconPrefix += " ";
+
+            let nameHtml = `${iconPrefix}${item.name}`;
+
             let wHtml = "";
             let pHtml = "";
             
@@ -947,6 +987,10 @@
             
             await initOSS();
             await Promise.all([ loadStrategies(), loadHistoryData() ]);
+            
+            // 4. 在策略加载后，云端数据恢复前调用
+            await loadSweetPoints(); 
+            
             await loadCloudPortfolio();
             
             updateMarketData();
