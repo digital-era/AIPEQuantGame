@@ -52,7 +52,6 @@
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
-        /* 增加 text-up/text-down 样式支持 */
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
@@ -108,7 +107,7 @@
         .cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 
         /* --- System Controls --- */
-        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; /* 初始隐藏，JS控制显示 */ }
+        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; }
         .chart-wrapper { position: relative; height: 300px; width: 100%; }
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 10px #0f0; margin-bottom: 10px; }
@@ -283,7 +282,6 @@
         </div>
     </div>
 
-    <!-- Settlement Panel: 控制显示与否 -->
     <div class="settlement-panel" id="settlementPanel">
         <h3 class="pixel-font" style="text-align:center;color:#fff;">Historical Performance</h3>
         <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
@@ -313,7 +311,6 @@
             kirin:  { simpleName: "大智", flowName: "大智OR", file: '大智模型_New.json' }
         };
 
-        // [新增] 历史回测文件配置 (来自代码2)
         const HISTORY_FILES = {
             genbu: '低波稳健模型优化后评估.json', suzaku: '大成模型优化后评估.json',
             sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
@@ -323,18 +320,18 @@
         let gameState = {
             active: false,
             guardians: {
-                genbu: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
-                suzaku: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
-                sirius: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
-                kirin: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 }
+                genbu: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 100000 },
+                suzaku: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 100000 },
+                sirius: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 100000 },
+                kirin: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 100000 }
             }
         };
         let memoryFlows = []; 
         let ossClient = null;
-        let perfChart = null; // Chart instance
-        
-        // [新增] 历史数据存储 (来自代码2)
+        let perfChart = null; 
         let historyData = { dates: [], datasets: {} };
+        // 全局缓存价格，用于计算那些已经卖掉的股票的当日盈亏
+        let priceCache = {};
 
         // ================= UTILS =================
         function log(msg, color="#0f0") {
@@ -357,6 +354,10 @@
                 if (h > 16 || (h === 16 && min > 30)) { h = 16; min = 30; }
             }
             return `${y}${m}${d}${String(h).padStart(2,'0')}${String(min).padStart(2,'0')}`;
+        }
+        
+        function getTodayPrefix() {
+            return getOpTime().substring(0, 8); // Returns YYYYMMDD
         }
 
         // ================= LOGIC =================
@@ -399,63 +400,74 @@
         }
 
         async function loadCloudPortfolio() {
-            log("Syncing Cloud Portfolio...", "#88f");
+            log("Syncing Cloud Portfolio & Flows...", "#88f");
             if (!await initOSS()) return;
             try {
                 const result = await ossClient.get(OSS_FILE_NAME);
                 const wb = XLSX.read(result.content, { type: 'array' });
-                // const todayPrefix = getOpTime().substring(0, 8); // 原有代码：不需要这行了
-                
+                const todayStr = getTodayPrefix(); // "20251218"
+
                 for (let key in GUARDIAN_CONFIG) {
-                    const sheetName = GUARDIAN_CONFIG[key].simpleName;
+                    const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
                     g.portfolio = []; 
+                    g.todayFlows = []; // Reset daily flows
 
-                    if (wb.Sheets[sheetName]) {
-                        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+                    // 1. Load Holdings
+                    if (wb.Sheets[cfg.simpleName]) {
+                        const raw = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
+                        // Find latest portfolio date (simple logic: take latest available, assumes cleaned up)
+                        // In production, you might want to only load "latest" snapshot. 
+                        // Here we take all rows assuming the sheet represents CURRENT state.
                         
-                        // --- 新增逻辑开始：寻找该Sheet中存在的最新日期 ---
+                        // New Logic: Find max date
                         let maxDateInt = 0;
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
                             if (t.length >= 8) {
-                                // 提取前8位 (YYYYMMDD) 转为数字比较
-                                const dateVal = parseInt(t.substring(0, 8));
-                                if (!isNaN(dateVal) && dateVal > maxDateInt) {
-                                    maxDateInt = dateVal;
-                                }
+                                const val = parseInt(t.substring(0, 8));
+                                if (val > maxDateInt) maxDateInt = val;
                             }
                         });
-                        // --- 新增逻辑结束 ---
-
-                        let holdingsMap = {};
-                        const targetPrefix = String(maxDateInt); // 将最新日期转回字符串用于匹配
+                        const targetPrefix = String(maxDateInt);
 
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
-                            // 修改：只有当这一行数据的日期等于最新日期时，才读取
+                            // Only load if matches latest snapshot date
                             if (maxDateInt > 0 && t.startsWith(targetPrefix)) {
-                                holdingsMap[row['股票代码']] = row;
+                                if (parseFloat(row['配置比例 (%)']) > 0) {
+                                    g.portfolio.push({
+                                        code: String(row['股票代码']),
+                                        name: row['股票名称'],
+                                        weight: parseFloat(row['配置比例 (%)']), 
+                                        currentPrice: null, 
+                                        history: []
+                                    });
+                                }
                             }
                         });
-
-                        Object.values(holdingsMap).forEach(row => {
-                            if (parseFloat(row['配置比例 (%)']) > 0) {
-                                g.portfolio.push({
+                    }
+                    
+                    // 2. Load Flows (Today Only) for PnL Calc
+                    if (wb.Sheets[cfg.flowName]) {
+                        const flowRaw = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
+                        flowRaw.forEach(row => {
+                            const t = String(row['修改时间'] || '');
+                            if (t.startsWith(todayStr)) {
+                                g.todayFlows.push({
                                     code: String(row['股票代码']),
-                                    name: row['股票名称'],
-                                    weight: parseFloat(row['配置比例 (%)']), 
-                                    currentPrice: null, 
-                                    history: []
+                                    type: row['操作类型'], // Buy or Sell
+                                    qty: parseFloat(row['标的数量']),
+                                    price: parseFloat(row['价格'])
                                 });
                             }
                         });
                     }
+
                     updateCash(key);
                 }
-                log("Cloud Portfolio Loaded.", "#0f0");
+                log("Cloud Data Loaded.", "#0f0");
             } catch (e) {
-                // ... (错误处理保持不变)
                 if (e.name === 'NoSuchKeyError' || e.code === 'NoSuchKey') {
                     log("No Cloud Save. Starting Fresh.", "#888");
                     for (let k in GUARDIAN_CONFIG) updateCash(k);
@@ -479,12 +491,11 @@
         async function updateMarketData() {
             for (let k in gameState.guardians) {
                 const g = gameState.guardians[k];
-                let currentAssets = 0;
                 
-                // 1. Update Strategy Prices and Calc System Rtn
+                // 1. Update Strategy Prices (for System Rtn)
                 let systemRtn = 0; 
                 for (let s of g.strategy) {
-                    await fetchPrice(s);
+                    await fetchPrice(s.code, s);
                     if (s.currentPrice && s.refPrice) {
                          const chg = (s.currentPrice - s.refPrice) / s.refPrice;
                          systemRtn += chg * (s.weight / 100);
@@ -495,50 +506,115 @@
                 sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
                 sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
 
-                // 2. Update Portfolio Prices & Value
+                // 2. Update Portfolio Prices
                 for (let p of g.portfolio) {
-                    if (p.isCash) {
-                        currentAssets += 100000 * (p.weight / 100); 
-                    } else {
-                        await fetchPrice(p);
-                        currentAssets += 100000 * (p.weight / 100); 
+                    if (!p.isCash) {
+                        await fetchPrice(p.code, p);
                     }
                 }
                 
-                if (g.initialAssets === 0 && currentAssets > 0) {
-                    g.initialAssets = 100000;
+                // 3. Ensure we have prices for any stock sold today (for PnL calc)
+                for (let f of g.todayFlows) {
+                    if (!priceCache[f.code]) {
+                        await fetchPrice(f.code, null); // Just cache the refPrice
+                    }
                 }
 
-                let portRtn = 0;
-                g.portfolio.forEach(p => {
-                    if (p.isCash) return;
-                    if (p.currentPrice && p.refPrice) {
-                        let base = p.refPrice || (p.history.length > 0 ? p.history[0] : p.currentPrice);
-                        let change = (p.currentPrice - base) / base;
-                        portRtn += change * (p.weight / 100);
-                    }
-                });
-                
+                // 4. Calculate User Rtn (Dynamic Logic)
+                const userRtnVal = calculateUserRtn(k);
                 const userRtnElem = document.getElementById(`user-rtn-${k}`);
-                userRtnElem.innerText = (portRtn * 100).toFixed(2) + "%";
-                userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
+                userRtnElem.innerText = userRtnVal.toFixed(2) + "%";
+                userRtnElem.className = userRtnVal >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
 
                 renderLists(k);
             }
         }
 
-        async function fetchPrice(item) {
-            if (!item.code) return;
+        // New Robust PnL Calculation
+        function calculateUserRtn(key) {
+            const g = gameState.guardians[key];
+            const virtualCapital = 100000;
+            let totalPnL = 0;
+
+            // Term 1: Current Holdings (Theoretical Full Day PnL)
+            // Assumes held from Open.
+            g.portfolio.forEach(p => {
+                if (p.isCash) return;
+                const price = p.currentPrice || p.refPrice; // fallback
+                const ref = p.refPrice || price;
+                
+                // Implied Qty held now
+                const val = virtualCapital * (p.weight / 100);
+                const impliedQty = (price > 0) ? Math.floor(val / price) : 0;
+                
+                // PnL contribution = Qty * (Current - Ref)
+                totalPnL += impliedQty * (price - ref);
+            });
+
+            // Process Flows (Corrections)
+            // Combine Cloud Flows + Local Memory Flows (deduplicate if needed, but simplistic here)
+            // Note: memoryFlows are NOT yet in g.todayFlows until we sync, but logic below iterates g.todayFlows.
+            // We need to merge them for calculation.
+            const allFlows = [...g.todayFlows];
+            memoryFlows.forEach(mf => {
+                if (mf.sheet === GUARDIAN_CONFIG[key].flowName) {
+                    allFlows.push({
+                        code: mf.data['股票代码'],
+                        type: mf.data['操作类型'] === 'Buy' ? 'Buy' : 'Sell', // normalize case
+                        qty: parseFloat(mf.data['标的数量']),
+                        price: parseFloat(mf.data['价格'])
+                    });
+                }
+            });
+
+            allFlows.forEach(f => {
+                // We need refPrice for this stock. It should be in priceCache or portfolio.
+                let ref = 0;
+                let existing = g.portfolio.find(p => p.code === f.code);
+                if (existing) ref = existing.refPrice;
+                else if (priceCache[f.code]) ref = priceCache[f.code].refPrice;
+                
+                if (ref > 0) {
+                    if (f.type === 'Buy') {
+                        // Term 2: Subtract the pre-buy gain we didn't actually earn
+                        // Correction: - Qty * (BuyPrice - RefPrice)
+                        totalPnL -= f.qty * (f.price - ref);
+                    } else if (f.type === 'Sell') {
+                        // Term 3: Add the realized gain from the sold portion
+                        // Realized: + Qty * (SellPrice - RefPrice)
+                        totalPnL += f.qty * (f.price - ref);
+                    }
+                }
+            });
+
+            return (totalPnL / virtualCapital) * 100;
+        }
+
+        async function fetchPrice(code, itemObj) {
+            if (!code || code === '100000') return;
+            
+            // If recently fetched (simple debounce/cache could go here, but omitted for realtime freshness)
             try {
-                const url = `${REAL_API_URL}?code=${item.code}&type=intraday`;
+                const url = `${REAL_API_URL}?code=${code}&type=intraday`;
                 const res = await fetch(url);
                 const data = await res.json();
+                
                 if (data && data.length > 0) {
-                    item.currentPrice = parseFloat(data[data.length-1].price);
-                    item.history = data.map(d=>d.price);
-                    if (!item.refPrice) item.refPrice = parseFloat(data[0].price);
+                    const curr = parseFloat(data[data.length-1].price);
+                    const ref = parseFloat(data[0].price); // Open price as ref
+                    const hist = data.map(d=>d.price);
+
+                    // Update Item Object if provided
+                    if (itemObj) {
+                        itemObj.currentPrice = curr;
+                        itemObj.history = hist;
+                        if (!itemObj.refPrice) itemObj.refPrice = ref;
+                    }
+                    
+                    // Update Global Cache
+                    priceCache[code] = { currentPrice: curr, refPrice: ref };
                 }
-            } catch(e) {}
+            } catch(e) { /* ignore */ }
         }
 
         function renderLists(key) {
@@ -669,7 +745,7 @@
                 const increment = weight * g.power;
                 const currentSum = g.portfolio.reduce((s, p) => p.isCash ? s : s + p.weight, 0);
                 if (currentSum + increment > 100.1) { 
-                    msgEl.innerText = `ERR: Limit Exceeded (Max 100%)`; msgEl.style.color="red"; return;
+                    msgEl.innerText = `ERR: Limit Exceeded`; msgEl.style.color="red"; return;
                 }
                 let existing = g.portfolio.find(p => p.code === item.code);
                 if (existing) {
@@ -688,7 +764,7 @@
                 if (g.selectedSell === null) return;
                 const item = g.portfolio[g.selectedSell];
                 if (weight > item.weight + 0.01) {
-                    msgEl.innerText = `ERR: Insufficient Holdings`; msgEl.style.color="red"; return;
+                    msgEl.innerText = `ERR: Insufficient`; msgEl.style.color="red"; return;
                 }
                 item.weight -= weight;
                 if (item.weight < 0.01) {
@@ -702,6 +778,9 @@
             msgEl.style.color = "#FFD700";
             updateCash(key);
             renderLists(key);
+            // Re-calculate Rtn immediately
+            const userRtnElem = document.getElementById(`user-rtn-${key}`);
+            userRtnElem.innerText = calculateUserRtn(key).toFixed(2) + "%";
         }
 
         function recordFlow(key, opType, code, name, inputWeight, price) {
@@ -746,6 +825,7 @@
                     const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
 
+                    // Sync Portfolio
                     let snapData = [];
                     if (wb.Sheets[cfg.simpleName]) {
                         snapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
@@ -764,6 +844,7 @@
                     if(wb.Sheets[cfg.simpleName]) wb.Sheets[cfg.simpleName] = newSnapWs;
                     else XLSX.utils.book_append_sheet(wb, newSnapWs, cfg.simpleName);
 
+                    // Sync Flows
                     let flowData = [];
                     if (wb.Sheets[cfg.flowName]) {
                         flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
@@ -785,13 +866,15 @@
                 dot.className = "oss-status done";
                 log("Cloud Sync Success.", "#0f0");
                 memoryFlows = []; 
+                // Reload to refresh flows
+                await loadCloudPortfolio();
+                updateMarketData();
             } catch (e) {
                 dot.className = "oss-status";
                 log("Sync Error: " + e.message, "red");
             }
         }
 
-        // [替换] 从 GitHub 获取历史回测数据 (来自代码2)
         async function loadHistoryData() {
             log("Loading Historical Data...", "#88f");
             const keys = Object.keys(HISTORY_FILES);
@@ -824,11 +907,8 @@
             renderHistoryChart();
         }
 
-        // [替换] 渲染历史曲线 (来自代码2)
         function renderHistoryChart() {
-            // 显示面板
             document.getElementById('settlementPanel').style.display = 'block';
-            
             const ctx = document.getElementById('performanceChart').getContext('2d');
             if (perfChart) perfChart.destroy();
             
@@ -866,13 +946,7 @@
             btn.innerText = "INITIALIZING...";
             
             await initOSS();
-            
-            // 并行加载策略和历史数据
-            await Promise.all([
-                loadStrategies(),
-                loadHistoryData() // [替换] 调用新的历史数据加载逻辑
-            ]);
-            
+            await Promise.all([ loadStrategies(), loadHistoryData() ]);
             await loadCloudPortfolio();
             
             updateMarketData();
