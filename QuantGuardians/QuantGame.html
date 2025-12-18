@@ -52,7 +52,9 @@
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
+        /* 增加 text-up/text-down 样式支持 */
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
+        
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
         
@@ -106,7 +108,7 @@
         .cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
 
         /* --- System Controls --- */
-        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; }
+        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; /* 初始隐藏，JS控制显示 */ }
         .chart-wrapper { position: relative; height: 300px; width: 100%; }
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 10px #0f0; margin-bottom: 10px; }
@@ -143,8 +145,6 @@
     </div>
 
     <div class="container">
-        <!-- Template for Guardians (Repeated via JS usually, but kept static structure for clarity) -->
-        
         <!-- GENBU -->
         <div class="guardian-card g-genbu" id="card-genbu">
             <div class="card-header"><div class="avatar">🛡️</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
@@ -283,6 +283,7 @@
         </div>
     </div>
 
+    <!-- Settlement Panel: 控制显示与否 -->
     <div class="settlement-panel" id="settlementPanel">
         <h3 class="pixel-font" style="text-align:center;color:#fff;">Historical Performance</h3>
         <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
@@ -324,6 +325,7 @@
         };
         let memoryFlows = []; 
         let ossClient = null;
+        let perfChart = null; // Store chart instance
 
         // ================= UTILS =================
         function log(msg, color="#0f0") {
@@ -335,7 +337,6 @@
             box.prepend(div);
         }
 
-        // Get time format: 202512161619 (Time clamped to 1630 if needed for sync logic)
         function getOpTime(clamp = false) {
             const now = new Date();
             const y = now.getFullYear();
@@ -343,7 +344,6 @@
             const d = String(now.getDate()).padStart(2,'0');
             let h = now.getHours();
             let min = now.getMinutes();
-            
             if (clamp) {
                 if (h > 16 || (h === 16 && min > 30)) { h = 16; min = 30; }
             }
@@ -352,7 +352,6 @@
 
         // ================= LOGIC =================
 
-        // 1. Initialize OSS
         async function initOSS() {
             if (ossClient) return true;
             try {
@@ -370,7 +369,6 @@
             } catch (e) { log("OSS Init Fail", "red"); return false; }
         }
 
-        // 2. Load Strategies (Suggestion List)
         async function loadStrategies() {
             log("Loading Strategy Models...", "cyan");
             const promises = Object.keys(GUARDIAN_CONFIG).map(async (key) => {
@@ -391,60 +389,41 @@
             await Promise.all(promises);
         }
 
-        // 3. Load Portfolio from Cloud (Last valid day snapshot)
         async function loadCloudPortfolio() {
             log("Syncing Cloud Portfolio...", "#88f");
             if (!await initOSS()) return;
             try {
                 const result = await ossClient.get(OSS_FILE_NAME);
                 const wb = XLSX.read(result.content, { type: 'array' });
-                
-                const todayPrefix = getOpTime().substring(0, 8); // YYYYMMDD
+                const todayPrefix = getOpTime().substring(0, 8);
                 
                 for (let key in GUARDIAN_CONFIG) {
                     const sheetName = GUARDIAN_CONFIG[key].simpleName;
                     const g = gameState.guardians[key];
-                    g.portfolio = []; // Reset
+                    g.portfolio = []; 
 
                     if (wb.Sheets[sheetName]) {
                         const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
-                        // Filter logic: Find the latest date that is NOT today (or simply load the snapshot as "Initial State")
-                        // Requirement 6: "modification time field last day (remove max time)" implies historical baseline.
-                        // We will load the most recent snapshot available in the file that isn't from the future.
-                        // Ideally, we group by date and pick the last complete set.
-                        
-                        // Simply: Load the snapshot rows. If there are multiple dates, we usually want the latest valid one.
-                        // Assuming the sheet is appended, we just take the last occurrence of each stock code?
-                        // No, the requirement implies retrieving a coherent list from a specific past date.
-                        // Let's filter out entries that match TODAY (assuming today is a new battle).
-                        
-                        // Construct a map of Code -> Holding
                         let holdingsMap = {};
                         raw.forEach(row => {
                             const t = String(row['修改时间']);
-                            // If row time is NOT today (so we get yesterday's close position)
                             if (!t.startsWith(todayPrefix)) {
                                 holdingsMap[row['股票代码']] = row;
                             }
                         });
-
-                        // Convert map to array
                         Object.values(holdingsMap).forEach(row => {
                             if (parseFloat(row['配置比例 (%)']) > 0) {
                                 g.portfolio.push({
                                     code: String(row['股票代码']),
                                     name: row['股票名称'],
-                                    weight: parseFloat(row['配置比例 (%)']), // This is actual held weight
-                                    currentPrice: null, // Will fetch
+                                    weight: parseFloat(row['配置比例 (%)']), 
+                                    currentPrice: null, 
                                     history: []
                                 });
                             }
                         });
                     }
                     updateCash(key);
-                    
-                    // Calculate Initial Asset Value for User Rtn Baseline
-                    // We need prices for this. We will estimate Initial Assets after fetching prices.
                 }
                 log("Cloud Portfolio Loaded.", "#0f0");
             } catch (e) {
@@ -457,89 +436,60 @@
             }
         }
 
-        // Calculate Cash Entry (Requirement 5)
         function updateCash(key) {
             const g = gameState.guardians[key];
-            // Remove existing cash
             g.portfolio = g.portfolio.filter(p => p.code !== '100000');
-            
             const totalStockWeight = g.portfolio.reduce((sum, p) => sum + p.weight, 0);
             const cashWeight = Math.max(0, 100 - totalStockWeight);
-            
             g.portfolio.push({
                 code: '100000', name: '现金', weight: cashWeight, 
                 currentPrice: 1, history: [], isCash: true
             });
         }
 
-        // 4. Market Data & Asset Calculation
         async function updateMarketData() {
-            // Collect all codes needed
-            let allCodes = new Set();
-            for (let k in gameState.guardians) {
-                gameState.guardians[k].strategy.forEach(s => allCodes.add(s.code));
-                gameState.guardians[k].portfolio.forEach(p => { if(!p.isCash) allCodes.add(p.code); });
-            }
-
-            // Fetch (Batching would be better, but doing simple loop for now)
             for (let k in gameState.guardians) {
                 const g = gameState.guardians[k];
                 let currentAssets = 0;
                 
-                // Update Strategy Prices
+                // 1. Update Strategy Prices and Calc System Rtn
+                let systemRtn = 0; // REPAIR: Variable for System Return
                 for (let s of g.strategy) {
                     await fetchPrice(s);
-                    // Update UI if in list
+                    // REPAIR: Calculate weighted System Return
+                    if (s.currentPrice && s.refPrice) {
+                         const chg = (s.currentPrice - s.refPrice) / s.refPrice;
+                         systemRtn += chg * (s.weight / 100);
+                    }
                 }
-                
-                // Update Portfolio Prices & Value
+                // REPAIR: Update UI for System Rtn
+                const sysRtnElem = document.getElementById(`rtn-${k}`);
+                sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
+                sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
+
+                // 2. Update Portfolio Prices & Value
                 for (let p of g.portfolio) {
                     if (p.isCash) {
-                        currentAssets += 100000 * (p.weight / 100); // Fixed Capital Basis 100k for proportion
+                        currentAssets += 100000 * (p.weight / 100); 
                     } else {
                         await fetchPrice(p);
-                        // Current Value = (TotalCapital * Weight%) -> This logic is circular if based on dynamic.
-                        // Requirement 10: "Sell/Buy Qty based on latest dynamic funds * config %"
-                        // Dynamic Funds = Cash + Stock Value.
-                        // Let's assume Base Capital = 100,000 for the simulation ratio.
-                        // Value = 100,000 * (Weight/100).
                         currentAssets += 100000 * (p.weight / 100); 
-                        // Real logic: We track shares? The prompt says "output... config %". 
-                        // It seems the system is Percentage Based mainly.
-                        // But Req 10 implies we need to calculate quantity.
                     }
                 }
                 
-                // Calculate User Rtn (Requirement 9)
-                // "From low wave OR... get buy/sell impact... deduce User Rtn"
-                // Simplified PnL: (CurrentAssets - InitialAssets) / InitialAssets
-                // We need to set InitialAssets once at start.
                 if (g.initialAssets === 0 && currentAssets > 0) {
-                    g.initialAssets = 100000; // Assuming start at par if no history tracking of absolute PnL
-                    // If we loaded portfolio, the weights sum to 100%. So value is 100k.
-                    // The variation comes from Price Change.
-                    // Actually, we need to track: Sum(Weight * PriceChange).
+                    g.initialAssets = 100000;
                 }
 
-                // Calculate weighted return of portfolio
                 let portRtn = 0;
                 g.portfolio.forEach(p => {
                     if (p.isCash) return;
-                    if (p.currentPrice && p.refPrice) { // Using refPrice as yesterday close?
-                        // If loaded from cloud, we don't have 'cost price'. 
-                        // We use the day's change (current vs today open/ref).
-                        // Req 9 says "From day's OR sheet...". 
-                        // Let's use simple weighted return for now: Sum(Weight * StockDayChange).
-                        // StockDayChange = (Price - RefPrice)/RefPrice. RefPrice comes from Strategy file (Yesterday Close).
-                        // If stock not in strategy file, we need a refPrice.
-                        // For simplicity, use fetched history[0] (Open) if available.
+                    if (p.currentPrice && p.refPrice) {
                         let base = p.refPrice || (p.history.length > 0 ? p.history[0] : p.currentPrice);
                         let change = (p.currentPrice - base) / base;
                         portRtn += change * (p.weight / 100);
                     }
                 });
-                // Adjust by Power? No, Portfolio is actual. Power is for Buy Entry.
-                // Apply Power to Strategy Rtn (System Rtn).
                 
                 const userRtnElem = document.getElementById(`user-rtn-${k}`);
                 userRtnElem.innerText = (portRtn * 100).toFixed(2) + "%";
@@ -558,17 +508,13 @@
                 if (data && data.length > 0) {
                     item.currentPrice = parseFloat(data[data.length-1].price);
                     item.history = data.map(d=>d.price);
-                    // If RefPrice missing (e.g. old holding not in strategy), use Open
                     if (!item.refPrice) item.refPrice = parseFloat(data[0].price);
                 }
             } catch(e) {}
         }
 
-        // 5. UI Rendering
         function renderLists(key) {
             const g = gameState.guardians[key];
-            
-            // Strategy List
             const listEl = document.getElementById(`list-${key}`);
             listEl.innerHTML = '';
             g.strategy.forEach((s, i) => {
@@ -578,7 +524,6 @@
                 listEl.appendChild(el);
             });
 
-            // Portfolio List
             const portEl = document.getElementById(`portfolio-${key}`);
             portEl.innerHTML = '';
             g.portfolio.forEach((p, i) => {
@@ -609,10 +554,8 @@
             }
 
             if (type === 'strategy') {
-                // Strategy: Show Suggested Weight
                 wHtml = `<span class="h-weight">[${item.weight.toFixed(2)}%]</span>`;
             } else {
-                // Portfolio: Show Actual Weight (Yellow)
                 wHtml = `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
             }
 
@@ -622,7 +565,6 @@
                 <div class="mini-chart-container"><canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas></div>
             `;
             
-            // Draw chart after append
             setTimeout(() => {
                 if(item.history && item.history.length > 1) {
                     drawSpark(`chart-${key}-${type}-${idx}`, item.history, item.refPrice, (item.currentPrice>=item.refPrice?'#EF4444':'#10B981'));
@@ -648,11 +590,9 @@
             ctx.stroke();
         }
 
-        // 6. Interaction Logic
         function selectStrategyItem(key, idx) {
             gameState.guardians[key].selectedBuy = idx;
             const item = gameState.guardians[key].strategy[idx];
-            // Fill Buy Inputs
             document.getElementById(`buy-price-${key}`).value = item.currentPrice || item.refPrice;
             document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
             renderLists(key);
@@ -663,9 +603,8 @@
             const p = gameState.guardians[key].portfolio[idx];
             if (p.isCash) return;
             gameState.guardians[key].selectedSell = idx;
-            // Fill Sell Inputs
             document.getElementById(`sell-price-${key}`).value = p.currentPrice || p.refPrice;
-            document.getElementById(`sell-weight-${key}`).value = p.weight.toFixed(2); // Default to selling all? Or holding?
+            document.getElementById(`sell-weight-${key}`).value = p.weight.toFixed(2);
             renderLists(key);
             calcQty(key, 'sell');
         }
@@ -677,14 +616,9 @@
             const resEl = document.getElementById(`calc-${type}-${key}`);
             
             if (price > 0 && weight > 0) {
-                // Req 10: Sell and Buy Qty based on latest dynamic funds * config %
-                // Dynamic Funds calculation:
-                const totalAssets = 100000; // Simplified for % logic as requested.
-                
+                const totalAssets = 100000; 
                 let actualWeight = weight;
-                // Req 5: Buy proportion change is Config * Power
                 if (type === 'buy') actualWeight = weight * g.power; 
-                
                 const val = totalAssets * (actualWeight / 100);
                 const qty = Math.floor(val / price);
                 resEl.innerText = `Qty: ${qty}`;
@@ -704,23 +638,17 @@
             if (type === 'buy') {
                 if (g.selectedBuy === null) return;
                 const item = g.strategy[g.selectedBuy];
-                // Check Constraint (Req 5): Config * Power + Existing Sum <= 100
                 const increment = weight * g.power;
                 const currentSum = g.portfolio.reduce((s, p) => p.isCash ? s : s + p.weight, 0);
-                
-                // Check if already holding to add to its weight check
-                // Actually constraint is "Total Config Ratio".
-                if (currentSum + increment > 100.1) { // Tolerance
+                if (currentSum + increment > 100.1) { 
                     msgEl.innerText = `ERR: Limit Exceeded (Max 100%)`; msgEl.style.color="red"; return;
                 }
-
-                // Execute Buy
                 let existing = g.portfolio.find(p => p.code === item.code);
                 if (existing) {
                     existing.weight += increment;
-                    existing.currentPrice = price; // Update price view
+                    existing.currentPrice = price; 
                 } else {
-                    g.portfolio.unshift({ // Add to top of portfolio
+                    g.portfolio.unshift({ 
                         code: item.code, name: item.name, weight: increment,
                         currentPrice: price, refPrice: item.refPrice, history: item.history
                     });
@@ -731,15 +659,11 @@
             } else if (type === 'sell') {
                 if (g.selectedSell === null) return;
                 const item = g.portfolio[g.selectedSell];
-                // Check Constraint (Req 4): Sell % <= Current %
                 if (weight > item.weight + 0.01) {
                     msgEl.innerText = `ERR: Insufficient Holdings`; msgEl.style.color="red"; return;
                 }
-
-                // Execute Sell
                 item.weight -= weight;
                 if (item.weight < 0.01) {
-                    // Remove if empty
                     g.portfolio.splice(g.selectedSell, 1);
                     g.selectedSell = null;
                 }
@@ -752,15 +676,9 @@
             renderLists(key);
         }
 
-        // Record for Sync
         function recordFlow(key, opType, code, name, inputWeight, price) {
             const g = gameState.guardians[key];
             const totalAssets = 100000;
-            // Note: For Buy, recorded weight is input weight, but actual portfolio change is input*power.
-            // Flow sheet usually records the Action. 
-            // Req 5: "proportion change is Config * Power".
-            // Req 9/10: Calculate qty based on config.
-            
             let actualWeight = (opType === 'Buy') ? inputWeight * g.power : inputWeight;
             const val = totalAssets * (actualWeight / 100);
             const qty = Math.floor(val / price);
@@ -772,7 +690,7 @@
                     "组合名称": GUARDIAN_CONFIG[key].simpleName,
                     "股票代码": code,
                     "股票名称": name,
-                    "配置比例 (%)": actualWeight.toFixed(2), // Recording actual effective weight change
+                    "配置比例 (%)": actualWeight.toFixed(2), 
                     "标的数量": qty,
                     "价格": price,
                     "价值": value,
@@ -782,15 +700,12 @@
             });
         }
 
-        // 7. Sync Cloud Logic
         async function syncToCloud() {
             if (!await initOSS()) return;
-            const btn = document.querySelector('.oss-btn');
             const dot = document.getElementById('ossStatusDot');
             dot.className = "oss-status syncing";
             
             try {
-                // Read existing
                 let wb;
                 try {
                     const r = await ossClient.get(OSS_FILE_NAME);
@@ -803,18 +718,10 @@
                     const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
 
-                    // A. Update Snapshot Sheet (e.g. "低波")
-                    // Req 7: Remove suggested %, source from Portfolio, Time <= 1630
                     let snapData = [];
                     if (wb.Sheets[cfg.simpleName]) {
-                        // Keep history (everything NOT from today/current session time logic)
-                        // Actually, simplified: just append new snapshot for this timestamp.
-                        // Or if we need to replace today's snapshot? 
-                        // Let's Append.
                         snapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
                     }
-                    
-                    // Add current portfolio
                     g.portfolio.forEach(p => {
                         snapData.push({
                             "组合名称": cfg.simpleName,
@@ -825,36 +732,23 @@
                             "修改时间": timeStr
                         });
                     });
-                    
                     const newSnapWs = XLSX.utils.json_to_sheet(snapData, { header: ["组合名称","股票代码","股票名称","来源","配置比例 (%)","修改时间"] });
                     if(wb.Sheets[cfg.simpleName]) wb.Sheets[cfg.simpleName] = newSnapWs;
                     else XLSX.utils.book_append_sheet(wb, newSnapWs, cfg.simpleName);
 
-                    // B. Update Flow Sheet (e.g. "低波OR")
-                    // Req 8: Add Op Type, Time <= 1630
                     let flowData = [];
                     if (wb.Sheets[cfg.flowName]) {
                         flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
                     }
-                    
-                    // Filter memory flows for this key and append
                     const pending = memoryFlows.filter(f => f.sheet === cfg.flowName);
                     pending.forEach(f => {
-                         // Check duplicates? (Simple check)
-                         // Assume memory is cleared after sync or we filter? 
-                         // For this version, we just append all in memory, assuming memory tracks 'session'.
-                         // Real app might need ID check.
                          flowData.push(f.data);
                     });
-                    
-                    // Calculate Total Value column (Req 8 implies output structure changes)
-                    // We just write the rows.
                     const newFlowWs = XLSX.utils.json_to_sheet(flowData, { header: ["组合名称","股票代码","股票名称","配置比例 (%)","标的数量","价格","价值","操作类型","修改时间"] });
                     if(wb.Sheets[cfg.flowName]) wb.Sheets[cfg.flowName] = newFlowWs;
                     else XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
                 }
 
-                // Write
                 const wopts = { bookType:'xlsx', bookSST:false, type:'array' };
                 const wbout = XLSX.write(wb, wopts);
                 const blob = new Blob([wbout], {type:"application/octet-stream"});
@@ -862,11 +756,37 @@
                 
                 dot.className = "oss-status done";
                 log("Cloud Sync Success.", "#0f0");
-                memoryFlows = []; // Clear pending
+                memoryFlows = []; 
             } catch (e) {
                 dot.className = "oss-status";
                 log("Sync Error: " + e.message, "red");
             }
+        }
+
+        // REPAIR: Initialize Chart logic
+        function initChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            perfChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'],
+                    datasets: [{
+                        label: 'System Performance (Simulated)',
+                        data: [100, 101.2, 100.8, 102.5, 103.0], // Dummy Data
+                        borderColor: '#10B981',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#fff' } } },
+                    scales: {
+                        y: { ticks: { color: '#888' }, grid: { color: '#333' } },
+                        x: { ticks: { color: '#888' }, grid: { color: '#333' } }
+                    }
+                }
+            });
         }
 
         async function initSystem() {
@@ -874,13 +794,16 @@
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING...";
             
+            // REPAIR: Show the panel
+            document.getElementById('settlementPanel').style.display = 'block';
+            initChart(); // REPAIR: Init chart
+
             await initOSS();
             await loadStrategies();
             await loadCloudPortfolio();
             
-            // Start Loop
             updateMarketData();
-            setInterval(updateMarketData, 60000); // 1 min update
+            setInterval(updateMarketData, 60000); 
             
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
