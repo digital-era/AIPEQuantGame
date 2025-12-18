@@ -466,15 +466,15 @@
             document.getElementById('modalCode').innerText = `(${item.code})`;
             document.getElementById('chartModal').style.display = 'flex';
             document.querySelector('.modal-content').style.borderColor = color;
-
+        
             const ctx = document.getElementById('detailChartCanvas').getContext('2d');
             if (detailChart) detailChart.destroy();
             if (playbackTimer) clearInterval(playbackTimer);
-
+        
             const gradient = ctx.createLinearGradient(0, 0, 0, 450);
             gradient.addColorStop(0, color + '55');
             gradient.addColorStop(1, color + '00');
-
+        
             detailChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -499,7 +499,6 @@
                     animation: false,
                     plugins: {
                         legend: { display: false },
-                        // 增加基准线插件（在y轴设置中实现）
                         tooltip: {
                             mode: 'index',
                             intersect: false,
@@ -519,36 +518,30 @@
                             grid: { color: '#222' },
                             ticks: { color: '#888' }
                         },
-                        // 新增：右侧百分比轴
+                        // 修改处：右侧轴隐藏刻度数值
                         y1: {
                             position: 'right',
                             grid: { display: false },
-                            ticks: {
-                                color: '#666',
-                                callback: function(value) {
-                                    const chg = ((value - refPrice) / refPrice * 100).toFixed(1);
-                                    return chg + '%';
-                                }
-                            }
+                            ticks: { display: false } 
                         }
                     }
                 }
             });
-
+        
             let step = 0;
             const fullHistory = item.history;
             
             playbackTimer = setInterval(() => {
                 step++;
                 if (step > fullHistory.length + 10) step = 0;
-
+        
                 const currentSlice = fullHistory.slice(0, step);
                 const lastPrice = currentSlice[currentSlice.length - 1];
-
+        
                 // 更新大图数据
                 detailChart.data.datasets[0].data = currentSlice;
                 detailChart.update('none');
-
+        
                 // 更新顶部 HUD 的百分比和颜色
                 if (lastPrice) {
                     const currentChg = ((lastPrice - refPrice) / refPrice * 100).toFixed(2);
