@@ -84,8 +84,25 @@
         .text-up { color: #EF4444; }
         .text-down { color: #10B981; }
         
-        .mini-chart-container { position: relative; width: 100%; height: 30px; }
+        .mini-chart-container { position: relative; width: 100%; height: 30px; cursor: crosshair; }
+        .mini-chart-container:hover { background: rgba(255,255,255,0.05); }
         canvas.sparkline { width: 100%; height: 100%; }
+
+        /* --- [新增] 动态大图弹窗样式 --- */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        .modal-content {
+            background: #0a0a15; border: 2px solid #0f0; width: 90%; max-width: 1000px;
+            padding: 30px; border-radius: 10px; position: relative;
+            box-shadow: 0 0 50px rgba(0,255,0,0.2);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .close-btn { background: none; border: 1px solid #555; color: #fff; font-family: 'Press Start 2P'; font-size: 10px; padding: 5px 10px; cursor: pointer; }
+        .close-btn:hover { border-color: #f00; color: #f00; }
+        .detail-chart-wrapper { height: 400px; width: 100%; }
 
         /* --- Commander Section --- */
         .commander-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
@@ -143,8 +160,24 @@
         </button>
     </div>
 
+    <!-- [新增] 全屏详情大图弹窗 -->
+    <div id="chartModal" class="modal-overlay" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div>
+                    <span id="modalTitle" class="pixel-font" style="font-size:1.2em; color:var(--user-gold);">STOCK NAME</span>
+                    <span id="modalCode" style="color:#888; margin-left:10px;">(000000)</span>
+                </div>
+                <button class="close-btn" onclick="closeModal()">[X] CLOSE</button>
+            </div>
+            <div class="detail-chart-wrapper">
+                <canvas id="detailChartCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
-        <!-- GENBU -->
+        <!-- 各护卫队卡片保持不变 -->
         <div class="guardian-card g-genbu" id="card-genbu">
             <div class="card-header"><div class="avatar">🛡️</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
             <div class="main-stat-box">
@@ -152,12 +185,9 @@
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
                 <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
             </div>
-            
             <div class="list-header">STRATEGY SUGGESTIONS</div>
             <div class="holdings-list" id="list-genbu"></div>
-            
             <div class="commander-section">
-                <!-- BUY -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div>
                     <div class="cmd-controls">
@@ -166,7 +196,6 @@
                         <button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button>
                     </div>
                 </div>
-                <!-- SELL -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div>
                     <div class="cmd-controls">
@@ -177,12 +206,10 @@
                 </div>
                 <div class="cmd-msg" id="msg-genbu"></div>
             </div>
-
             <div class="list-header">PORTFOLIO HOLDINGS</div>
             <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
         </div>
 
-        <!-- SUZAKU -->
         <div class="guardian-card g-suzaku" id="card-suzaku">
             <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
             <div class="main-stat-box">
@@ -215,7 +242,6 @@
             <div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
         </div>
 
-        <!-- SIRIUS -->
         <div class="guardian-card g-sirius" id="card-sirius">
             <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
             <div class="main-stat-box">
@@ -248,7 +274,6 @@
             <div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
         </div>
 
-        <!-- KIRIN -->
         <div class="guardian-card g-kirin" id="card-kirin">
             <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
             <div class="main-stat-box">
@@ -304,7 +329,6 @@
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 
-        // 1. 定义甜点文件名常量
         const SWEET_POINT_FILE = 'SweetPoint_New.json';
 
         const GUARDIAN_CONFIG = {
@@ -332,8 +356,8 @@
         let memoryFlows = []; 
         let ossClient = null;
         let perfChart = null; 
+        let detailChart = null; // [新增] 全局详情大图实例
         let historyData = { dates: [], datasets: {} };
-        // 全局缓存价格，用于计算那些已经卖掉的股票的当日盈亏
         let priceCache = {};
 
         // ================= UTILS =================
@@ -360,11 +384,78 @@
         }
         
         function getTodayPrefix() {
-            return getOpTime().substring(0, 8); // Returns YYYYMMDD
+            return getOpTime().substring(0, 8); 
+        }
+
+        // ================= [新增] 弹出详情大图逻辑 =================
+        function openDetailChart(item) {
+            if (!item.history || item.history.length === 0) return;
+
+            document.getElementById('modalTitle').innerText = item.name;
+            document.getElementById('modalCode').innerText = `(${item.code})`;
+            document.getElementById('chartModal').style.display = 'flex';
+
+            const ctx = document.getElementById('detailChartCanvas').getContext('2d');
+            
+            // 销毁旧图表
+            if (detailChart) detailChart.destroy();
+
+            // 构造渐变
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(0, 255, 0, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+
+            detailChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: item.history.map((_, i) => i),
+                    datasets: [{
+                        label: 'Price',
+                        data: item.history,
+                        borderColor: '#0f0',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        fill: true,
+                        backgroundColor: gradient,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1500, // 炫酷的生长动画
+                        easing: 'easeOutQuart'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: '#111',
+                            titleColor: '#0f0',
+                            bodyColor: '#fff',
+                            borderColor: '#333',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            grid: { color: '#222' },
+                            ticks: { color: '#888', font: { family: 'Roboto Mono' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('chartModal').style.display = 'none';
         }
 
         // ================= LOGIC =================
-
         async function initOSS() {
             if (ossClient) return true;
             try {
@@ -395,7 +486,7 @@
                         name: p.名称, code: p.代码, refPrice: parseFloat(p.最近一日价格),
                         weight: parseFloat(p["最优权重(%)"]), 
                         currentPrice: null, history: [],
-                        isSweet: false // 2. 初始化默认为 false
+                        isSweet: false 
                     }));
                     document.getElementById(`power-${key}`).innerText = (gameState.guardians[key].power * 100).toFixed(0) + "%";
                 } catch (e) { log(`[${key}] Model Err`, "red"); }
@@ -403,27 +494,19 @@
             await Promise.all(promises);
         }
 
-        // 3. 加载并标记 Sweet Points 的函数
         async function loadSweetPoints() {
             log("Scanning Sweet Points...", "#d8bfd8");
-            // 构建 GitHub URL
             const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
             try {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("SweetPoint fetch failed");
                 const json = await res.json();
-                
-                // 创建代码集合用于快速匹配
                 const sweetCodes = new Set(json.map(item => item.代码));
-
                 let count = 0;
-                // 遍历所有守护者（genbu, suzaku, etc.）
                 for (let key in gameState.guardians) {
-                    // 注意：原代码中建议列表存储在 strategy 数组中
                     gameState.guardians[key].strategy.forEach(stock => {
-                        // 如果当前建议仓位代码在甜点列表中
                         if (sweetCodes.has(stock.code)) {
-                            stock.isSweet = true; // 标记为真
+                            stock.isSweet = true;
                             count++;
                         }
                     });
@@ -438,22 +521,16 @@
             try {
                 const result = await ossClient.get(OSS_FILE_NAME);
                 const wb = XLSX.read(result.content, { type: 'array' });
-                const todayStr = getTodayPrefix(); // "20251218"
+                const todayStr = getTodayPrefix(); 
 
                 for (let key in GUARDIAN_CONFIG) {
                     const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
                     g.portfolio = []; 
-                    g.todayFlows = []; // Reset daily flows
+                    g.todayFlows = []; 
 
-                    // 1. Load Holdings
                     if (wb.Sheets[cfg.simpleName]) {
                         const raw = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
-                        // Find latest portfolio date (simple logic: take latest available, assumes cleaned up)
-                        // In production, you might want to only load "latest" snapshot. 
-                        // Here we take all rows assuming the sheet represents CURRENT state.
-                        
-                        // New Logic: Find max date
                         let maxDateInt = 0;
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
@@ -463,10 +540,8 @@
                             }
                         });
                         const targetPrefix = String(maxDateInt);
-
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
-                            // Only load if matches latest snapshot date
                             if (maxDateInt > 0 && t.startsWith(targetPrefix)) {
                                 if (parseFloat(row['配置比例 (%)']) > 0) {
                                     g.portfolio.push({
@@ -480,8 +555,6 @@
                             }
                         });
                     }
-                    
-                    // 2. Load Flows (Today Only) for PnL Calc
                     if (wb.Sheets[cfg.flowName]) {
                         const flowRaw = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
                         flowRaw.forEach(row => {
@@ -489,14 +562,11 @@
                             if (t.startsWith(todayStr)) {
                                 g.todayFlows.push({
                                     code: String(row['股票代码']),
-                                    type: row['操作类型'], // Buy or Sell
-                                    qty: parseFloat(row['标的数量']),
-                                    price: parseFloat(row['价格'])
+                                    type: row['操作类型'], qty: parseFloat(row['标的数量']), price: parseFloat(row['价格'])
                                 });
                             }
                         });
                     }
-
                     updateCash(key);
                 }
                 log("Cloud Data Loaded.", "#0f0");
@@ -524,8 +594,6 @@
         async function updateMarketData() {
             for (let k in gameState.guardians) {
                 const g = gameState.guardians[k];
-                
-                // 1. Update Strategy Prices (for System Rtn)
                 let systemRtn = 0; 
                 for (let s of g.strategy) {
                     await fetchPrice(s.code, s);
@@ -534,120 +602,77 @@
                          systemRtn += chg * (s.weight / 100);
                     }
                 }
-                
                 const sysRtnElem = document.getElementById(`rtn-${k}`);
                 sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
                 sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
-
-                // 2. Update Portfolio Prices
                 for (let p of g.portfolio) {
-                    if (!p.isCash) {
-                        await fetchPrice(p.code, p);
-                    }
+                    if (!p.isCash) await fetchPrice(p.code, p);
                 }
-                
-                // 3. Ensure we have prices for any stock sold today (for PnL calc)
                 for (let f of g.todayFlows) {
-                    if (!priceCache[f.code]) {
-                        await fetchPrice(f.code, null); // Just cache the refPrice
-                    }
+                    if (!priceCache[f.code]) await fetchPrice(f.code, null);
                 }
-
-                // 4. Calculate User Rtn (Dynamic Logic)
                 const userRtnVal = calculateUserRtn(k);
                 const userRtnElem = document.getElementById(`user-rtn-${k}`);
                 userRtnElem.innerText = userRtnVal.toFixed(2) + "%";
                 userRtnElem.className = userRtnVal >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
-
                 renderLists(k);
             }
         }
 
-        // New Robust PnL Calculation
         function calculateUserRtn(key) {
             const g = gameState.guardians[key];
             const virtualCapital = 100000;
             let totalPnL = 0;
-
-            // Term 1: Current Holdings (Theoretical Full Day PnL)
-            // Assumes held from Open.
             g.portfolio.forEach(p => {
                 if (p.isCash) return;
-                const price = p.currentPrice || p.refPrice; // fallback
+                const price = p.currentPrice || p.refPrice;
                 const ref = p.refPrice || price;
-                
-                // Implied Qty held now
                 const val = virtualCapital * (p.weight / 100);
                 const impliedQty = (price > 0) ? Math.floor(val / price) : 0;
-                
-                // PnL contribution = Qty * (Current - Ref)
                 totalPnL += impliedQty * (price - ref);
             });
-
-            // Process Flows (Corrections)
-            // Combine Cloud Flows + Local Memory Flows (deduplicate if needed, but simplistic here)
-            // Note: memoryFlows are NOT yet in g.todayFlows until we sync, but logic below iterates g.todayFlows.
-            // We need to merge them for calculation.
             const allFlows = [...g.todayFlows];
             memoryFlows.forEach(mf => {
                 if (mf.sheet === GUARDIAN_CONFIG[key].flowName) {
                     allFlows.push({
                         code: mf.data['股票代码'],
-                        type: mf.data['操作类型'] === 'Buy' ? 'Buy' : 'Sell', // normalize case
+                        type: mf.data['操作类型'] === 'Buy' ? 'Buy' : 'Sell',
                         qty: parseFloat(mf.data['标的数量']),
                         price: parseFloat(mf.data['价格'])
                     });
                 }
             });
-
             allFlows.forEach(f => {
-                // We need refPrice for this stock. It should be in priceCache or portfolio.
                 let ref = 0;
                 let existing = g.portfolio.find(p => p.code === f.code);
                 if (existing) ref = existing.refPrice;
                 else if (priceCache[f.code]) ref = priceCache[f.code].refPrice;
-                
                 if (ref > 0) {
-                    if (f.type === 'Buy') {
-                        // Term 2: Subtract the pre-buy gain we didn't actually earn
-                        // Correction: - Qty * (BuyPrice - RefPrice)
-                        totalPnL -= f.qty * (f.price - ref);
-                    } else if (f.type === 'Sell') {
-                        // Term 3: Add the realized gain from the sold portion
-                        // Realized: + Qty * (SellPrice - RefPrice)
-                        totalPnL += f.qty * (f.price - ref);
-                    }
+                    if (f.type === 'Buy') totalPnL -= f.qty * (f.price - ref);
+                    else if (f.type === 'Sell') totalPnL += f.qty * (f.price - ref);
                 }
             });
-
             return (totalPnL / virtualCapital) * 100;
         }
 
         async function fetchPrice(code, itemObj) {
             if (!code || code === '100000') return;
-            
-            // If recently fetched (simple debounce/cache could go here, but omitted for realtime freshness)
             try {
                 const url = `${REAL_API_URL}?code=${code}&type=intraday`;
                 const res = await fetch(url);
                 const data = await res.json();
-                
                 if (data && data.length > 0) {
                     const curr = parseFloat(data[data.length-1].price);
-                    const ref = parseFloat(data[0].price); // Open price as ref
+                    const ref = parseFloat(data[0].price);
                     const hist = data.map(d=>d.price);
-
-                    // Update Item Object if provided
                     if (itemObj) {
                         itemObj.currentPrice = curr;
                         itemObj.history = hist;
                         if (!itemObj.refPrice) itemObj.refPrice = ref;
                     }
-                    
-                    // Update Global Cache
                     priceCache[code] = { currentPrice: curr, refPrice: ref };
                 }
-            } catch(e) { /* ignore */ }
+            } catch(e) { }
         }
 
         function renderLists(key) {
@@ -656,21 +681,16 @@
             listEl.innerHTML = '';
             g.strategy.forEach((s, i) => {
                 const el = createRow(key, s, i, 'strategy');
-                // 注意：由于 createRow 内部绑定了 ondblclick，这里单击逻辑保留
                 el.onclick = () => selectStrategyItem(key, i);
                 if(g.selectedBuy === i) el.classList.add('selected');
                 listEl.appendChild(el);
             });
-
             const portEl = document.getElementById(`portfolio-${key}`);
             portEl.innerHTML = '';
             g.portfolio.forEach((p, i) => {
                 const el = createRow(key, p, i, 'portfolio');
                 if (p.isCash) el.classList.add('is-cash');
-                else {
-                    el.onclick = () => selectPortfolioItem(key, i);
-                }
-                
+                else el.onclick = () => selectPortfolioItem(key, i);
                 if(g.selectedSell === i && !p.isCash) el.classList.add('selected');
                 portEl.appendChild(el);
             });
@@ -680,26 +700,21 @@
             const div = document.createElement('div');
             div.className = 'holding-item';
             
-            // --- [新增跳转功能整合] ---
+            // --- [跳转逻辑整合] ---
             if (!item.isCash) {
                 const baseUrl = 'https://aipeinvestmentagent.pages.dev';
                 const encodedStockName = encodeURIComponent(item.name);
                 const stockUrl = `${baseUrl}/PotScoreFundAnalytics?stock=${encodedStockName}`;
                 div.ondblclick = (e) => {
-                    e.stopPropagation(); // 防止触发父级单击选中逻辑
+                    e.stopPropagation();
                     window.open(stockUrl, '_blank');
                 };
             }
-            // ------------------------
 
-            // 5. 如果是甜点，添加糖果图标
             let iconPrefix = "";
-            // if(item.isLocked) iconPrefix += "🔒"; // 预留
             if(item.isSweet) iconPrefix += "🍬"; 
             if(iconPrefix !== "") iconPrefix += " ";
-
             let nameHtml = `${iconPrefix}${item.name}`;
-
             let wHtml = "";
             let pHtml = "";
             
@@ -721,10 +736,19 @@
             div.innerHTML = `
                 <div class="h-info"><span class="h-name">${nameHtml}</span><div class="h-weight-row">${wHtml}</div></div>
                 <div class="h-price-col">${pHtml}</div>
-                <div class="mini-chart-container"><canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas></div>
+                <div class="mini-chart-container" id="container-${key}-${type}-${idx}"><canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas></div>
             `;
             
+            // --- [新增交互] 单击微缩图弹出详情大图 ---
             setTimeout(() => {
+                const chartContainer = document.getElementById(`container-${key}-${type}-${idx}`);
+                if (chartContainer) {
+                    chartContainer.onclick = (e) => {
+                        e.stopPropagation(); // 防止触发行的选择逻辑
+                        openDetailChart(item);
+                    };
+                }
+
                 if(item.history && item.history.length > 1) {
                     drawSpark(`chart-${key}-${type}-${idx}`, item.history, item.refPrice, (item.currentPrice>=item.refPrice?'#EF4444':'#10B981'));
                 }
@@ -773,7 +797,6 @@
             const price = parseFloat(document.getElementById(`${type}-price-${key}`).value);
             const weight = parseFloat(document.getElementById(`${type}-weight-${key}`).value);
             const resEl = document.getElementById(`calc-${type}-${key}`);
-            
             if (price > 0 && weight > 0) {
                 const totalAssets = 100000; 
                 let actualWeight = weight;
@@ -791,9 +814,7 @@
             const msgEl = document.getElementById(`msg-${key}`);
             const price = parseFloat(document.getElementById(`${type}-price-${key}`).value);
             const weight = parseFloat(document.getElementById(`${type}-weight-${key}`).value);
-            
             if (!price || !weight) return;
-
             if (type === 'buy') {
                 if (g.selectedBuy === null) return;
                 const item = g.strategy[g.selectedBuy];
@@ -814,7 +835,6 @@
                 }
                 recordFlow(key, 'Buy', item.code, item.name, weight, price);
                 msgEl.innerText = `BOUGHT ${item.name}`;
-
             } else if (type === 'sell') {
                 if (g.selectedSell === null) return;
                 const item = g.portfolio[g.selectedSell];
@@ -829,11 +849,9 @@
                 recordFlow(key, 'Sell', item.code, item.name, weight, price);
                 msgEl.innerText = `SOLD ${item.name}`;
             }
-
             msgEl.style.color = "#FFD700";
             updateCash(key);
             renderLists(key);
-            // Re-calculate Rtn immediately
             const userRtnElem = document.getElementById(`user-rtn-${key}`);
             userRtnElem.innerText = calculateUserRtn(key).toFixed(2) + "%";
         }
@@ -845,19 +863,12 @@
             const val = totalAssets * (actualWeight / 100);
             const qty = Math.floor(val / price);
             const value = (qty * price).toFixed(2);
-            
             memoryFlows.push({
                 sheet: GUARDIAN_CONFIG[key].flowName,
                 data: {
-                    "组合名称": GUARDIAN_CONFIG[key].simpleName,
-                    "股票代码": code,
-                    "股票名称": name,
-                    "配置比例 (%)": actualWeight.toFixed(2), 
-                    "标的数量": qty,
-                    "价格": price,
-                    "价值": value,
-                    "操作类型": opType,
-                    "修改时间": getOpTime(true)
+                    "组合名称": GUARDIAN_CONFIG[key].simpleName, "股票代码": code, "股票名称": name,
+                    "配置比例 (%)": actualWeight.toFixed(2), "标的数量": qty, "价格": price,
+                    "价值": value, "操作类型": opType, "修改时间": getOpTime(true)
                 }
             });
         }
@@ -866,99 +877,58 @@
             if (!await initOSS()) return;
             const dot = document.getElementById('ossStatusDot');
             dot.className = "oss-status syncing";
-            
             try {
                 let wb;
                 try {
                     const r = await ossClient.get(OSS_FILE_NAME);
                     wb = XLSX.read(r.content, { type: 'array' });
                 } catch { wb = XLSX.utils.book_new(); }
-
                 const timeStr = getOpTime(true);
-
                 for (let key in GUARDIAN_CONFIG) {
                     const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
-
-                    // Sync Portfolio
                     let snapData = [];
-                    if (wb.Sheets[cfg.simpleName]) {
-                        snapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
-                    }
+                    if (wb.Sheets[cfg.simpleName]) snapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
                     g.portfolio.forEach(p => {
                         snapData.push({
-                            "组合名称": cfg.simpleName,
-                            "股票代码": p.code,
-                            "股票名称": p.name,
-                            "来源": "QuantGuardians",
-                            "配置比例 (%)": p.weight.toFixed(2),
-                            "修改时间": timeStr
+                            "组合名称": cfg.simpleName, "股票代码": p.code, "股票名称": p.name,
+                            "来源": "QuantGuardians", "配置比例 (%)": p.weight.toFixed(2), "修改时间": timeStr
                         });
                     });
-                    const newSnapWs = XLSX.utils.json_to_sheet(snapData, { header: ["组合名称","股票代码","股票名称","来源","配置比例 (%)","修改时间"] });
-                    if(wb.Sheets[cfg.simpleName]) wb.Sheets[cfg.simpleName] = newSnapWs;
-                    else XLSX.utils.book_append_sheet(wb, newSnapWs, cfg.simpleName);
-
-                    // Sync Flows
+                    const newSnapWs = XLSX.utils.json_to_sheet(snapData);
+                    wb.Sheets[cfg.simpleName] = newSnapWs;
                     let flowData = [];
-                    if (wb.Sheets[cfg.flowName]) {
-                        flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
-                    }
-                    const pending = memoryFlows.filter(f => f.sheet === cfg.flowName);
-                    pending.forEach(f => {
-                         flowData.push(f.data);
-                    });
-                    const newFlowWs = XLSX.utils.json_to_sheet(flowData, { header: ["组合名称","股票代码","股票名称","配置比例 (%)","标的数量","价格","价值","操作类型","修改时间"] });
-                    if(wb.Sheets[cfg.flowName]) wb.Sheets[cfg.flowName] = newFlowWs;
-                    else XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
+                    if (wb.Sheets[cfg.flowName]) flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
+                    memoryFlows.filter(f => f.sheet === cfg.flowName).forEach(f => flowData.push(f.data));
+                    const newFlowWs = XLSX.utils.json_to_sheet(flowData);
+                    wb.Sheets[cfg.flowName] = newFlowWs;
                 }
-
-                const wopts = { bookType:'xlsx', bookSST:false, type:'array' };
-                const wbout = XLSX.write(wb, wopts);
-                const blob = new Blob([wbout], {type:"application/octet-stream"});
-                await ossClient.put(OSS_FILE_NAME, blob);
-                
+                const wbout = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+                await ossClient.put(OSS_FILE_NAME, new Blob([wbout]));
                 dot.className = "oss-status done";
                 log("Cloud Sync Success.", "#0f0");
                 memoryFlows = []; 
-                // Reload to refresh flows
                 await loadCloudPortfolio();
                 updateMarketData();
-            } catch (e) {
-                dot.className = "oss-status";
-                log("Sync Error: " + e.message, "red");
-            }
+            } catch (e) { dot.className = "oss-status"; log("Sync Error: " + e.message, "red"); }
         }
 
         async function loadHistoryData() {
             log("Loading Historical Data...", "#88f");
             const keys = Object.keys(HISTORY_FILES);
-            const requests = keys.map(key => {
-                 const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${HISTORY_FILES[key]}?t=${Date.now()}`;
-                 return fetch(url).then(res => res.json()).catch(e => null);
-            });
+            const requests = keys.map(key => fetch(`https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${HISTORY_FILES[key]}?t=${Date.now()}`).then(res => res.json()).catch(e => null));
             const results = await Promise.all(requests);
-            
             let allDatesSet = new Set();
-            results.forEach(json => { 
-                if(json && json.每日评估数据) {
-                    json.每日评估数据.forEach(item => allDatesSet.add(item.日期)); 
-                }
-            });
-            
+            results.forEach(json => { if(json && json.每日评估数据) json.每日评估数据.forEach(item => allDatesSet.add(item.日期)); });
             historyData.dates = Array.from(allDatesSet).sort();
-            
             results.forEach((json, index) => {
                 const key = keys[index];
                 if (json && json.每日评估数据) {
                     const dataMap = new Map();
                     json.每日评估数据.forEach(d => dataMap.set(d.日期, d.累计收益率 * 100));
                     historyData.datasets[key] = historyData.dates.map(date => dataMap.has(date) ? dataMap.get(date) : null);
-                } else {
-                    historyData.datasets[key] = [];
-                }
+                } else historyData.datasets[key] = [];
             });
-            
             renderHistoryChart();
         }
 
@@ -966,32 +936,14 @@
             document.getElementById('settlementPanel').style.display = 'block';
             const ctx = document.getElementById('performanceChart').getContext('2d');
             if (perfChart) perfChart.destroy();
-            
             const createDataset = (label, color, dataKey) => ({
                 label: label, borderColor: color, backgroundColor: color + '1A',
                 data: historyData.datasets[dataKey] || [], tension: 0.3, pointRadius: 0, borderWidth: 2, spanGaps: true
             });
-            
             perfChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: historyData.dates,
-                    datasets: [
-                        createDataset('GENBU', '#10B981', 'genbu'),
-                        createDataset('SUZAKU', '#EF4444', 'suzaku'),
-                        createDataset('SIRIUS', '#8B5CF6', 'sirius'),
-                        createDataset('KIRIN', '#3B82F6', 'kirin')
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, 
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { labels: { color: '#ccc' } } },
-                    scales: { 
-                        y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
-                        x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
-                    }
-                }
+                data: { labels: historyData.dates, datasets: [ createDataset('GENBU', '#10B981', 'genbu'), createDataset('SUZAKU', '#EF4444', 'suzaku'), createDataset('SIRIUS', '#8B5CF6', 'sirius'), createDataset('KIRIN', '#3B82F6', 'kirin') ] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { color: '#ccc' } } }, scales: { y: { ticks: { color: '#666' }, grid: { color: '#333' } }, x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } } }
             });
         }
 
@@ -999,18 +951,12 @@
             if (gameState.active) return;
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING...";
-            
             await initOSS();
             await Promise.all([ loadStrategies(), loadHistoryData() ]);
-            
-            // 4. 在策略加载后，云端数据恢复前调用
             await loadSweetPoints(); 
-            
             await loadCloudPortfolio();
-            
             updateMarketData();
             setInterval(updateMarketData, 60000); 
-            
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
             btn.style.boxShadow = "0 0 20px #0f0";
