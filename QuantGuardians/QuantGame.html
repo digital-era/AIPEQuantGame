@@ -755,6 +755,16 @@
         function createRow(key, item, idx, type) {
             const div = document.createElement('div');
             div.className = 'holding-item';
+
+            // =========== 【开始】在此处插入跳转代码 ===========
+            if (!item.isCash) {
+                const stockUrl = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
+                div.ondblclick = (e) => { 
+                    e.stopPropagation(); 
+                    window.open(stockUrl, '_blank'); 
+                };
+            }
+            // =========== 【结束】跳转代码插入完毕 ==========
             
             let nameHtml = item.name;
             let wHtml = "";
