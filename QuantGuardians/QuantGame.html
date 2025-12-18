@@ -404,7 +404,7 @@
             try {
                 const result = await ossClient.get(OSS_FILE_NAME);
                 const wb = XLSX.read(result.content, { type: 'array' });
-                const todayPrefix = getOpTime().substring(0, 8);
+                // const todayPrefix = getOpTime().substring(0, 8); // 原有代码：不需要这行了
                 
                 for (let key in GUARDIAN_CONFIG) {
                     const sheetName = GUARDIAN_CONFIG[key].simpleName;
@@ -413,13 +413,32 @@
 
                     if (wb.Sheets[sheetName]) {
                         const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
-                        let holdingsMap = {};
+                        
+                        // --- 新增逻辑开始：寻找该Sheet中存在的最新日期 ---
+                        let maxDateInt = 0;
                         raw.forEach(row => {
-                            const t = String(row['修改时间']);
-                            if (!t.startsWith(todayPrefix)) {
+                            const t = String(row['修改时间'] || '');
+                            if (t.length >= 8) {
+                                // 提取前8位 (YYYYMMDD) 转为数字比较
+                                const dateVal = parseInt(t.substring(0, 8));
+                                if (!isNaN(dateVal) && dateVal > maxDateInt) {
+                                    maxDateInt = dateVal;
+                                }
+                            }
+                        });
+                        // --- 新增逻辑结束 ---
+
+                        let holdingsMap = {};
+                        const targetPrefix = String(maxDateInt); // 将最新日期转回字符串用于匹配
+
+                        raw.forEach(row => {
+                            const t = String(row['修改时间'] || '');
+                            // 修改：只有当这一行数据的日期等于最新日期时，才读取
+                            if (maxDateInt > 0 && t.startsWith(targetPrefix)) {
                                 holdingsMap[row['股票代码']] = row;
                             }
                         });
+
                         Object.values(holdingsMap).forEach(row => {
                             if (parseFloat(row['配置比例 (%)']) > 0) {
                                 g.portfolio.push({
@@ -436,6 +455,7 @@
                 }
                 log("Cloud Portfolio Loaded.", "#0f0");
             } catch (e) {
+                // ... (错误处理保持不变)
                 if (e.name === 'NoSuchKeyError' || e.code === 'NoSuchKey') {
                     log("No Cloud Save. Starting Fresh.", "#888");
                     for (let k in GUARDIAN_CONFIG) updateCash(k);
