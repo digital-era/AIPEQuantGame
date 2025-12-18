@@ -35,8 +35,8 @@
         }
         .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
         
-        /* --- 卡片样式 --- */
         .guardian-card { background: var(--panel-bg); border: 2px solid #444; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5); min-height: 800px; }
+        .guardian-card.active { border-color: var(--glow-color); box-shadow: 0 0 20px var(--glow-color); }
         .g-genbu { --glow-color: var(--genbu-color); }
         .g-suzaku { --glow-color: var(--suzaku-color); }
         .g-sirius { --glow-color: var(--sirius-color); }
@@ -45,12 +45,12 @@
         .card-header { display: flex; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
         .avatar { font-size: 2.5em; margin-right: 15px; text-shadow: 0 0 10px var(--glow-color); }
         .role-info h2 { margin: 0; font-size: 1.2em; color: var(--glow-color); }
+        .role-desc { font-size: 0.6em; color: #888; }
         
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
-        
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
         .sub-stat { font-size: 0.7em; color: #fff; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; font-weight: bold;}
         
@@ -58,7 +58,6 @@
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 200px; margin-bottom: 10px; }
         .portfolio-list { height: 200px; border: 1px solid #444; background: #000; }
 
-        /* --- 列表项 --- */
         .holding-item { 
             display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; 
             background: #1a1a2e; margin-bottom: 4px; padding: 6px; 
@@ -79,11 +78,10 @@
         .text-up { color: #EF4444; }
         .text-down { color: #10B981; }
         
-        .mini-chart-container { position: relative; width: 100%; height: 30px; cursor: crosshair; transition: all 0.2s; }
-        .mini-chart-container:hover { background: rgba(255,255,255,0.1); box-shadow: 0 0 10px rgba(255,255,255,0.1); }
+        .mini-chart-container { position: relative; width: 100%; height: 30px; cursor: crosshair; }
         canvas.sparkline { width: 100%; height: 100%; }
 
-        /* --- 动态详情弹窗样式 --- */
+        /* --- [新增详情弹窗样式] --- */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.92); z-index: 9999; justify-content: center; align-items: center;
@@ -92,26 +90,30 @@
         .modal-content {
             background: #0a0a1a; border: 2px solid #444; width: 92%; max-width: 1100px;
             padding: 30px; border-radius: 12px; position: relative;
-            box-shadow: 0 0 80px rgba(0,0,0,1); transition: border-color 0.5s;
+            box-shadow: 0 0 60px rgba(0,0,0,0.8); transition: border-color 0.4s;
         }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .close-btn { background: #222; border: 1px solid #555; color: #fff; font-family: 'Press Start 2P'; font-size: 10px; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
-        .close-btn:hover { border-color: #f00; color: #f00; background: #300; }
-        .detail-chart-wrapper { height: 450px; width: 100%; position: relative; }
+        .close-btn { background: #222; border: 1px solid #555; color: #fff; font-family: 'Press Start 2P'; font-size: 10px; padding: 8px 15px; cursor: pointer; border-radius: 4px;}
+        .close-btn:hover { border-color: #f00; color: #f00; }
+        .detail-chart-wrapper { height: 450px; width: 100%; }
 
-        /* --- System Controls --- */
         .commander-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
         .cmd-row { margin-bottom: 8px; }
         .cmd-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
         .cmd-label { font-size: 0.6em; color: var(--glow-color); font-weight: bold; }
+        .calc-res { font-size: 0.6em; color: var(--user-gold); }
         .cmd-controls { display: flex; gap: 4px; width: 100%; align-items: center; }
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 4px; font-size: 0.7em; height: 26px; }
-        .cmd-btn { cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; padding: 0 8px; height: 26px; white-space: nowrap; flex: 0 0 auto; border: 1px solid #555; background: #222; color: #fff;}
+        .cmd-btn { cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; padding: 0 8px; height: 26px; border: 1px solid #555; background: #222; color: #fff;}
+        .cmd-btn:hover { background: #333; }
         .cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 10px #0f0; margin-bottom: 10px; }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
-        .oss-btn { position: absolute; right: 0; top: 20px; background: #224; color: #fff; border: 1px solid #66a; padding: 8px 12px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 10px; border-radius: 4px; display: flex; align-items: center; gap: 5px;}
+        .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
+        
+        .oss-btn { position: absolute; right: 0; top: 20px; background: #224; color: #fff; border: 1px solid #66a; padding: 8px 12px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 10px; border-radius: 4px; display: flex; align-items: center; gap: 6px; }
         .oss-status { width: 6px; height: 6px; border-radius: 50%; background: #666; display: inline-block;}
         .oss-status.syncing { background: #ff0; animation: blink 1s infinite; }
         .oss-status.done { background: #0f0; }
@@ -125,7 +127,6 @@
         <button class="oss-btn" onclick="syncToCloud()"><span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD</button>
     </div>
 
-    <!-- 全屏详情大图弹窗 -->
     <div id="chartModal" class="modal-overlay" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -135,95 +136,83 @@
                 </div>
                 <button class="close-btn" onclick="closeModal()">[X] CLOSE</button>
             </div>
-            <div class="detail-chart-wrapper">
-                <canvas id="detailChartCanvas"></canvas>
-            </div>
+            <div class="detail-chart-wrapper"><canvas id="detailChartCanvas"></canvas></div>
         </div>
     </div>
 
     <div class="container">
-        <!-- 卡片容器 -->
+        <!-- 各卡片通过循环生成的结构一致 -->
         <div class="guardian-card g-genbu" id="card-genbu">
-            <div class="card-header"><div class="avatar">🛡️</div><div class="role-info"><h2 class="pixel-font">GENBU</h2></div></div>
+            <div class="card-header"><div class="avatar">🛡️</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
             <div class="main-stat-box">
                 <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
+                <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
             </div>
-            <div class="list-header">STRATEGY SUGGESTIONS</div>
-            <div class="holdings-list" id="list-genbu"></div>
+            <div class="list-header">STRATEGY SUGGESTIONS</div><div class="holdings-list" id="list-genbu"></div>
             <div class="commander-section">
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-genbu"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-genbu" oninput="calcQty('genbu', 'buy')"><input type="number" class="cmd-input" id="buy-weight-genbu" oninput="calcQty('genbu', 'buy')"><button class="cmd-btn" onclick="executeOrder('genbu', 'buy')">CONFIRM</button></div></div>
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-genbu"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-genbu" oninput="calcQty('genbu', 'sell')"><input type="number" class="cmd-input" id="sell-weight-genbu" oninput="calcQty('genbu', 'sell')"><button class="cmd-btn" onclick="executeOrder('genbu', 'sell')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-genbu"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-genbu" oninput="calcQty('genbu', 'buy')"><input type="number" class="cmd-input" id="buy-weight-genbu" oninput="calcQty('genbu', 'buy')"><button class="cmd-btn" style="color:var(--genbu-color);border-color:var(--genbu-color);" onclick="executeOrder('genbu', 'buy')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-genbu"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-genbu" oninput="calcQty('genbu', 'sell')"><input type="number" class="cmd-input" id="sell-weight-genbu" oninput="calcQty('genbu', 'sell')"><button class="cmd-btn" style="color:var(--genbu-color);border-color:var(--genbu-color);" onclick="executeOrder('genbu', 'sell')">CONFIRM</button></div></div>
                 <div class="cmd-msg" id="msg-genbu"></div>
             </div>
-            <div class="list-header">PORTFOLIO</div>
-            <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
+            <div class="list-header">PORTFOLIO</div><div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
         </div>
-        <!-- 其他护卫队简化版（结构同上） -->
+
         <div class="guardian-card g-suzaku" id="card-suzaku">
-            <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2></div></div>
+            <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
             <div class="main-stat-box">
                 <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div>
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div>
+                <div class="sub-stat">Power: <span id="power-suzaku">0%</span></div>
             </div>
-            <div class="list-header">STRATEGY SUGGESTIONS</div>
-            <div class="holdings-list" id="list-suzaku"></div>
+            <div class="list-header">STRATEGY SUGGESTIONS</div><div class="holdings-list" id="list-suzaku"></div>
             <div class="commander-section">
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-suzaku"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-suzaku" oninput="calcQty('suzaku', 'buy')"><input type="number" class="cmd-input" id="buy-weight-suzaku" oninput="calcQty('suzaku', 'buy')"><button class="cmd-btn" onclick="executeOrder('suzaku', 'buy')">CONFIRM</button></div></div>
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-suzaku"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-suzaku" oninput="calcQty('suzaku', 'sell')"><input type="number" class="cmd-input" id="sell-weight-suzaku" oninput="calcQty('suzaku', 'sell')"><button class="cmd-btn" onclick="executeOrder('suzaku', 'sell')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-suzaku"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-suzaku" oninput="calcQty('suzaku', 'buy')"><input type="number" class="cmd-input" id="buy-weight-suzaku" oninput="calcQty('suzaku', 'buy')"><button class="cmd-btn" style="color:var(--suzaku-color);border-color:var(--suzaku-color);" onclick="executeOrder('suzaku', 'buy')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-suzaku"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-suzaku" oninput="calcQty('suzaku', 'sell')"><input type="number" class="cmd-input" id="sell-weight-suzaku" oninput="calcQty('suzaku', 'sell')"><button class="cmd-btn" style="color:var(--suzaku-color);border-color:var(--suzaku-color);" onclick="executeOrder('suzaku', 'sell')">CONFIRM</button></div></div>
                 <div class="cmd-msg" id="msg-suzaku"></div>
             </div>
-            <div class="list-header">PORTFOLIO</div>
-            <div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
+            <div class="list-header">PORTFOLIO</div><div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
         </div>
+
         <div class="guardian-card g-sirius" id="card-sirius">
-            <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2></div></div>
+            <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
             <div class="main-stat-box">
                 <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div>
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div>
+                <div class="sub-stat">Power: <span id="power-sirius">0%</span></div>
             </div>
-            <div class="list-header">STRATEGY SUGGESTIONS</div>
-            <div class="holdings-list" id="list-sirius"></div>
+            <div class="list-header">STRATEGY SUGGESTIONS</div><div class="holdings-list" id="list-sirius"></div>
             <div class="commander-section">
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-sirius"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-sirius" oninput="calcQty('sirius', 'buy')"><input type="number" class="cmd-input" id="buy-weight-sirius" oninput="calcQty('sirius', 'buy')"><button class="cmd-btn" onclick="executeOrder('sirius', 'buy')">CONFIRM</button></div></div>
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-sirius"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-sirius" oninput="calcQty('sirius', 'sell')"><input type="number" class="cmd-input" id="sell-weight-sirius" oninput="calcQty('sirius', 'sell')"><button class="cmd-btn" onclick="executeOrder('sirius', 'sell')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-sirius"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-sirius" oninput="calcQty('sirius', 'buy')"><input type="number" class="cmd-input" id="buy-weight-sirius" oninput="calcQty('sirius', 'buy')"><button class="cmd-btn" style="color:var(--sirius-color);border-color:var(--sirius-color);" onclick="executeOrder('sirius', 'buy')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-sirius"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-sirius" oninput="calcQty('sirius', 'sell')"><input type="number" class="cmd-input" id="sell-weight-sirius" oninput="calcQty('sirius', 'sell')"><button class="cmd-btn" style="color:var(--sirius-color);border-color:var(--sirius-color);" onclick="executeOrder('sirius', 'sell')">CONFIRM</button></div></div>
                 <div class="cmd-msg" id="msg-sirius"></div>
             </div>
-            <div class="list-header">PORTFOLIO</div>
-            <div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
+            <div class="list-header">PORTFOLIO</div><div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
         </div>
+
         <div class="guardian-card g-kirin" id="card-kirin">
-            <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2></div></div>
+            <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
             <div class="main-stat-box">
                 <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div>
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div>
+                <div class="sub-stat">Power: <span id="power-kirin">0%</span></div>
             </div>
-            <div class="list-header">STRATEGY SUGGESTIONS</div>
-            <div class="holdings-list" id="list-kirin"></div>
+            <div class="list-header">STRATEGY SUGGESTIONS</div><div class="holdings-list" id="list-kirin"></div>
             <div class="commander-section">
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-kirin"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-kirin" oninput="calcQty('kirin', 'buy')"><input type="number" class="cmd-input" id="buy-weight-kirin" oninput="calcQty('kirin', 'buy')"><button class="cmd-btn" onclick="executeOrder('kirin', 'buy')">CONFIRM</button></div></div>
-                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-kirin"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-kirin" oninput="calcQty('kirin', 'sell')"><input type="number" class="cmd-input" id="sell-weight-kirin" oninput="calcQty('kirin', 'sell')"><button class="cmd-btn" onclick="executeOrder('kirin', 'sell')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy:</span><span class="calc-res" id="calc-buy-kirin"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="buy-price-kirin" oninput="calcQty('kirin', 'buy')"><input type="number" class="cmd-input" id="buy-weight-kirin" oninput="calcQty('kirin', 'buy')"><button class="cmd-btn" style="color:var(--kirin-color);border-color:var(--kirin-color);" onclick="executeOrder('kirin', 'buy')">CONFIRM</button></div></div>
+                <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Sell:</span><span class="calc-res" id="calc-sell-kirin"></span></div><div class="cmd-controls"><input type="number" class="cmd-input" id="sell-price-kirin" oninput="calcQty('kirin', 'sell')"><input type="number" class="cmd-input" id="sell-weight-kirin" oninput="calcQty('kirin', 'sell')"><button class="cmd-btn" style="color:var(--kirin-color);border-color:var(--kirin-color);" onclick="executeOrder('kirin', 'sell')">CONFIRM</button></div></div>
                 <div class="cmd-msg" id="msg-kirin"></div>
             </div>
-            <div class="list-header">PORTFOLIO</div>
-            <div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
+            <div class="list-header">PORTFOLIO</div><div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
         </div>
     </div>
 
     <div class="system-controls"><button id="engageBtn" class="start-btn" onclick="initSystem()">[ ENGAGE SYSTEM ]</button><div class="log-box" id="systemLog"></div></div>
 
     <script>
-        // ================= CONFIG =================
-        const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
-        const OSS_BUCKET = 'aiep-users'; 
-        const OSS_REGION = 'oss-cn-hangzhou'; 
-        const OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
-        const GITHUB_USER = 'digital-era';
-        const GITHUB_REPO = 'AIPEQModel';
-        const GITHUB_BRANCH = 'main';
-        const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
-        const SWEET_POINT_FILE = 'SweetPoint_New.json';
-
+        // ================= CONFIG & STATE =================
+        const STS_API_URL = 'https://aiep-users.vercel.app/api/sts', OSS_BUCKET = 'aiep-users', OSS_REGION = 'oss-cn-hangzhou', OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
+        const GITHUB_USER = 'digital-era', GITHUB_REPO = 'AIPEQModel', GITHUB_BRANCH = 'main', REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy', SWEET_POINT_FILE = 'SweetPoint_New.json';
         const GUARDIAN_CONFIG = {
             genbu: { simpleName: "低波", flowName: "低波OR", file: '低波稳健模型_New.json' },
             suzaku: { simpleName: "大成", flowName: "大成OR", file: '大成模型_New.json' },
@@ -231,83 +220,44 @@
             kirin: { simpleName: "大智", flowName: "大智OR", file: '大智模型_New.json' }
         };
 
-        // ================= STATE =================
-        let gameState = { active: false, guardians: { genbu: { strategy: [], portfolio: [], todayFlows: [], power: 0 }, suzaku: { strategy: [], portfolio: [], todayFlows: [], power: 0 }, sirius: { strategy: [], portfolio: [], todayFlows: [], power: 0 }, kirin: { strategy: [], portfolio: [], todayFlows: [], power: 0 } } };
+        let gameState = { active: false, guardians: { genbu: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy:null, selectedSell:null }, suzaku: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy:null, selectedSell:null }, sirius: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy:null, selectedSell:null }, kirin: { strategy: [], portfolio: [], todayFlows: [], power: 0, selectedBuy:null, selectedSell:null } } };
         let memoryFlows = [], ossClient = null, detailChart = null, playbackTimer = null, priceCache = {};
 
-        // ================= CORE FUNCTIONS =================
-        function log(msg, color="#0f0") { const box = document.getElementById('systemLog'); const div = document.createElement('div'); div.innerHTML = `<span style="color:${color}">${msg}</span>`; box.prepend(div); }
+        // ================= UTILS =================
+        function log(msg, color="#0f0") { const box = document.getElementById('systemLog'); const div = document.createElement('div'); div.innerHTML = `<span>> ${msg}</span>`; div.style.color = color; box.prepend(div); }
         function getOpTime(c=false) { const n = new Date(); let h = n.getHours(), m = n.getMinutes(); if(c && (h>16||(h==16&&m>30))){ h=16; m=30; } return `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}`; }
 
-        // [优化] 弹出详情大图逻辑 - 从左向右生长 & 颜色同步
+        // [动态曲线逻辑]
         function openDetailChart(item, color) {
             if (!item.history || item.history.length === 0) return;
-            
             document.getElementById('modalTitle').innerText = item.name;
             document.getElementById('modalCode').innerText = `(${item.code})`;
             document.getElementById('chartModal').style.display = 'flex';
             document.querySelector('.modal-content').style.borderColor = color;
 
             const ctx = document.getElementById('detailChartCanvas').getContext('2d');
-            if (detailChart) detailChart.destroy();
-            if (playbackTimer) clearInterval(playbackTimer);
+            if (detailChart) detailChart.destroy(); if (playbackTimer) clearInterval(playbackTimer);
 
             const gradient = ctx.createLinearGradient(0, 0, 0, 450);
-            gradient.addColorStop(0, color + '55'); // 顶部半透明
-            gradient.addColorStop(1, color + '00'); // 底部全透明
-
-            // 预先建立好完整的时间轴长度，防止生长时坐标轴抖动
-            const fullHistory = item.history;
-            const labels = fullHistory.map((_, i) => i);
+            gradient.addColorStop(0, color + '55'); gradient.addColorStop(1, color + '00');
 
             detailChart = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: labels, 
-                    datasets: [{
-                        data: [], // 初始为空
-                        borderColor: color,
-                        borderWidth: 3,
-                        pointRadius: 0,
-                        fill: true,
-                        backgroundColor: gradient,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    animation: false, // 我们通过定时器手动控制
-                    plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-                    scales: { 
-                        x: { display: false }, 
-                        y: { grid: { color: '#222' }, ticks: { color: '#888' } } 
-                    }
-                }
+                data: { labels: item.history.map((_, i) => i), datasets: [{ data: [], borderColor: color, borderWidth: 3, pointRadius: 0, fill: true, backgroundColor: gradient, tension: 0.3 }] },
+                options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { display: false }, y: { grid: { color: '#222' }, ticks: { color: '#888' } } } }
             });
 
-            // 从左向右循环播放逻辑
-            let step = 0;
-            const totalSteps = fullHistory.length;
-
+            let step = 0; const fullData = item.history;
             playbackTimer = setInterval(() => {
-                step++;
-                if (step > totalSteps + 15) { // 停留15帧再重置
-                    step = 0;
-                }
-                
-                // 仅填入当前步数之前的数据
-                const currentDisplayData = fullHistory.slice(0, step);
-                
-                detailChart.data.datasets[0].data = currentDisplayData;
-                detailChart.update('none'); // 'none' 模式提供最流畅的逐帧渲染
-            }, 25); // 约40FPS，非常流畅
+                step++; if (step > fullData.length + 10) step = 0;
+                detailChart.data.datasets[0].data = fullData.slice(0, step);
+                detailChart.update('none');
+            }, 30);
         }
 
-        function closeModal() {
-            document.getElementById('chartModal').style.display = 'none';
-            if (playbackTimer) clearInterval(playbackTimer);
-        }
+        function closeModal() { document.getElementById('chartModal').style.display = 'none'; if (playbackTimer) clearInterval(playbackTimer); }
 
+        // ================= CORE =================
         async function initOSS() { if (ossClient) return true; try { const res = await fetch(STS_API_URL); const d = await res.json(); ossClient = new OSS({ region: OSS_REGION, accessKeyId: d.AccessKeyId, accessKeySecret: d.AccessKeySecret, stsToken: d.SecurityToken, bucket: OSS_BUCKET }); return true; } catch (e) { return false; } }
 
         async function loadStrategies() {
@@ -320,7 +270,8 @@
                         name: p.名称, code: p.代码, refPrice: parseFloat(p.最近一日价格),
                         weight: parseFloat(p["最优权重(%)"]), currentPrice: null, history: [], isSweet: false
                     }));
-                } catch (e) {}
+                    document.getElementById(`power-${key}`).innerText = (gameState.guardians[key].power * 100).toFixed(0) + "%";
+                } catch (e) { log(`${key} Load Err`, "red"); }
             });
             await Promise.all(promises);
         }
@@ -328,10 +279,8 @@
         async function loadSweetPoints() {
             try {
                 const res = await fetch(`https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`);
-                const json = await res.json(); const sweetCodes = new Set(json.map(item => item.代码));
-                for (let key in gameState.guardians) {
-                    gameState.guardians[key].strategy.forEach(s => { if (sweetCodes.has(s.code)) s.isSweet = true; });
-                }
+                const json = await res.json(); const codes = new Set(json.map(x => x.代码));
+                for (let k in gameState.guardians) { gameState.guardians[k].strategy.forEach(s => { if (codes.has(s.code)) s.isSweet = true; }); }
             } catch (e) {}
         }
 
@@ -339,29 +288,49 @@
             if (!await initOSS()) return;
             try {
                 const result = await ossClient.get(OSS_FILE_NAME); const wb = XLSX.read(result.content, { type: 'array' });
+                const todayPrefix = getOpTime().substring(0, 8);
                 for (let key in GUARDIAN_CONFIG) {
                     const cfg = GUARDIAN_CONFIG[key], g = gameState.guardians[key];
+                    g.portfolio = []; g.todayFlows = [];
                     if (wb.Sheets[cfg.simpleName]) {
                         const raw = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
                         let maxD = 0; raw.forEach(r => { const t = String(r['修改时间']||''); if(t.length>=8) maxD = Math.max(maxD, parseInt(t.substring(0,8))); });
                         raw.forEach(r => { if(String(r['修改时间']||'').startsWith(String(maxD)) && parseFloat(r['配置比例 (%)'])>0) g.portfolio.push({ code: String(r['股票代码']), name: r['股票名称'], weight: parseFloat(r['配置比例 (%)']), currentPrice: null, history: [] }); });
+                    }
+                    if (wb.Sheets[cfg.flowName]) {
+                        XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]).forEach(r => { if(String(r['修改时间']||'').startsWith(todayPrefix)) g.todayFlows.push({ code: String(r['股票代码']), type: r['操作类型'], qty: parseFloat(r['标的数量']), price: parseFloat(r['价格']) }); });
                     }
                     updateCash(key);
                 }
             } catch (e) {}
         }
 
-        function updateCash(key) { const g = gameState.guardians[key]; g.portfolio = g.portfolio.filter(p => p.code !== '100000'); const sum = g.portfolio.reduce((s, p) => s + p.weight, 0); g.portfolio.push({ code: '100000', name: '现金', weight: Math.max(0, 100-sum), currentPrice: 1, history: [], isCash: true }); }
+        function updateCash(key) { 
+            const g = gameState.guardians[key]; g.portfolio = g.portfolio.filter(p => p.code !== '100000');
+            const sum = g.portfolio.reduce((s, p) => s + p.weight, 0);
+            // 确保现金 refPrice 为 1
+            g.portfolio.push({ code: '100000', name: '现金', weight: Math.max(0, 100-sum), currentPrice: 1, refPrice: 1, history: [], isCash: true });
+        }
 
         async function updateMarketData() {
             for (let k in gameState.guardians) {
                 const g = gameState.guardians[k]; let sysRtn = 0;
                 for (let s of g.strategy) { await fetchPrice(s.code, s); if(s.currentPrice && s.refPrice) sysRtn += ((s.currentPrice-s.refPrice)/s.refPrice)*(s.weight/100); }
-                document.getElementById(`rtn-${k}`).innerText = (sysRtn*100).toFixed(2) + "%";
-                document.getElementById(`rtn-${k}`).className = sysRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
+                const srEl = document.getElementById(`rtn-${k}`); srEl.innerText = (sysRtn*100).toFixed(2) + "%";
+                srEl.className = sysRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
                 for (let p of g.portfolio) if(!p.isCash) await fetchPrice(p.code, p);
+                const userRtn = calculateUserRtn(k); const urEl = document.getElementById(`user-rtn-${k}`);
+                urEl.innerText = userRtn.toFixed(2) + "%"; urEl.className = userRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
                 renderLists(k);
             }
+        }
+
+        function calculateUserRtn(k) {
+            const g = gameState.guardians[k]; let pnl = 0;
+            g.portfolio.forEach(p => { if(!p.isCash){ const cur = p.currentPrice||p.refPrice, ref = p.refPrice||cur; pnl += (Math.floor((100000*(p.weight/100))/cur)) * (cur-ref); } });
+            const flows = [...g.todayFlows]; memoryFlows.forEach(m => { if(m.sheet === GUARDIAN_CONFIG[k].flowName) flows.push({ code: m.data['股票代码'], type: m.data['操作类型'], qty: parseFloat(m.data['标的数量']), price: parseFloat(m.data['价格']) }); });
+            flows.forEach(f => { let ref = 0, ex = g.portfolio.find(p=>p.code===f.code); if(ex) ref=ex.refPrice; else if(priceCache[f.code]) ref=priceCache[f.code].refPrice; if(ref>0){ if(f.type==='Buy') pnl -= f.qty*(f.price-ref); else pnl += f.qty*(f.price-ref); } });
+            return (pnl/100000)*100;
         }
 
         async function fetchPrice(c, o) { if(!c||c==='100000') return; try { const res = await fetch(`${REAL_API_URL}?code=${c}&type=intraday`); const d = await res.json(); if(d && d.length>0){ const cur = parseFloat(d[d.length-1].price), ref = parseFloat(d[0].price); if(o){ o.currentPrice = cur; o.history = d.map(x=>x.price); if(!o.refPrice) o.refPrice = ref; } priceCache[c] = { currentPrice: cur, refPrice: ref }; } } catch(e){} }
@@ -372,8 +341,13 @@
                 const el = document.getElementById(`${id}-${key}`); el.innerHTML = '';
                 data.forEach((item, i) => {
                     const row = createRow(key, item, i, id);
-                    if(id==='list') row.onclick=()=>selectStrategyItem(key,i);
-                    else if(!item.isCash) row.onclick=()=>selectPortfolioItem(key,i);
+                    if(id==='list'){ 
+                        row.onclick=()=>selectStrategyItem(key,i); 
+                        if(g.selectedBuy===i) row.classList.add('selected'); 
+                    } else { 
+                        if(item.isCash) row.classList.add('is-cash'); 
+                        else { row.onclick=()=>selectPortfolioItem(key,i); if(g.selectedSell===i) row.classList.add('selected'); }
+                    }
                     el.appendChild(row);
                 });
             });
@@ -381,15 +355,23 @@
 
         function createRow(key, item, idx, type) {
             const div = document.createElement('div'); div.className = 'holding-item';
+            // 双击跳转
             if (!item.isCash) {
-                const stockUrl = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
-                div.ondblclick = (e) => { e.stopPropagation(); window.open(stockUrl, '_blank'); };
+                const url = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
+                div.ondblclick = (e) => { e.stopPropagation(); window.open(url, '_blank'); };
             }
             const activeColor = item.currentPrice >= item.refPrice ? '#EF4444' : '#10B981';
-            const nameHtml = (item.isSweet ? "🍬 " : "") + item.name;
-            const pHtml = item.currentPrice ? `<span class="h-price" style="color:${activeColor}">${item.currentPrice.toFixed(2)}</span><span class="h-pct" style="color:${activeColor}">${(((item.currentPrice-item.refPrice)/item.refPrice)*100).toFixed(2)}%</span>` : '--';
             
-            div.innerHTML = `<div class="h-info"><span class="h-name">${nameHtml}</span><div>[${item.weight.toFixed(2)}%]</div></div><div class="h-price-col">${pHtml}</div><div class="mini-chart-container" id="cont-${key}-${type}-${idx}"><canvas id="cvs-${key}-${type}-${idx}" class="sparkline"></canvas></div>`;
+            // 修复现金 NaN 问题
+            let pHtml = "";
+            if(item.isCash) {
+                pHtml = `<span class="h-price">${item.currentPrice.toFixed(2)}</span>`;
+            } else if (item.currentPrice && item.refPrice) {
+                const chg = ((item.currentPrice-item.refPrice)/item.refPrice)*100;
+                pHtml = `<span class="h-price" style="color:${activeColor}">${item.currentPrice.toFixed(2)}</span><span class="h-pct" style="color:${activeColor}">${chg.toFixed(2)}%</span>`;
+            } else { pHtml = '--'; }
+
+            div.innerHTML = `<div class="h-info"><span class="h-name">${(item.isSweet?"🍬 ":"")+item.name}</span><div class="h-weight-row"><span class="${type==='list'?'h-weight':'user-weight-display'}">[${item.weight.toFixed(2)}%]</span></div></div><div class="h-price-col">${pHtml}</div><div class="mini-chart-container" id="cont-${key}-${type}-${idx}"><canvas id="cvs-${key}-${type}-${idx}" class="sparkline"></canvas></div>`;
             
             setTimeout(() => {
                 const cont = document.getElementById(`cont-${key}-${type}-${idx}`);
@@ -401,11 +383,55 @@
 
         function drawSpark(id, data, base, color) { const cvs = document.getElementById(id); if(!cvs) return; const ctx = cvs.getContext('2d'), w = ctx.canvas.width = cvs.offsetWidth, h = ctx.canvas.height = cvs.offsetHeight; const min = Math.min(...data, base), max = Math.max(...data, base), r = max-min||1; ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); data.forEach((p, i) => { const x = (i/(data.length-1))*w, y = h-((p-min)/r)*h; i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y); }); ctx.stroke(); }
 
-        function selectStrategyItem(k, i) { const item = gameState.guardians[k].strategy[i]; document.getElementById(`buy-price-${k}`).value = item.currentPrice||item.refPrice; document.getElementById(`buy-weight-${k}`).value = item.weight.toFixed(2); }
-        function selectPortfolioItem(k, i) { const p = gameState.guardians[k].portfolio[i]; document.getElementById(`sell-price-${k}`).value = p.currentPrice||p.refPrice; document.getElementById(`sell-weight-${k}`).value = p.weight.toFixed(2); }
-        function calcQty(k, t) { const p = parseFloat(document.getElementById(`${t}-price-${k}`).value), w = parseFloat(document.getElementById(`${t}-weight-${k}`).value); if(p>0&&w>0) document.getElementById(`calc-${t}-${k}`).innerText = `Qty: ${Math.floor((100000*(w/100))/p)}`; else document.getElementById(`calc-${t}-${k}`).innerText = ''; }
+        function selectStrategyItem(k, i) { gameState.guardians[k].selectedBuy = i; const s = gameState.guardians[k].strategy[i]; document.getElementById(`buy-price-${k}`).value = s.currentPrice||s.refPrice; document.getElementById(`buy-weight-${k}`).value = s.weight.toFixed(2); renderLists(k); calcQty(k,'buy'); }
+        function selectPortfolioItem(k, i) { const p = gameState.guardians[k].portfolio[i]; if(p.isCash) return; gameState.guardians[k].selectedSell = i; document.getElementById(`sell-price-${k}`).value = p.currentPrice||p.refPrice; document.getElementById(`sell-weight-${k}`).value = p.weight.toFixed(2); renderLists(k); calcQty(k,'sell'); }
+        function calcQty(k, t) { const g = gameState.guardians[k], p = parseFloat(document.getElementById(`${t}-price-${k}`).value), w = parseFloat(document.getElementById(`${t}-weight-${k}`).value); if(p>0&&w>0) document.getElementById(`calc-${t}-${k}`).innerText = `Qty: ${Math.floor((100000*((t==='buy'?w*g.power:w)/100))/p)}`; else document.getElementById(`calc-${t}-${k}`).innerText = ''; }
 
-        async function initSystem() { if(gameState.active) return; const btn = document.getElementById('engageBtn'); btn.innerText = "INITIALIZING..."; await initOSS(); await Promise.all([loadStrategies(), loadSweetPoints()]); await loadCloudPortfolio(); await updateMarketData(); setInterval(updateMarketData, 60000); gameState.active=true; btn.innerText="SYSTEM ONLINE"; }
+        function executeOrder(k, t) {
+            const g = gameState.guardians[k], p = parseFloat(document.getElementById(`${t}-price-${k}`).value), w = parseFloat(document.getElementById(`${t}-weight-${k}`).value);
+            if(!p||!w) return;
+            if(t==='buy'){
+                const s = g.strategy[g.selectedBuy], inc = w*g.power;
+                if(g.portfolio.reduce((sum,x)=>sum+x.weight,0)+inc > 100.1) return;
+                let ex = g.portfolio.find(x=>x.code===s.code);
+                if(ex){ ex.weight+=inc; ex.currentPrice=p; } else g.portfolio.unshift({ ...s, weight:inc, currentPrice:p });
+                recordFlow(k,'Buy',s.code,s.name,w,p);
+            } else {
+                const item = g.portfolio[g.selectedSell]; if(w>item.weight+0.01) return;
+                item.weight-=w; recordFlow(k,'Sell',item.code,item.name,w,p);
+                if(item.weight<0.01) g.portfolio.splice(g.selectedSell,1);
+            }
+            updateCash(k); renderLists(k);
+        }
+
+        function recordFlow(k, op, c, n, w, p) { const actW = op==='Buy'?w*gameState.guardians[k].power:w, qty = Math.floor((100000*(actW/100))/p); memoryFlows.push({ sheet: GUARDIAN_CONFIG[k].flowName, data: { "组合名称": GUARDIAN_CONFIG[k].simpleName, "股票代码": c, "股票名称": n, "配置比例 (%)": actW.toFixed(2), "标的数量": qty, "价格": p, "价值": (qty*p).toFixed(2), "操作类型": op, "修改时间": getOpTime(true) } }); }
+
+        async function syncToCloud() {
+            if(!await initOSS()) return; const dot = document.getElementById('ossStatusDot'); dot.className="oss-status syncing";
+            try {
+                let wb; try { const r = await ossClient.get(OSS_FILE_NAME); wb = XLSX.read(r.content,{type:'array'}); } catch(e){ wb = XLSX.utils.book_new(); }
+                for (let k in GUARDIAN_CONFIG) {
+                    const cfg = GUARDIAN_CONFIG[k], g = gameState.guardians[k];
+                    let sD = []; if(wb.Sheets[cfg.simpleName]) sD = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
+                    g.portfolio.forEach(p => sD.push({ "组合名称": cfg.simpleName, "股票代码": p.code, "股票名称": p.name, "来源": "QuantGuardians", "配置比例 (%)": p.weight.toFixed(2), "修改时间": getOpTime(true) }));
+                    wb.Sheets[cfg.simpleName] = XLSX.utils.json_to_sheet(sD);
+                    let fD = []; if(wb.Sheets[cfg.flowName]) fD = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
+                    memoryFlows.filter(f=>f.sheet===cfg.flowName).forEach(f=>fD.push(f.data));
+                    wb.Sheets[cfg.flowName] = XLSX.utils.json_to_sheet(fD);
+                }
+                const out = XLSX.write(wb,{bookType:'xlsx',type:'array'}); await ossClient.put(OSS_FILE_NAME, new Blob([out]));
+                dot.className="oss-status done"; memoryFlows=[]; await loadCloudPortfolio(); await updateMarketData();
+                log("Cloud Sync Success.", "#0f0");
+            } catch(e){ dot.className="oss-status"; log("Sync Err", "red"); }
+        }
+
+        async function initSystem() { 
+            if(gameState.active) return; const btn = document.getElementById('engageBtn'); btn.innerText = "INITIALIZING..."; 
+            await initOSS(); await Promise.all([loadStrategies(), loadSweetPoints()]); await loadCloudPortfolio(); await updateMarketData(); 
+            setInterval(updateMarketData, 60000); gameState.active=true; 
+            btn.innerText="SYSTEM ONLINE"; btn.style.boxShadow="0 0 20px #0f0";
+            log("System Engaged.", "#0f0");
+        }
     </script>
 </body>
 </html>
