@@ -313,6 +313,12 @@
             kirin:  { simpleName: "大智", flowName: "大智OR", file: '大智模型_New.json' }
         };
 
+        // [新增] 历史回测文件配置 (来自代码2)
+        const HISTORY_FILES = {
+            genbu: '低波稳健模型优化后评估.json', suzaku: '大成模型优化后评估.json',
+            sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
+        };
+
         // ================= STATE =================
         let gameState = {
             active: false,
@@ -325,7 +331,10 @@
         };
         let memoryFlows = []; 
         let ossClient = null;
-        let perfChart = null; // Store chart instance
+        let perfChart = null; // Chart instance
+        
+        // [新增] 历史数据存储 (来自代码2)
+        let historyData = { dates: [], datasets: {} };
 
         // ================= UTILS =================
         function log(msg, color="#0f0") {
@@ -453,16 +462,15 @@
                 let currentAssets = 0;
                 
                 // 1. Update Strategy Prices and Calc System Rtn
-                let systemRtn = 0; // REPAIR: Variable for System Return
+                let systemRtn = 0; 
                 for (let s of g.strategy) {
                     await fetchPrice(s);
-                    // REPAIR: Calculate weighted System Return
                     if (s.currentPrice && s.refPrice) {
                          const chg = (s.currentPrice - s.refPrice) / s.refPrice;
                          systemRtn += chg * (s.weight / 100);
                     }
                 }
-                // REPAIR: Update UI for System Rtn
+                
                 const sysRtnElem = document.getElementById(`rtn-${k}`);
                 sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
                 sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
@@ -763,27 +771,70 @@
             }
         }
 
-        // REPAIR: Initialize Chart logic
-        function initChart() {
+        // [替换] 从 GitHub 获取历史回测数据 (来自代码2)
+        async function loadHistoryData() {
+            log("Loading Historical Data...", "#88f");
+            const keys = Object.keys(HISTORY_FILES);
+            const requests = keys.map(key => {
+                 const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${HISTORY_FILES[key]}?t=${Date.now()}`;
+                 return fetch(url).then(res => res.json()).catch(e => null);
+            });
+            const results = await Promise.all(requests);
+            
+            let allDatesSet = new Set();
+            results.forEach(json => { 
+                if(json && json.每日评估数据) {
+                    json.每日评估数据.forEach(item => allDatesSet.add(item.日期)); 
+                }
+            });
+            
+            historyData.dates = Array.from(allDatesSet).sort();
+            
+            results.forEach((json, index) => {
+                const key = keys[index];
+                if (json && json.每日评估数据) {
+                    const dataMap = new Map();
+                    json.每日评估数据.forEach(d => dataMap.set(d.日期, d.累计收益率 * 100));
+                    historyData.datasets[key] = historyData.dates.map(date => dataMap.has(date) ? dataMap.get(date) : null);
+                } else {
+                    historyData.datasets[key] = [];
+                }
+            });
+            
+            renderHistoryChart();
+        }
+
+        // [替换] 渲染历史曲线 (来自代码2)
+        function renderHistoryChart() {
+            // 显示面板
+            document.getElementById('settlementPanel').style.display = 'block';
+            
             const ctx = document.getElementById('performanceChart').getContext('2d');
+            if (perfChart) perfChart.destroy();
+            
+            const createDataset = (label, color, dataKey) => ({
+                label: label, borderColor: color, backgroundColor: color + '1A',
+                data: historyData.datasets[dataKey] || [], tension: 0.3, pointRadius: 0, borderWidth: 2, spanGaps: true
+            });
+            
             perfChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'],
-                    datasets: [{
-                        label: 'System Performance (Simulated)',
-                        data: [100, 101.2, 100.8, 102.5, 103.0], // Dummy Data
-                        borderColor: '#10B981',
-                        tension: 0.4
-                    }]
+                    labels: historyData.dates,
+                    datasets: [
+                        createDataset('GENBU', '#10B981', 'genbu'),
+                        createDataset('SUZAKU', '#EF4444', 'suzaku'),
+                        createDataset('SIRIUS', '#8B5CF6', 'sirius'),
+                        createDataset('KIRIN', '#3B82F6', 'kirin')
+                    ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#fff' } } },
-                    scales: {
-                        y: { ticks: { color: '#888' }, grid: { color: '#333' } },
-                        x: { ticks: { color: '#888' }, grid: { color: '#333' } }
+                    responsive: true, maintainAspectRatio: false, 
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: '#ccc' } } },
+                    scales: { 
+                        y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
+                        x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
                     }
                 }
             });
@@ -794,12 +845,14 @@
             const btn = document.getElementById('engageBtn');
             btn.innerText = "INITIALIZING...";
             
-            // REPAIR: Show the panel
-            document.getElementById('settlementPanel').style.display = 'block';
-            initChart(); // REPAIR: Init chart
-
             await initOSS();
-            await loadStrategies();
+            
+            // 并行加载策略和历史数据
+            await Promise.all([
+                loadStrategies(),
+                loadHistoryData() // [替换] 调用新的历史数据加载逻辑
+            ]);
+            
             await loadCloudPortfolio();
             
             updateMarketData();
