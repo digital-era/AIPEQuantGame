@@ -85,7 +85,8 @@
         .text-up { color: #EF4444; }
         .text-down { color: #10B981; }
         
-        .mini-chart-container { position: relative; width: 100%; height: 30px; }
+        .mini-chart-container { position: relative; width: 100%; height: 30px; cursor: crosshair; }
+        .mini-chart-container:hover { border: 1px solid #666; }
         canvas.sparkline { width: 100%; height: 100%; }
 
         /* --- Commander Section --- */
@@ -133,6 +134,54 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; }
+
+        /* --- [新增] 动态曲线 Modal 样式 --- */
+        .modal-overlay {
+            display: none; /* 默认隐藏 */
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+        .modal-content {
+            background: #111;
+            border: 2px solid #fff; /* JS会动态修改颜色 */
+            padding: 20px;
+            width: 90%;
+            max-width: 900px;
+            height: 60vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+        .close-btn {
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: 'Roboto Mono';
+            font-weight: bold;
+        }
+        .close-btn:hover { background: #444; }
+        .detail-chart-wrapper {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -294,6 +343,22 @@
         <div class="log-box" id="systemLog"><div class="log-line">> System Standby...</div></div>
     </div>
 
+    <!-- [新增] 动态曲线 Modal 结构 -->
+    <div id="chartModal" class="modal-overlay" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div style="display: flex; align-items: baseline;">
+                    <span id="modalTitle" class="pixel-font" style="font-size:1.2em; color:#FFD700;">STOCK</span>
+                    <span id="modalCode" style="color:#888; margin-left:10px; font-family:'Roboto Mono';">(--)</span>
+                    <!-- 新增：实时涨跌幅跳动显示 -->
+                    <span id="modalPct" style="margin-left:20px; font-weight:bold; font-size:1.4em;">0.00%</span>
+                </div>
+                <button class="close-btn" onclick="closeModal()">[X] CLOSE</button>
+            </div>
+            <div class="detail-chart-wrapper"><canvas id="detailChartCanvas"></canvas></div>
+        </div>
+    </div>
+
     <script>
         // ================= CONFIG =================
         const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
@@ -313,11 +378,20 @@
             kirin:  { simpleName: "大智", flowName: "大智OR", file: '大智模型_New.json' }
         };
 
-        // [新增] 历史回测文件配置 (来自代码2)
         const HISTORY_FILES = {
             genbu: '低波稳健模型优化后评估.json', suzaku: '大成模型优化后评估.json',
             sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
         };
+
+        // [新增] 颜色映射和全局图表变量
+        const GUARDIAN_COLORS = { 
+            genbu: '#10B981', 
+            suzaku: '#EF4444', 
+            sirius: '#8B5CF6', 
+            kirin: '#3B82F6' 
+        };
+        let detailChart = null;
+        let playbackTimer = null;
 
         // ================= STATE =================
         let gameState = {
@@ -331,9 +405,8 @@
         };
         let memoryFlows = []; 
         let ossClient = null;
-        let perfChart = null; // Chart instance
+        let perfChart = null; 
         
-        // [新增] 历史数据存储 (来自代码2)
         let historyData = { dates: [], datasets: {} };
 
         // ================= UTILS =================
@@ -357,6 +430,134 @@
                 if (h > 16 || (h === 16 && min > 30)) { h = 16; min = 30; }
             }
             return `${y}${m}${d}${String(h).padStart(2,'0')}${String(min).padStart(2,'0')}`;
+        }
+
+        // ================= NEW CHART LOGIC =================
+        
+        // [新增] 关闭模态框
+        function closeModal() {
+            document.getElementById('chartModal').style.display = 'none';
+            if (playbackTimer) clearInterval(playbackTimer);
+        }
+
+        // [新增] 触发微图点击的处理函数
+        function onSparkClick(event, key, type, idx) {
+            event.stopPropagation(); // 阻止冒泡，避免触发选行
+            let item;
+            if (type === 'strategy') {
+                item = gameState.guardians[key].strategy[idx];
+            } else {
+                item = gameState.guardians[key].portfolio[idx];
+            }
+            if (item) {
+                const color = GUARDIAN_COLORS[key] || '#fff';
+                openDetailChart(item, color);
+            }
+        }
+
+        // [新增] 替换原来的 openDetailChart 函数（核心逻辑带涨跌幅量化）
+        function openDetailChart(item, color) {
+            if (!item.history || item.history.length === 0) return;
+            
+            const refPrice = item.refPrice || item.history[0]; // 基准价（开盘价）
+            const pctEl = document.getElementById('modalPct');
+            
+            document.getElementById('modalTitle').innerText = item.name;
+            document.getElementById('modalCode').innerText = `(${item.code})`;
+            document.getElementById('chartModal').style.display = 'flex';
+            document.querySelector('.modal-content').style.borderColor = color;
+
+            const ctx = document.getElementById('detailChartCanvas').getContext('2d');
+            if (detailChart) detailChart.destroy();
+            if (playbackTimer) clearInterval(playbackTimer);
+
+            const gradient = ctx.createLinearGradient(0, 0, 0, 450);
+            gradient.addColorStop(0, color + '55');
+            gradient.addColorStop(1, color + '00');
+
+            detailChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: item.history.map((_, i) => i),
+                    datasets: [
+                        {
+                            label: 'Price',
+                            data: [], // 动态生长数据
+                            borderColor: color,
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            fill: true,
+                            backgroundColor: gradient,
+                            tension: 0.3,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        // 增加基准线插件（在y轴设置中实现）
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.parsed.y;
+                                    const chg = ((val - refPrice) / refPrice * 100).toFixed(2);
+                                    return ` Price: ${val.toFixed(2)} (${chg > 0 ? '+' : ''}${chg}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            position: 'left',
+                            grid: { color: '#222' },
+                            ticks: { color: '#888' }
+                        },
+                        // 新增：右侧百分比轴
+                        y1: {
+                            position: 'right',
+                            grid: { display: false },
+                            ticks: {
+                                color: '#666',
+                                callback: function(value) {
+                                    const chg = ((value - refPrice) / refPrice * 100).toFixed(1);
+                                    return chg + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            let step = 0;
+            const fullHistory = item.history;
+            
+            playbackTimer = setInterval(() => {
+                step++;
+                if (step > fullHistory.length + 10) step = 0;
+
+                const currentSlice = fullHistory.slice(0, step);
+                const lastPrice = currentSlice[currentSlice.length - 1];
+
+                // 更新大图数据
+                detailChart.data.datasets[0].data = currentSlice;
+                detailChart.update('none');
+
+                // 更新顶部 HUD 的百分比和颜色
+                if (lastPrice) {
+                    const currentChg = ((lastPrice - refPrice) / refPrice * 100).toFixed(2);
+                    pctEl.innerText = (currentChg > 0 ? '+' : '') + currentChg + '%';
+                    pctEl.style.color = lastPrice >= refPrice ? '#EF4444' : '#10B981';
+                } else {
+                    pctEl.innerText = '0.00%';
+                }
+            }, 30);
         }
 
         // ================= LOGIC =================
@@ -404,7 +605,6 @@
             try {
                 const result = await ossClient.get(OSS_FILE_NAME);
                 const wb = XLSX.read(result.content, { type: 'array' });
-                // const todayPrefix = getOpTime().substring(0, 8); // 原有代码：不需要这行了
                 
                 for (let key in GUARDIAN_CONFIG) {
                     const sheetName = GUARDIAN_CONFIG[key].simpleName;
@@ -414,26 +614,22 @@
                     if (wb.Sheets[sheetName]) {
                         const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
                         
-                        // --- 新增逻辑开始：寻找该Sheet中存在的最新日期 ---
                         let maxDateInt = 0;
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
                             if (t.length >= 8) {
-                                // 提取前8位 (YYYYMMDD) 转为数字比较
                                 const dateVal = parseInt(t.substring(0, 8));
                                 if (!isNaN(dateVal) && dateVal > maxDateInt) {
                                     maxDateInt = dateVal;
                                 }
                             }
                         });
-                        // --- 新增逻辑结束 ---
 
                         let holdingsMap = {};
-                        const targetPrefix = String(maxDateInt); // 将最新日期转回字符串用于匹配
+                        const targetPrefix = String(maxDateInt);
 
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
-                            // 修改：只有当这一行数据的日期等于最新日期时，才读取
                             if (maxDateInt > 0 && t.startsWith(targetPrefix)) {
                                 holdingsMap[row['股票代码']] = row;
                             }
@@ -455,7 +651,6 @@
                 }
                 log("Cloud Portfolio Loaded.", "#0f0");
             } catch (e) {
-                // ... (错误处理保持不变)
                 if (e.name === 'NoSuchKeyError' || e.code === 'NoSuchKey') {
                     log("No Cloud Save. Starting Fresh.", "#888");
                     for (let k in GUARDIAN_CONFIG) updateCash(k);
@@ -587,10 +782,13 @@
                 wHtml = `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
             }
 
+            // [修改] 增加 onclick 调用 onSparkClick，并阻止冒泡
             div.innerHTML = `
                 <div class="h-info"><span class="h-name">${nameHtml}</span><div class="h-weight-row">${wHtml}</div></div>
                 <div class="h-price-col">${pHtml}</div>
-                <div class="mini-chart-container"><canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas></div>
+                <div class="mini-chart-container" onclick="onSparkClick(event, '${key}', '${type}', ${idx})">
+                    <canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas>
+                </div>
             `;
             
             setTimeout(() => {
@@ -791,7 +989,6 @@
             }
         }
 
-        // [替换] 从 GitHub 获取历史回测数据 (来自代码2)
         async function loadHistoryData() {
             log("Loading Historical Data...", "#88f");
             const keys = Object.keys(HISTORY_FILES);
@@ -824,9 +1021,7 @@
             renderHistoryChart();
         }
 
-        // [替换] 渲染历史曲线 (来自代码2)
         function renderHistoryChart() {
-            // 显示面板
             document.getElementById('settlementPanel').style.display = 'block';
             
             const ctx = document.getElementById('performanceChart').getContext('2d');
@@ -867,10 +1062,9 @@
             
             await initOSS();
             
-            // 并行加载策略和历史数据
             await Promise.all([
                 loadStrategies(),
-                loadHistoryData() // [替换] 调用新的历史数据加载逻辑
+                loadHistoryData()
             ]);
             
             await loadCloudPortfolio();
