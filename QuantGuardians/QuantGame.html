@@ -182,6 +182,58 @@
             position: relative;
             width: 100%;
         }
+
+        /* --- ADHOC 搜索建议样式 --- */
+        .adhoc-results-container {
+            position: relative;
+            width: 100%;
+        }
+        .suggestions-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #111;
+            border: 1px solid #555;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+        .suggestions-list li {
+            padding: 8px;
+            font-size: 0.7em;
+            cursor: pointer;
+            border-bottom: 1px solid #222;
+        }
+        .suggestions-list li:hover {
+            background: #333;
+            color: var(--user-gold);
+        }
+        
+        /* --- 删除按钮样式 --- */
+        .delete-btn {
+            color: #ff4444;
+            cursor: pointer;
+            margin-left: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+            line-height: 1;
+            vertical-align: middle;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .delete-btn:hover {
+            transform: scale(1.3);
+            color: #ff0000;
+        }
+        .h-name-wrapper {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -224,8 +276,18 @@
                         <input type="number" class="cmd-input input-weight" id="sell-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'sell')">
                         <button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button>
                     </div>
-                </div>
+                </div>                
                 <div class="cmd-msg" id="msg-genbu"></div>
+                <!-- ADHOC GENBU-->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                    <div class="cmd-controls adhoc-results-container">
+                        <input type="text" class="cmd-input" id="adhoc-search-genbu" placeholder="Name/Code" style="flex:1;">
+                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-genbu" placeholder="%" step="0.1">
+                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('genbu')">ADHOC</button>
+                        <div id="suggestions-genbu" class="suggestions-list-container"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="list-header">PORTFOLIO HOLDINGS</div>
@@ -260,6 +322,16 @@
                     </div>
                 </div>
                 <div class="cmd-msg" id="msg-suzaku"></div>
+                <!-- ADHOC SUZAKU -->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                    <div class="cmd-controls adhoc-results-container">
+                        <input type="text" class="cmd-input" id="adhoc-search-suzaku" placeholder="Name/Code" style="flex:1;">
+                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-suzaku" placeholder="%" step="0.1">
+                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('suzaku')">ADHOC</button>
+                        <div id="suggestions-suzaku" class="suggestions-list-container"></div>
+                    </div>
+                </div>
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
             <div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
@@ -293,6 +365,16 @@
                     </div>
                 </div>
                 <div class="cmd-msg" id="msg-sirius"></div>
+                 <!-- ADHOC SIRIUS -->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                    <div class="cmd-controls adhoc-results-container">
+                        <input type="text" class="cmd-input" id="adhoc-search-sirius" placeholder="Name/Code" style="flex:1;">
+                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-sirius" placeholder="%" step="0.1">
+                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('sirius')">ADHOC</button>
+                        <div id="suggestions-sirius" class="suggestions-list-container"></div>
+                    </div>
+                </div>
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
             <div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
@@ -326,6 +408,16 @@
                     </div>
                 </div>
                 <div class="cmd-msg" id="msg-kirin"></div>
+                <!-- ADHOC KIRIN -->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                    <div class="cmd-controls adhoc-results-container">
+                        <input type="text" class="cmd-input" id="adhoc-search-kirin" placeholder="Name/Code" style="flex:1;">
+                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-kirin" placeholder="%" step="0.1">
+                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('kirin')">ADHOC</button>
+                        <div id="suggestions-kirin" class="suggestions-list-container"></div>
+                    </div>
+                </div>
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
             <div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
@@ -812,7 +904,12 @@
             let iconPrefix = "";
             if(item.isSweet) iconPrefix += "🍬"; 
             if(iconPrefix !== "") iconPrefix += " ";
-            let nameHtml = `${iconPrefix}${item.name}`;
+            // --- 修改点：如果是 strategy 且是 adhoc 类型，增加减号 ---
+            let deleteHtml = (type === 'strategy' && item.isAdhoc) ? 
+                `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>` : '';
+        
+            let nameHtml = `<div class="h-name-wrapper"><span class="h-name">${iconPrefix}${item.name}</span>${deleteHtml}</div>`;
+            //let nameHtml = `${iconPrefix}${item.name}`;
 
             let wHtml = "";
             let pHtml = "";
@@ -832,8 +929,9 @@
                 wHtml = `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
             }
 
+            // ... 后面的 innerHTML 拼接中使用 nameHtml ...
             div.innerHTML = `
-                <div class="h-info"><span class="h-name">${nameHtml}</span><div class="h-weight-row">${wHtml}</div></div>
+                <div class="h-info">${nameHtml}<div class="h-weight-row">${wHtml}</div></div>
                 <div class="h-price-col">${pHtml}</div>
                 <div class="mini-chart-container" onclick="onSparkClick(event, '${key}', '${type}', ${idx})">
                     <canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas>
@@ -1132,6 +1230,10 @@
             
             updateMarketData();
             setInterval(updateMarketData, 60000); 
+
+            await fetchAllStocksData(); // 新增：获取全量搜索数据
+            setupAllAdhocAutoCompletes(); // 新增：设置自动补全
+            
             
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
