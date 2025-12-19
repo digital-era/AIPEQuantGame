@@ -1119,6 +1119,45 @@
                 }
             });
         }
+        
+        async function loadAdhocFromCloud() {
+            log("Loading ADHOC Suggestions...", "#da70d6");
+            if (!ossClient) return;
+            try {
+                const result = await ossClient.get(OSS_FILE_NAME);
+                const wb = XLSX.read(result.content, { type: 'array' });
+                const sheet = wb.Sheets["ADHOC"];
+                
+                if (sheet) {
+                    const raw = XLSX.utils.sheet_to_json(sheet);
+                    raw.forEach(row => {
+                        const simpleName = row["组合名称"];
+                        // 找到对应的守护者 key
+                        const key = Object.keys(GUARDIAN_CONFIG).find(k => GUARDIAN_CONFIG[k].simpleName === simpleName);
+                        
+                        if (key) {
+                            const g = gameState.guardians[key];
+                            // 避免重复导入（如果策略列表里已经有了就不加了，或者根据业务需求处理）
+                            if (!g.strategy.some(s => s.code === String(row["股票代码"]))) {
+                                g.strategy.push({
+                                    name: row["股票名称"],
+                                    code: String(row["股票代码"]),
+                                    weight: parseFloat(row["建议比例 (%)"]),
+                                    refPrice: null, // 将在后续 updateMarketData 中获取
+                                    currentPrice: null,
+                                    history: [],
+                                    isSweet: false,
+                                    isAdhoc: true // 关键标记：持久化导入的标的
+                                });
+                            }
+                        }
+                    });
+                    log("ADHOC Suggestions Imported.", "#0f0");
+                }
+            } catch (e) {
+                log("No ADHOC data found in cloud.", "#888");
+            }
+        }
 
         async function syncToCloud() {
             if (!await initOSS()) return;
@@ -1175,6 +1214,40 @@
                     const newFlowWs = XLSX.utils.json_to_sheet(flowData, { header: ["组合名称","股票代码","股票名称","配置比例 (%)","标的数量","价格","价值","操作类型","修改时间"] });
                     if(wb.Sheets[cfg.flowName]) wb.Sheets[cfg.flowName] = newFlowWs;
                     else XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
+                }
+
+                // 收集所有守护者的 ADHOC 标的
+                let adhocData = [];
+                const adhocTimeStr = getOpTime(true);
+                
+                for (let key in GUARDIAN_CONFIG) {
+                    const cfg = GUARDIAN_CONFIG[key];
+                    const g = gameState.guardians[key];
+                    
+                    // 只筛选出标记为 isAdhoc 的标的
+                    const adhocItems = g.strategy.filter(s => s.isAdhoc === true);
+                    
+                    adhocItems.forEach(item => {
+                        adhocData.push({
+                            "组合名称": cfg.simpleName,
+                            "股票代码": item.code,
+                            "股票名称": item.name,
+                            "来源": "QuantGuardians",
+                            "建议比例 (%)": item.weight.toFixed(2),
+                            "修改时间": adhocTimeStr
+                        });
+                    });
+                }
+                
+                // 将收集到的 ADHOC 数据写入 Sheet (全量覆盖)
+                const adhocWs = XLSX.utils.json_to_sheet(adhocData, { 
+                    header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间"] 
+                });
+                
+                if (wb.Sheets["ADHOC"]) {
+                    wb.Sheets["ADHOC"] = adhocWs;
+                } else {
+                    XLSX.utils.book_append_sheet(wb, adhocWs, "ADHOC");
                 }
 
                 const wopts = { bookType:'xlsx', bookSST:false, type:'array' };
@@ -1272,6 +1345,9 @@
 
             // 5. 在系统初始化流程中，策略加载后立即调用加载函数
             await loadSweetPoints(); 
+
+            //  【新增】从云端导入 ADHOC 标的到 Strategy Suggestions
+            await loadAdhocFromCloud();
             
             await loadCloudPortfolio();
             
