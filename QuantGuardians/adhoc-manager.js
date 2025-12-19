@@ -82,11 +82,11 @@ function addNewAdhoc(key) {
     const searchTerm = searchInput.value.trim();
     const weight = parseFloat(weightInput.value);
 
-    // 统一设置消息颜色为黄色并清空旧内容
-    msgEl.style.color = "#ffff00"; 
+    // 1. 初始化消息框状态
+    msgEl.style.color = "#ffff00"; // 统一黄色
     msgEl.innerText = "";
 
-    // --- 1. 输入检查 ---
+    // 2. 输入合法性检查 (只针对 ADHOC)
     if (!searchTerm) {
         msgEl.innerText = "ERR: 请输入股票名称或代码";
         return;
@@ -96,40 +96,49 @@ function addNewAdhoc(key) {
         return;
     }
 
-    // --- 2. 匹配股票 (假设你已有关联好的 allStocks 库) ---
-    const stock = typeof allStocks !== 'undefined' ? 
+    // 3. 从全局库查找股票 (确保 allStocks 存在)
+    const stock = (typeof allStocks !== 'undefined') ? 
                   allStocks.find(s => s.name === searchTerm || s.code === searchTerm) : null;
 
     if (!stock) {
-        msgEl.innerText = "ERR: 未找到匹配标的";
+        msgEl.innerText = "ERR: 未找到该股票，请检查输入";
         return;
     }
 
-    // --- 3. 执行添加并提示成功 ---
-    const exists = gameState.guardians[key].strategy.find(s => s.code === stock.code);
-    if (exists) {
-        msgEl.innerText = "ERR: 该标的已在列表中";
-    } else {
-        const newItem = {
-            ...stock,
-            weight: weight,
-            isAdhoc: true, // 标记为手动添加
-            history: [],
-            currentPrice: null
-        };
-        gameState.guardians[key].strategy.push(newItem);
-        
-        // 成功提示：统一黄色
-        msgEl.innerText = `ADHOC成功: 已添加 ${stock.name}`;
-        
-        // 重置输入框
-        searchInput.value = "";
-        weightInput.value = "";
-        
-        // 刷新列表并获取实时价
-        renderLists(key);
-        fetchPrice(newItem).then(() => renderLists(key));
+    // 4. 检查是否重复添加
+    const isDuplicate = gameState.guardians[key].strategy.some(s => s.code === stock.code);
+    if (isDuplicate) {
+        msgEl.innerText = "ERR: 该标的已在 Suggestions 中";
+        return;
     }
+
+    // 5. 构造完整对象并存入 state
+    // 关键修复：必须初始化 refPrice 和 history 数组，否则 createRow 渲染时会报错导致卡片不显示
+    const newItem = {
+        name: stock.name,
+        code: stock.code,
+        weight: weight,
+        isAdhoc: true,      // 标记为手动添加
+        history: [],        // 必须初始化
+        refPrice: 0,        // 必须初始化，fetchPrice 后会更新
+        currentPrice: null,
+        isSweet: false      // 默认非甜点
+    };
+
+    gameState.guardians[key].strategy.push(newItem);
+
+    // 6. UI 更新确认
+    msgEl.innerText = `ADHOC SUCCESS: ${stock.name} ADDED`;
+    
+    // 清空输入框
+    searchInput.value = "";
+    weightInput.value = "";
+
+    // 7. 立即渲染一次（显示占位），同时发起行情请求
+    renderLists(key); 
+    fetchPrice(newItem).then(() => {
+        renderLists(key); // 行情回来后再刷一次，显示价格和曲线
+    });
 }
 
 // 删除 ADHOC 标的
