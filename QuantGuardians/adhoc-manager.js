@@ -74,19 +74,22 @@ function setupAllAdhocAutoCompletes() {
 }
 
 // 执行添加 ADHOC 标的
+// 执行添加 ADHOC 标的
 function addNewAdhoc(key) {
     const searchInput = document.getElementById(`adhoc-search-${key}`);
     const weightInput = document.getElementById(`adhoc-weight-${key}`);
     const msgEl = document.getElementById(`msg-${key}`);
     
+    // 优先从 dataset 获取点击下拉列表时存入的 code
+    const selectedCode = searchInput.dataset.selectedCode;
     const searchTerm = searchInput.value.trim();
     const weight = parseFloat(weightInput.value);
 
     // 1. 初始化消息框状态
-    msgEl.style.color = "#ffff00"; // 统一黄色
+    msgEl.style.color = "#ffff00"; 
     msgEl.innerText = "";
 
-    // 2. 输入合法性检查 (只针对 ADHOC)
+    // 2. 输入合法性检查
     if (!searchTerm) {
         msgEl.innerText = "ERR: 请输入股票名称或代码";
         return;
@@ -96,9 +99,17 @@ function addNewAdhoc(key) {
         return;
     }
 
-    // 3. 从全局库查找股票 (确保 allStocks 存在)
-    const stock = (typeof allStocks !== 'undefined') ? 
-                  allStocks.find(s => s.name === searchTerm || s.code === searchTerm) : null;
+    // 3. 查找股票 (改进查找逻辑)
+    let stock = null;
+    if (typeof allStocks !== 'undefined') {
+        if (selectedCode) {
+            // 如果有 dataset (说明是从下拉列表选的)，精确匹配 code
+            stock = allStocks.find(s => s.code === selectedCode);
+        } else {
+            // 如果用户是手动输入的（没有触发点击下拉），尝试匹配原名或代码
+            stock = allStocks.find(s => s.name === searchTerm || s.code === searchTerm);
+        }
+    }
 
     if (!stock) {
         msgEl.innerText = "ERR: 未找到该股票，请检查输入";
@@ -113,16 +124,15 @@ function addNewAdhoc(key) {
     }
 
     // 5. 构造完整对象并存入 state
-    // 关键修复：必须初始化 refPrice 和 history 数组，否则 createRow 渲染时会报错导致卡片不显示
     const newItem = {
         name: stock.name,
         code: stock.code,
         weight: weight,
-        isAdhoc: true,      // 标记为手动添加
-        history: [],        // 必须初始化
-        refPrice: 0,        // 必须初始化，fetchPrice 后会更新
+        isAdhoc: true,
+        history: [],
+        refPrice: 0,
         currentPrice: null,
-        isSweet: false      // 默认非甜点
+        isSweet: false
     };
 
     gameState.guardians[key].strategy.push(newItem);
@@ -130,15 +140,19 @@ function addNewAdhoc(key) {
     // 6. UI 更新确认
     msgEl.innerText = `ADHOC SUCCESS: ${stock.name} ADDED`;
     
-    // 清空输入框
+    // 清空输入框和 dataset
     searchInput.value = "";
+    delete searchInput.dataset.selectedCode; // 记得清除缓存，防止下次误选
+    delete searchInput.dataset.selectedName;
     weightInput.value = "";
 
-    // 7. 立即渲染一次（显示占位），同时发起行情请求
+    // 7. 渲染
     renderLists(key); 
-    fetchPrice(newItem).then(() => {
-        renderLists(key); // 行情回来后再刷一次，显示价格和曲线
-    });
+    if (typeof fetchPrice === 'function') {
+        fetchPrice(newItem).then(() => {
+            renderLists(key);
+        });
+    }
 }
 
 // 删除 ADHOC 标的
