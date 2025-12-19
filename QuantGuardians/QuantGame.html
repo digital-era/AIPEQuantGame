@@ -91,7 +91,7 @@
 
         /* --- Commander Section --- */
         .commander-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
-        //.cmd-row { margin-bottom: 8px; }
+        /*.cmd-row { margin-bottom: 8px; }*/
         /* --- 统一纵向间距 --- */
         .cmd-row { 
             margin-bottom: 10px;  /* 固定的行间距，确保 Buy/Sell/ADHOC 距离一致 */
@@ -103,13 +103,13 @@
         
         .cmd-controls { display: flex; gap: 4px; width: 100%; align-items: center; }
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 4px; font-size: 0.7em; height: 26px; }
-        //.input-price { flex: 1; min-width: 0; }
+        /*.input-price { flex: 1; min-width: 0; }*/
         /* --- 价格/名称输入框自动伸缩 --- */
         .input-price { 
             flex: 1;              /* 占据剩余的所有空间 */
             min-width: 0;         /* 关键：防止在 Flex 布局中撑破容器 */
         }
-        //.input-weight { width: 60px; flex: 0 0 60px; color: var(--user-gold); text-align: center; }
+        /*.input-weight { width: 60px; flex: 0 0 60px; color: var(--user-gold); text-align: center; }*/
         /* --- 比例输入框长度固定 --- */
         .input-weight { 
             width: 60px; 
@@ -117,7 +117,7 @@
             color: var(--user-gold); 
             text-align: center; 
         }
-        //.cmd-btn { cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; padding: 0 8px; height: 26px; white-space: nowrap; flex: 0 0 auto; border: 1px solid #555; background: #222; color: #fff;}
+        /*.cmd-btn { cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; padding: 0 8px; height: 26px; white-space: nowrap; flex: 0 0 auto; border: 1px solid #555; background: #222; color: #fff;}*/
         /* --- 统一按钮长度，并增加移动端稳定性 --- */
         .cmd-btn { 
             cursor: pointer; 
@@ -138,7 +138,7 @@
         .cmd-btn.sell-btn { border-color: var(--glow-color); color: var(--glow-color); }
         .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #444; color: #666; }
 
-        //.cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}
+        /*.cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}*/
         /* --- 消息提示框：不干扰布局 --- */
         .cmd-msg { 
             height: 15px; 
@@ -257,7 +257,7 @@
         
         /* --- 删除按钮样式 --- */
         .delete-btn {
-            color: #ff4444;
+            color: #ffff00;
             cursor: pointer;
             margin-left: 5px;
             font-size: 1.2em;
@@ -269,7 +269,7 @@
         }
         .delete-btn:hover {
             transform: scale(1.3);
-            color: #ff0000;
+            color: #FFD700;
         }
         .h-name-wrapper {
             display: flex;
