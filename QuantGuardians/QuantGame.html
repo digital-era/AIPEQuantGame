@@ -371,6 +371,9 @@
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 
+        // 1. 定义甜点文件名常量
+        const SWEET_POINT_FILE = 'SweetPoint_New.json';
+
         const GUARDIAN_CONFIG = {
             genbu:  { simpleName: "低波", flowName: "低波OR", file: '低波稳健模型_New.json' },
             suzaku: { simpleName: "大成", flowName: "大成OR", file: '大成模型_New.json' },
@@ -582,14 +585,44 @@
                     const data = json.结果 || json;
                     gameState.guardians[key].power = parseFloat(data.风控因子信息.综合建议仓位因子);
                     gameState.guardians[key].strategy = data.最优投资组合配置.配置详情.map(p => ({
-                        name: p.名称, code: p.代码, refPrice: parseFloat(p.最近一日价格),
+                        name: p.名称, 
+                        code: p.代码, 
+                        refPrice: parseFloat(p.最近一日价格),
                         weight: parseFloat(p["最优权重(%)"]), 
-                        currentPrice: null, history: []
+                        currentPrice: null, 
+                        history: [],
+                        isSweet: false // 2. 数据结构初始化默认为 false
                     }));
                     document.getElementById(`power-${key}`).innerText = (gameState.guardians[key].power * 100).toFixed(0) + "%";
                 } catch (e) { log(`[${key}] Model Err`, "red"); }
             });
             await Promise.all(promises);
+        }
+
+        // 3. 加载并标记 Sweet Points 的核心逻辑函数
+        async function loadSweetPoints() {
+            log("Scanning Sweet Points...", "#d8bfd8");
+            const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("SweetPoint fetch failed");
+                const json = await res.json();
+                
+                // 创建代码集合用于快速匹配
+                const sweetCodes = new Set(json.map(item => item.代码));
+
+                let count = 0;
+                // 遍历所有守护者
+                for (let key in gameState.guardians) {
+                    gameState.guardians[key].strategy.forEach(stock => {
+                        if (sweetCodes.has(stock.code)) {
+                            stock.isSweet = true; // 标记为真
+                            count++;
+                        }
+                    });
+                }
+                log(`Sweet Points Applied: ${count}`, "#d8bfd8");
+            } catch (e) { log("SweetPoint Err: " + e.message, "orange"); }
         }
 
         async function loadCloudPortfolio() {
@@ -756,7 +789,6 @@
             const div = document.createElement('div');
             div.className = 'holding-item';
 
-            // =========== 【开始】在此处插入跳转代码 ===========
             if (!item.isCash) {
                 const stockUrl = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
                 div.ondblclick = (e) => { 
@@ -764,9 +796,13 @@
                     window.open(stockUrl, '_blank'); 
                 };
             }
-            // =========== 【结束】跳转代码插入完毕 ==========
             
-            let nameHtml = item.name;
+            // 4. 界面渲染逻辑：如果是甜点，在股票名称前添加糖果图标 🍬
+            let iconPrefix = "";
+            if(item.isSweet) iconPrefix += "🍬"; 
+            if(iconPrefix !== "") iconPrefix += " ";
+            let nameHtml = `${iconPrefix}${item.name}`;
+
             let wHtml = "";
             let pHtml = "";
             
@@ -785,7 +821,6 @@
                 wHtml = `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
             }
 
-            // [修改] 增加 onclick 调用 onSparkClick，并阻止冒泡
             div.innerHTML = `
                 <div class="h-info"><span class="h-name">${nameHtml}</span><div class="h-weight-row">${wHtml}</div></div>
                 <div class="h-price-col">${pHtml}</div>
@@ -1065,10 +1100,14 @@
             
             await initOSS();
             
+            // 加载策略和历史数据
             await Promise.all([
                 loadStrategies(),
                 loadHistoryData()
             ]);
+
+            // 5. 在系统初始化流程中，策略加载后立即调用加载函数
+            await loadSweetPoints(); 
             
             await loadCloudPortfolio();
             
