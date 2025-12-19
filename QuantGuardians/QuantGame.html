@@ -901,7 +901,10 @@
         async function fetchPrice(item) {
             if (!item.code) return;
             try {
-                const url = `${REAL_API_URL}?code=${item.code}&type=intraday`;
+               // --- 新增判断：如果是5位代码，前面拼接 HK ---
+                const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;                
+                // 修改这里的变量名为 finalCode
+                const url = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data && data.length > 0) {
