@@ -977,6 +977,7 @@
                 } catch { wb = XLSX.utils.book_new(); }
 
                 const timeStr = getOpTime(true);
+                const todayPrefix = timeStr.substring(0, 8); // 提取如 "20231027"
 
                 for (let key in GUARDIAN_CONFIG) {
                     const cfg = GUARDIAN_CONFIG[key];
@@ -984,7 +985,14 @@
 
                     let snapData = [];
                     if (wb.Sheets[cfg.simpleName]) {
-                        snapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
+                        // 1. 先把 Sheet 里的旧数据全读出来
+                        const oldSnapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
+                        
+                        // 2. 【核心修改】过滤掉“修改时间”前8位等于今天的数据
+                        snapData = oldSnapData.filter(row => {
+                            const rowTime = String(row["修改时间"] || "");
+                            return rowTime.substring(0, 8) !== todayPrefix; 
+                        });
                     }
                     g.portfolio.forEach(p => {
                         snapData.push({
