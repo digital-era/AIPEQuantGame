@@ -75,57 +75,61 @@ function setupAllAdhocAutoCompletes() {
 
 // 执行添加 ADHOC 标的
 function addNewAdhoc(key) {
-    const input = document.getElementById(`adhoc-search-${key}`);
+    const searchInput = document.getElementById(`adhoc-search-${key}`);
     const weightInput = document.getElementById(`adhoc-weight-${key}`);
-    const weight = parseFloat(weightInput.value);
+    const msgEl = document.getElementById(`msg-${key}`);
     
-    const code = input.dataset.selectedCode;
-    const name = input.dataset.selectedName;
+    const searchTerm = searchInput.value.trim();
+    const weight = parseFloat(weightInput.value);
 
-    // 参数校验
-    if (!code || !name) {
-        alert("Please select a stock from the dropdown suggestions.");
+    // 统一设置消息颜色为黄色并清空旧内容
+    msgEl.style.color = "#ffff00"; 
+    msgEl.innerText = "";
+
+    // --- 1. 输入检查 ---
+    if (!searchTerm) {
+        msgEl.innerText = "ERR: 请输入股票名称或代码";
         return;
     }
     if (isNaN(weight) || weight <= 0) {
-        alert("Suggested weight (%) must be greater than 0.");
+        msgEl.innerText = "ERR: 权重必须大于 0";
         return;
     }
 
-    // 检查是否已经在 strategy 列表中
-    const exists = gameState.guardians[key].strategy.some(s => s.code === code);
+    // --- 2. 匹配股票 (假设你已有关联好的 allStocks 库) ---
+    const stock = typeof allStocks !== 'undefined' ? 
+                  allStocks.find(s => s.name === searchTerm || s.code === searchTerm) : null;
+
+    if (!stock) {
+        msgEl.innerText = "ERR: 未找到匹配标的";
+        return;
+    }
+
+    // --- 3. 执行添加并提示成功 ---
+    const exists = gameState.guardians[key].strategy.find(s => s.code === stock.code);
     if (exists) {
-        alert("This stock is already in the suggestion list.");
-        return;
+        msgEl.innerText = "ERR: 该标的已在列表中";
+    } else {
+        const newItem = {
+            ...stock,
+            weight: weight,
+            isAdhoc: true, // 标记为手动添加
+            history: [],
+            currentPrice: null
+        };
+        gameState.guardians[key].strategy.push(newItem);
+        
+        // 成功提示：统一黄色
+        msgEl.innerText = `ADHOC成功: 已添加 ${stock.name}`;
+        
+        // 重置输入框
+        searchInput.value = "";
+        weightInput.value = "";
+        
+        // 刷新列表并获取实时价
+        renderLists(key);
+        fetchPrice(newItem).then(() => renderLists(key));
     }
-
-    // 构建新标的对象
-    const newStock = {
-        name: name,
-        code: code,
-        refPrice: null, // 将在 updateMarketData 中获取
-        weight: weight,
-        currentPrice: null,
-        history: [],
-        isSweet: false,
-        isAdhoc: true // 标记为用户手动增加，允许删除
-    };
-
-    // 增加到对应守护者的策略列表末尾
-    gameState.guardians[key].strategy.push(newStock);
-
-    // 清空输入框
-    input.value = '';
-    weightInput.value = '';
-    delete input.dataset.selectedCode;
-    delete input.dataset.selectedName;
-
-    // 立即触发一次价格更新和重新渲染
-    updateMarketData(); 
-    
-    const msgEl = document.getElementById(`msg-${key}`);
-    msgEl.innerText = `ADHOC ADDED: ${name}`;
-    msgEl.style.color = "#0f0";
 }
 
 // 删除 ADHOC 标的
