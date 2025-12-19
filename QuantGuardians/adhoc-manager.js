@@ -36,6 +36,10 @@ function setupAllAdhocAutoCompletes() {
         const suggestionsBox = document.getElementById(`suggestions-${key}`);
         
         input.addEventListener('input', () => {
+            // 每次输入变化，先清除之前选中的 ID
+            delete input.dataset.selectedCode;
+            delete input.dataset.selectedName;
+            
             const query = input.value.trim().toLowerCase();
             suggestionsBox.innerHTML = '';
             if (query.length < 2) return;
