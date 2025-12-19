@@ -161,10 +161,11 @@ function addNewAdhoc(key) {
 
 // 删除 ADHOC 标的
 function removeAdhocItem(event, key, idx) {
-    event.stopPropagation(); // 防止触发行选中逻辑
-    const name = gameState.guardians[key].strategy[idx].name;
-    if (confirm(`Remove ${name} from suggestions?`)) {
-        gameState.guardians[key].strategy.splice(idx, 1);
-        renderLists(key);
-    }
+    event.stopPropagation(); // 保持这一行：防止触发行选中逻辑
+    
+    // 直接执行删除，不再通过 if(confirm(...)) 询问
+    gameState.guardians[key].strategy.splice(idx, 1);
+    
+    // 重新渲染列表
+    renderLists(key);
 }
