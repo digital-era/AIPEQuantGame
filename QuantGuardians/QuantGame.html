@@ -123,9 +123,10 @@
             cursor: pointer; 
             font-family: 'Press Start 2P'; 
             font-size: 0.5em; 
-            /* 关键修改：固定宽度 85px，并禁止缩放 */
-            width: 85px;          
-            flex: 0 0 85px;       
+            /* 关键修改：锁定宽度，防止因字符多少而伸缩 */
+            width: 85px !important;          
+            flex: 0 0 85px !important;       
+            min-width: 85px !important;
             height: 26px; 
             white-space: nowrap; 
             border: 1px solid #555; 
@@ -133,6 +134,7 @@
             color: #fff;
             padding: 0;           /* 清除内边距，确保文字居中 */
             text-align: center;
+            box-sizing: border-box; /* 确保边框计算在宽度内 */
         }
         .cmd-btn.buy-btn { border-color: var(--glow-color); color: var(--glow-color); }
         .cmd-btn.sell-btn { border-color: var(--glow-color); color: var(--glow-color); }
@@ -226,8 +228,8 @@
 
         /* --- ADHOC 搜索建议样式 --- */
         .adhoc-results-container {
-            position: relative;
-            width: 100%;
+            position: relative;            
+            /* 不要在这里加 width: 100%，因为它已经在 cmd-controls 里的 flex 流中了 */
         }
         .suggestions-list {
             position: absolute;
@@ -243,6 +245,15 @@
             padding: 0;
             margin: 0;
             box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+
+        .suggestions-list-container {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 100;
+            /* 确保它不占用父容器的宽度计算 */
+            display: block; 
         }
         .suggestions-list li {
             padding: 8px;
