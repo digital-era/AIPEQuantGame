@@ -713,21 +713,20 @@
                 }
                 // --- 2. 更新数值和颜色 (修改此处) ---
                 const sysRtnElem = document.getElementById(`rtn-${k}`);
-                const cardElem = document.getElementById(`card-${k}`); // [新增] 获取卡片DOM元素
-        
-                sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
-                sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
+                const cardElem = document.getElementById(`card-${k}`);
+                
+                if (sysRtnElem) {
+                    sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
+                    sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
+                }
         
                 // --- 3. [关键新增] 根据收益率正负切换边框发光状态 ---
                 if (systemRtn > 0) {
                     cardElem.classList.add('active'); // 收益为正，激活发光
                 } else {
                     cardElem.classList.remove('active'); // 收益为负或零，移除发光
-                }
-                const sysRtnElem = document.getElementById(`rtn-${k}`);
-                sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
-                sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
-
+                }              
+               
                 // 2. Update Portfolio Prices & Value
                 for (let p of g.portfolio) {
                     if (p.isCash) {
