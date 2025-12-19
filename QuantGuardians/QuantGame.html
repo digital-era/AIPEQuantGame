@@ -981,7 +981,7 @@
                 pHtml = `<span class="h-price ${cls}">${item.currentPrice.toFixed(2)}</span>
                          <span class="h-pct ${cls}">${(chg*100).toFixed(2)}%</span>`;
             } else {
-                pHtml = `<span class="h-price">${item.currentPrice || '--'}</span>`;
+                pHtml = `<span class="h-price">${item.currentPrice ? item.currentPrice.toFixed(2) : '--'}</span>`;
             }
 
             if (type === 'strategy') {
@@ -1027,7 +1027,8 @@
         function selectStrategyItem(key, idx) {
             gameState.guardians[key].selectedBuy = idx;
             const item = gameState.guardians[key].strategy[idx];
-            document.getElementById(`buy-price-${key}`).value = item.currentPrice || item.refPrice;
+            const price = item.currentPrice || item.refPrice;
+            document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
             document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
             renderLists(key);
             calcQty(key, 'buy');
@@ -1037,7 +1038,8 @@
             const p = gameState.guardians[key].portfolio[idx];
             if (p.isCash) return;
             gameState.guardians[key].selectedSell = idx;
-            document.getElementById(`sell-price-${key}`).value = p.currentPrice || p.refPrice;
+            const price = p.currentPrice || p.refPrice;
+            document.getElementById(`sell-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
             document.getElementById(`sell-weight-${key}`).value = p.weight.toFixed(2);
             renderLists(key);
             calcQty(key, 'sell');
