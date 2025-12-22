@@ -1028,27 +1028,34 @@
             log("Sync Price Data Finish", "#aaa"); 
         }
 
-       async function fetchPrice(item) {
+        async function fetchPrice(item) {
             if (!item.code) return;
             try {
                 const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;                
                 const url = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
                 const res = await fetch(url);
                 const data = await res.json();
+        
                 if (data && data.length > 0) {
                     item.currentPrice = parseFloat(data[data.length-1].price);
-                    item.history = data.map(d=>d.price);
+                    item.history = data.map(d => d.price);
                     
-                    // --- 修改点：只有当 refPrice 彻底不存在时，才使用今日数据作为保底 ---
-                    // 这样能确保 loadStrategies 加载的“收盘价格”不被覆盖
+                    // --- 核心逻辑：只有在 Excel 没提供价格的情况下，才用分时图的第一笔当开盘价 ---
                     if (item.refPrice === undefined || item.refPrice === null) {
                         item.refPrice = parseFloat(data[0].price);
-                    }        
-                    
+                    }
+                } else {
+                    // 如果 API 没回数据（无交易），现价即为昨收，涨跌幅显示 0%
+                    if (item.refPrice !== null) {
+                        item.currentPrice = item.refPrice;
+                    }
                 }
-            } catch(e) {}
+            } catch(e) {
+                // 网络异常时保持 Excel 初始价格
+                if (item.refPrice !== null) item.currentPrice = item.refPrice;
+            }
         }
-
+        
         function renderLists(key) {
             const g = gameState.guardians[key];
             const listEl = document.getElementById(`list-${key}`);
@@ -1275,22 +1282,23 @@
                     const raw = XLSX.utils.sheet_to_json(sheet);
                     raw.forEach(row => {
                         const simpleName = row["组合名称"];
-                        // 找到对应的守护者 key
                         const key = Object.keys(GUARDIAN_CONFIG).find(k => GUARDIAN_CONFIG[k].simpleName === simpleName);
                         
                         if (key) {
                             const g = gameState.guardians[key];
-                            // 避免重复导入（如果策略列表里已经有了就不加了，或者根据业务需求处理）
                             if (!g.strategy.some(s => s.code === String(row["股票代码"]))) {
+                                // --- 修改：读取收盘价格作为基准价 ---
+                                const excelClosePrice = row["收盘价格"] ? parseFloat(row["收盘价格"]) : null;
+                                
                                 g.strategy.push({
                                     name: row["股票名称"],
                                     code: String(row["股票代码"]),
                                     weight: parseFloat(row["建议比例 (%)"]),
-                                    refPrice: null, // 将在后续 updateMarketData 中获取
-                                    currentPrice: null,
+                                    refPrice: excelClosePrice, // 这里的 refPrice 就是你要求的“奇点价格”
+                                    currentPrice: excelClosePrice, // 初始现价也设为它，防止没买卖时显示错误
                                     history: [],
                                     isSweet: false,
-                                    isAdhoc: true // 关键标记：持久化导入的标的
+                                    isAdhoc: true 
                                 });
                             }
                         }
@@ -1298,7 +1306,7 @@
                     log("ADHOC Suggestions Imported.", "#0f0");
                 }
             } catch (e) {
-                log("No ADHOC data found in cloud.", "#888");
+                log("No ADHOC data found.", "#888");
             }
         }
 
@@ -1377,20 +1385,20 @@
                 for (let key in GUARDIAN_CONFIG) {
                     const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
-                    
-                    // 只筛选出标记为 isAdhoc 的标的
                     const adhocItems = g.strategy.filter(s => s.isAdhoc === true);
                     
                     adhocItems.forEach(item => {
                         adhocData.push({
-                            "组合名称": cfg.simpleName,
+                            "组合名称": GUARDIAN_CONFIG[key].simpleName,
                             "股票代码": item.code,
                             "股票名称": item.name,
                             "来源": "QuantGuardians",
                             "建议比例 (%)": item.weight.toFixed(2),
-                            "修改时间": adhocTimeStr
+                            "修改时间": adhocTimeStr,
+                            "收盘价格": item.refPrice // --- 保存当前记录的基准价到 Excel ---
                         });
-                    });
+                    });   
+               
                 }
                 
                 // 将收集到的 ADHOC 数据写入 Sheet (全量覆盖)
