@@ -848,6 +848,8 @@
         }
 
         async function updateMarketData() {
+            // 1. 在请求开始时打印提示
+            log("Sync Price Data", "#aaa"); 
             for (let k in gameState.guardians) {
                 const g = gameState.guardians[k];
                 let currentAssets = 0;
@@ -907,6 +909,8 @@
 
                 renderLists(k);
             }
+            // 2. 在循环结束后打印完成提示
+            log("Sync Price Data Finish", "#aaa"); 
         }
 
         async function fetchPrice(item) {
@@ -1368,7 +1372,7 @@
             await loadCloudPortfolio();
             
             updateMarketData();
-            setInterval(updateMarketData, 60000); 
+            setInterval(updateMarketData, 300000); 
 
             await fetchAllStocksData(); // 新增：获取全量搜索数据
             setupAllAdhocAutoCompletes(); // 新增：设置自动补全
