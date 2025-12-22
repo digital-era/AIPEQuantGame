@@ -836,6 +836,118 @@
             }
         }
 
+        / 建议增加的内存结构
+        let todayInitialAssets = 100000; // 假设每日初始资金
+        
+        async function loadTodayFlows() {
+            if (!ossClient) return;
+            try {
+                const result = await ossClient.get(OSS_FILE_NAME);
+                const wb = XLSX.read(result.content, { type: 'array' });
+                const todayStr = getOpTime().substring(0, 8); // 获取 YYYYMMDD
+                
+                memoryFlows = []; // 清空内存记录
+                
+                for (let key in GUARDIAN_CONFIG) {
+                    const flowSheetName = GUARDIAN_CONFIG[key].flowName;
+                    const sheet = wb.Sheets[flowSheetName];
+                    if (sheet) {
+                        const rows = XLSX.utils.sheet_to_json(sheet);
+                        const todayRows = rows.filter(r => String(r["修改时间"]).startsWith(todayStr));
+                        
+                        // 将今日已存在的记录读入内存
+                        todayRows.forEach(r => {
+                            memoryFlows.push({
+                                sheet: flowSheetName,
+                                data: r
+                            });
+                        });
+                    }
+                }
+                log(`Loaded ${memoryFlows.length} transactions from today.`, "#0f0");
+            } catch (e) { console.error("Load flows error", e); }
+        }
+
+        function calculateUserRtn(key) {
+            const g = gameState.guardians[key];
+            const flowName = GUARDIAN_CONFIG[key].flowName;
+            const initialTotalAssets = 100000; // 每日初始虚拟资金基数
+            
+            // 1. 获取今日该守护者的所有内存操作记录
+            const todayFlows = memoryFlows.filter(f => f.sheet === flowName);
+            
+            let totalPnL = 0;
+        
+            /**
+             * 核心逻辑：
+             * 收益 = Σ(当前持仓价值 - 当前持仓昨日价值) + Σ(今日卖出贡献) - Σ(今日买入产生的成本偏差)
+             * 
+             * 简单推演公式：
+             * 1. 对于当前持仓：贡献 = (现价 - 今日开盘价) * 当前数量
+             * 2. 对于今日买入：因为第1步用了开盘价，所以要扣除 (买入价 - 今日开盘价) * 买入数量
+             * 3. 对于今日卖出：贡献 = (卖出价 - 今日开盘价) * 卖出数量
+             */
+        
+            // --- 第一部分：计算当前 Portfolio 中标的的浮动盈亏 (相对于开盘价/基准价) ---
+            g.portfolio.forEach(p => {
+                if (p.isCash) return; // 跳过现金
+                
+                // 优先从 portfolio 找现价，找不到则视为无波动
+                const nowPrice = p.currentPrice;
+                const refPrice = p.refPrice; // 这里的 refPrice 是今日开盘价
+        
+                if (nowPrice && refPrice) {
+                    // 计算当前持仓在今日的波动：(当前价 - 开盘价) * 持仓数量
+                    // 持仓数量 = (总资产 * 权重 / 100) / 当前价
+                    const currentWeightValue = initialTotalAssets * (p.weight / 100);
+                    const quantity = currentWeightValue / nowPrice;
+                    totalPnL += (nowPrice - refPrice) * quantity;
+                }
+            });
+        
+            // --- 第二部分：通过 memoryFlows 修正买入成本，并累加卖出已实现收益 ---
+            todayFlows.forEach(f => {
+                const code = f.data["股票代码"];
+                const tradePrice = f.data["价格"];
+                const tradeQty = f.data["标的数量"];
+                
+                // 尝试获取该标的的基准价（今日开盘价）
+                // 逻辑：先看 strategy（策略里存了 refPrice），再看 portfolio
+                const item = g.strategy.find(s => s.code === code) || 
+                             g.portfolio.find(p => p.code === code);
+                
+                const refPrice = item ? item.refPrice : tradePrice;
+        
+                if (f.data["操作类型"] === "Buy") {
+                    /**
+                     * 买入修正：
+                     * 在第一部分计算中，我们假设所有持仓都是从 refPrice（开盘）开始波动的。
+                     * 但今日买入的标的，其实是从 tradePrice 开始波动的。
+                     * 所以要减去 (买入价 - 开盘价) 这一段多算的/少算的差额。
+                     */
+                    if (tradePrice && refPrice) {
+                        totalPnL -= (tradePrice - refPrice) * tradeQty;
+                    }
+                } 
+                else if (f.data["操作类型"] === "Sell") {
+                    /**
+                     * 卖出贡献（按您要求的逻辑）：
+                     * 卖出时的价格与今日开盘价（refPrice）的差额作为今日收益贡献。
+                     * 卖出后标的不在 portfolio 了，所以这部分是“锁定”的今日收益。
+                     */
+                    if (tradePrice && refPrice) {
+                        totalPnL += (tradePrice - refPrice) * tradeQty;
+                    }
+                }
+            });
+        
+            // 3. 计算收益率百分比
+            const rtnPercentage = (totalPnL / initialTotalAssets) * 100;
+            
+            // 返回数值，外层调用可以用 .toFixed(2)
+            return isNaN(rtnPercentage) ? 0 : rtnPercentage;
+        }
+
         function updateCash(key) {
             const g = gameState.guardians[key];
             g.portfolio = g.portfolio.filter(p => p.code !== '100000');
@@ -893,20 +1005,11 @@
                     g.initialAssets = 100000;
                 }
 
-                let portRtn = 0;
-                g.portfolio.forEach(p => {
-                    if (p.isCash) return;
-                    if (p.currentPrice && p.refPrice) {
-                        let base = p.refPrice || (p.history.length > 0 ? p.history[0] : p.currentPrice);
-                        let change = (p.currentPrice - base) / base;
-                        portRtn += change * (p.weight / 100);
-                    }
-                });
-                
+                let portRtn = calculateUserRtn(k);         
                 const userRtnElem = document.getElementById(`user-rtn-${k}`);
-                userRtnElem.innerText = (portRtn * 100).toFixed(2) + "%";
+                userRtnElem.innerText = portRtn.toFixed(2) + "%";
                 userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
-
+                
                 renderLists(k);
             }
             // 2. 在循环结束后打印完成提示
@@ -1113,6 +1216,10 @@
 
             msgEl.style.color = "#FFD700";
             updateCash(key);
+            // 【新增】：操作完后立即刷新一次收益率显示
+            const portRtn = calculateUserRtn(key);
+            const userRtnElem = document.getElementById(`user-rtn-${key}`);
+            userRtnElem.innerText = portRtn.toFixed(2) + "%";
             renderLists(key);
         }
 
@@ -1223,17 +1330,28 @@
                     if(wb.Sheets[cfg.simpleName]) wb.Sheets[cfg.simpleName] = newSnapWs;
                     else XLSX.utils.book_append_sheet(wb, newSnapWs, cfg.simpleName);
 
+                    // 在 syncToCloud 内部处理 flowName Sheet 的逻辑
                     let flowData = [];
                     if (wb.Sheets[cfg.flowName]) {
                         flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
                     }
+                    
                     const pending = memoryFlows.filter(f => f.sheet === cfg.flowName);
-                    pending.forEach(f => {
-                         flowData.push(f.data);
+                    
+                    pending.forEach(newItem => {
+                        // 严格匹配逻辑：将对象转为 JSON 字符串进行比对
+                        const isDuplicate = flowData.some(existingItem => {
+                            return existingItem["股票代码"] === newItem.data["股票代码"] &&
+                                   existingItem["修改时间"] === newItem.data["修改时间"] &&
+                                   existingItem["操作类型"] === newItem.data["操作类型"] &&
+                                   parseFloat(existingItem["价格"]) === parseFloat(newItem.data["价格"]) &&
+                                   parseFloat(existingItem["标的数量"]) === parseFloat(newItem.data["标的数量"]);
+                        });
+                    
+                        if (!isDuplicate) {
+                            flowData.push(newItem.data);
+                        }
                     });
-                    const newFlowWs = XLSX.utils.json_to_sheet(flowData, { header: ["组合名称","股票代码","股票名称","配置比例 (%)","标的数量","价格","价值","操作类型","修改时间"] });
-                    if(wb.Sheets[cfg.flowName]) wb.Sheets[cfg.flowName] = newFlowWs;
-                    else XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
                 }
 
                 // 收集所有守护者的 ADHOC 标的
