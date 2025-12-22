@@ -788,8 +788,8 @@
                     const g = gameState.guardians[key];
                     g.portfolio = []; 
 
-                    if (wb.Sheets[sheetName]) {
-                        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+                    if (wb.Sheets[sheetName]) {                        
+                        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { raw: false });
                         
                         let maxDateInt = 0;
                         raw.forEach(row => {
@@ -1279,7 +1279,7 @@
                 const sheet = wb.Sheets["ADHOC"];
                 
                 if (sheet) {
-                    const raw = XLSX.utils.sheet_to_json(sheet);
+                    const raw = XLSX.utils.sheet_to_json(sheet, { raw: false });
                     raw.forEach(row => {
                         const simpleName = row["组合名称"];
                         const key = Object.keys(GUARDIAN_CONFIG).find(k => GUARDIAN_CONFIG[k].simpleName === simpleName);
