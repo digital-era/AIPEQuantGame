@@ -737,7 +737,8 @@
                     gameState.guardians[key].strategy = data.最优投资组合配置.配置详情.map(p => ({
                         name: p.名称, 
                         code: p.代码, 
-                        refPrice: parseFloat(p.最近一日价格),
+                       // 优先读取“收盘价格”，如果没有则回退到“最近一日价格”
+                        refPrice: parseFloat(p["收盘价格"] || p["最近一日价格"]), 
                         weight: parseFloat(p["最优权重(%)"]), 
                         currentPrice: null, 
                         history: [],
@@ -813,11 +814,18 @@
 
                         Object.values(holdingsMap).forEach(row => {
                             if (parseFloat(row['配置比例 (%)']) > 0) {
+                                const code = String(row['股票代码']);
+                                
+                                // --- 新增：尝试从策略建议中获取昨日收盘价作为参考价 ---
+                                const strategyItem = g.strategy.find(s => s.code === code);
+                                const yesterdayClose = strategyItem ? strategyItem.refPrice : null;
+                        
                                 g.portfolio.push({
-                                    code: String(row['股票代码']),
+                                    code: code,
                                     name: row['股票名称'],
                                     weight: parseFloat(row['配置比例 (%)']), 
                                     currentPrice: null, 
+                                    refPrice: yesterdayClose, // 将昨日收盘价注入持仓项
                                     history: []
                                 });
                             }
@@ -970,12 +978,16 @@
                 let systemRtn = 0; 
                 for (let s of g.strategy) {
                     await fetchPrice(s);
+                    // 【核心修改】：只有当标的存在价格，且不是 ADHOC 临时标的时，才计算入 System Rtn
                     if (s.currentPrice && s.refPrice) {
-                         const chg = (s.currentPrice - s.refPrice) / s.refPrice;
-                         systemRtn += chg * (s.weight / 100);
+                         if (s.isAdhoc !== true) { 
+                             const chg = (s.currentPrice - s.refPrice) / s.refPrice;
+                             systemRtn += chg * (s.weight / 100);
+                         }
                     }
                 }
-                // --- 2. 更新数值和颜色 (修改此处) ---
+
+                // --- 2. 更新数值和颜色 ---
                 const sysRtnElem = document.getElementById(`rtn-${k}`);
                 const cardElem = document.getElementById(`card-${k}`);
                 
@@ -984,14 +996,14 @@
                     sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
                 }
         
-                // --- 3. [关键新增] 根据收益率正负切换边框发光状态 ---
+                // --- 3. 根据系统收益率正负切换边框发光状态 ---
                 if (systemRtn > 0) {
                     cardElem.classList.add('active'); // 收益为正，激活发光
                 } else {
                     cardElem.classList.remove('active'); // 收益为负或零，移除发光
                 }              
                
-                // 2. Update Portfolio Prices & Value
+                // 2. Update Portfolio Prices & Value (用户持仓部分不受影响，买入即计算)
                 for (let p of g.portfolio) {
                     if (p.isCash) {
                         currentAssets += 100000 * (p.weight / 100); 
@@ -1016,19 +1028,23 @@
             log("Sync Price Data Finish", "#aaa"); 
         }
 
-        async function fetchPrice(item) {
+       async function fetchPrice(item) {
             if (!item.code) return;
             try {
-               // --- 新增判断：如果是5位代码，前面拼接 HK ---
                 const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;                
-                // 修改这里的变量名为 finalCode
                 const url = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data && data.length > 0) {
                     item.currentPrice = parseFloat(data[data.length-1].price);
                     item.history = data.map(d=>d.price);
-                    if (!item.refPrice) item.refPrice = parseFloat(data[0].price);
+                    
+                    // --- 修改点：只有当 refPrice 彻底不存在时，才使用今日数据作为保底 ---
+                    // 这样能确保 loadStrategies 加载的“收盘价格”不被覆盖
+                    if (item.refPrice === undefined || item.refPrice === null) {
+                        item.refPrice = parseFloat(data[0].price);
+                    }        
+                    
                 }
             } catch(e) {}
         }
