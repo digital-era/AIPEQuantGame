@@ -787,9 +787,47 @@
                     const sheetName = GUARDIAN_CONFIG[key].simpleName;
                     const g = gameState.guardians[key];
                     g.portfolio = []; 
-
+        
                     if (wb.Sheets[sheetName]) {                        
-                        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { raw: false });
+                        // 关键修改：使用 { raw: true } 获取原始单元格值，然后手动处理
+                        const ws = wb.Sheets[sheetName];
+                        const range = XLSX.utils.decode_range(ws['!ref']);
+                        
+                        // 找到表头行
+                        const headers = {};
+                        for (let C = range.s.c; C <= range.e.c; ++C) {
+                            const cellAddress = XLSX.utils.encode_cell({r: 0, c: C});
+                            const cell = ws[cellAddress];
+                            if (cell) {
+                                headers[C] = cell.v;
+                            }
+                        }
+                        
+                        // 手动解析数据行，确保股票代码保持原始字符串格式
+                        let raw = [];
+                        for (let R = 1; R <= range.e.r; ++R) {
+                            const row = {};
+                            for (let C = range.s.c; C <= range.e.c; ++C) {
+                                const cellAddress = XLSX.utils.encode_cell({r: R, c: C});
+                                const cell = ws[cellAddress];
+                                if (cell) {
+                                    const header = headers[C];
+                                    if (header === '股票代码') {
+                                        // 关键：对于股票代码，使用cell.w（格式化文本）或cell.v（原始值）
+                                        // 优先使用w（显示文本），如果没有则使用v
+                                        row[header] = cell.w !== undefined ? String(cell.w) : 
+                                                      (cell.v !== undefined ? String(cell.v) : '');
+                                    } else {
+                                        // 其他列正常处理
+                                        row[header] = cell.w !== undefined ? cell.w : 
+                                                      (cell.v !== undefined ? cell.v : '');
+                                    }
+                                }
+                            }
+                            if (Object.keys(row).length > 0) {
+                                raw.push(row);
+                            }
+                        }
                         
                         let maxDateInt = 0;
                         raw.forEach(row => {
@@ -801,22 +839,24 @@
                                 }
                             }
                         });
-
+        
                         let holdingsMap = {};
                         const targetPrefix = String(maxDateInt);
-
+        
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
                             if (maxDateInt > 0 && t.startsWith(targetPrefix)) {
-                                holdingsMap[row['股票代码']] = row;
+                                // 保持原始股票代码字符串，不做任何格式化
+                                const stockCode = String(row['股票代码'] || '');
+                                holdingsMap[stockCode] = row;
                             }
                         });
-
+        
                         Object.values(holdingsMap).forEach(row => {
                             if (parseFloat(row['配置比例 (%)']) > 0) {
-                                const code = String(row['股票代码']);
+                                // 使用原始股票代码，保持Excel中的格式
+                                const code = String(row['股票代码'] || '');
                                 
-                                // --- 新增：尝试从策略建议中获取昨日收盘价作为参考价 ---
                                 const strategyItem = g.strategy.find(s => s.code === code);
                                 const yesterdayClose = strategyItem ? strategyItem.refPrice : null;
                         
@@ -825,7 +865,7 @@
                                     name: row['股票名称'],
                                     weight: parseFloat(row['配置比例 (%)']), 
                                     currentPrice: null, 
-                                    refPrice: yesterdayClose, // 将昨日收盘价注入持仓项
+                                    refPrice: yesterdayClose,
                                     history: []
                                 });
                             }
