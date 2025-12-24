@@ -1413,8 +1413,30 @@
                     
                         if (!isDuplicate) {
                             flowData.push(newItem.data);
+                             hasNewData = true; // 【新增】只有真正插入数据时才标记为 true
                         }
                     });
+
+                    // 【核心保护】只有当确实有新数据写入，或者原本没有这个 Sheet (初始化) 时，才执行写入
+                    // 如果 flowData 不为空且没有 Sheet，说明是第一次创建，也要写入
+                    const sheetExists = !!wb.Sheets[cfg.flowName];
+                    
+                    if (hasNewData || (!sheetExists && flowData.length > 0)) {
+                        const newFlowWs = XLSX.utils.json_to_sheet(flowData, {
+                             ["组合名称", "股票代码", "股票名称", "配置比例 (%)",  "标的数量", "价格", "价值", "操作类型", "修改时间"] // 根据你的实际字段补充完整
+                        });
+                    
+                        if (sheetExists) {
+                            wb.Sheets[cfg.flowName] = newFlowWs;
+                        } else {
+                            XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
+                        }
+                        console.log(`[${cfg.flowName}] 更新完成，新增 ${pending.length} 条记录`);
+                    } else {
+                        // 没变化时什么都不做，wb 中保留原有的 Sheet 对象，最大程度保留原格式
+                        console.log(`[${cfg.flowName}] 无新增记录，跳过写入`);
+                    }
+
                 }
 
                 // 收集所有守护者的 ADHOC 标的
