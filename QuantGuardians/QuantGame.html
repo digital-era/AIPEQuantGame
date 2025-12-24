@@ -231,41 +231,40 @@
             position: relative;            
             /* 不要在这里加 width: 100%，因为它已经在 cmd-controls 里的 flex 流中了 */
         }
-        .suggestions-list {
+       .suggestions-list-container {
             position: absolute;
-            top: 100%;
+            top: calc(100% + 2px);        /* 稍微拉开一点距离，避免紧贴 */
             left: 0;
-            right: 0;
+            width: 100%;                  /* 跟随输入框宽度 */
+            z-index: 1000;                /* 提高层级，避免被其他元素遮挡 */
             background: #111;
             border: 1px solid #555;
-            z-index: 1000;
+            border-radius: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
             max-height: 200px;
             overflow-y: auto;
+            display: block;               /* 确保可见 */
+        }
+        
+        .suggestions-list {
             list-style: none;
-            padding: 0;
             margin: 0;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            padding: 0;
         }
-
-        .suggestions-list-container {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            z-index: 100;
-            /* 确保它不占用父容器的宽度计算 */
-            display: block; 
-        }
+        
         .suggestions-list li {
-            padding: 8px;
+            padding: 8px 12px;
             font-size: 0.7em;
             cursor: pointer;
             border-bottom: 1px solid #222;
+            color: #e0e0e0;
         }
+        
         .suggestions-list li:hover {
             background: #333;
             color: var(--user-gold);
         }
-        
+                
         /* --- 删除按钮样式 --- */
         .delete-btn {
             color: #ffff00;
