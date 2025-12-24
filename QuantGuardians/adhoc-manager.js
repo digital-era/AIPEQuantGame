@@ -31,6 +31,7 @@ async function fetchAllStocksData() {
 
 // 初始化 4 个卡片的自动补全
 function setupAllAdhocAutoCompletes() {
+    console.log("setupAllAdhocAutoCompletes 被调用，时间：", new Date().toLocaleTimeString());
     ['genbu', 'suzaku', 'sirius', 'kirin'].forEach(key => {
         const input = document.getElementById(`adhoc-search-${key}`);
         const suggestionsBox = document.getElementById(`suggestions-${key}`);
