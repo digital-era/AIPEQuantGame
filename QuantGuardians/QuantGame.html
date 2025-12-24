@@ -1367,6 +1367,7 @@
                 for (let key in GUARDIAN_CONFIG) {
                     const cfg = GUARDIAN_CONFIG[key];
                     const g = gameState.guardians[key];
+                    hasNewData = false;
 
                     let snapData = [];
                     if (wb.Sheets[cfg.simpleName]) {
@@ -1422,9 +1423,22 @@
                     const sheetExists = !!wb.Sheets[cfg.flowName];
                     
                     if (hasNewData || (!sheetExists && flowData.length > 0)) {
+                        const headers = [
+                            "组合名称",
+                            "股票代码",
+                            "股票名称",
+                            "配置比例(%)",
+                            "标的数量",
+                            "价格",
+                            "价值",
+                            "操作类型",
+                            "修改时间"
+                        ];
+                        
                         const newFlowWs = XLSX.utils.json_to_sheet(flowData, {
-                             ["组合名称", "股票代码", "股票名称", "配置比例 (%)",  "标的数量", "价格", "价值", "操作类型", "修改时间"] // 根据你的实际字段补充完整
-                        });
+                            header: headers,
+                            skipHeader: false
+                        });;
                     
                         if (sheetExists) {
                             wb.Sheets[cfg.flowName] = newFlowWs;
