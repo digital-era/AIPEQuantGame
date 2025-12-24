@@ -31,50 +31,61 @@ async function fetchAllStocksData() {
 
 // 初始化 4 个卡片的自动补全
 function setupAllAdhocAutoCompletes() {
-    console.log("setupAllAdhocAutoCompletes 被调用，时间：", new Date().toLocaleTimeString());
-    ['genbu', 'suzaku', 'sirius', 'kirin'].forEach(key => {
-        const input = document.getElementById(`adhoc-search-${key}`);
+    console.log("使用事件委托方式初始化 ADHOC 自动补全");
+
+    // 在 document 级别监听 input 事件（捕获阶段）
+    document.addEventListener('input', function(e) {
+        if (!e.target.matches('input[id^="adhoc-search-"]')) return;
+
+        const input = e.target;
+        const key = input.id.replace('adhoc-search-', '');
         const suggestionsBox = document.getElementById(`suggestions-${key}`);
-        
-        input.addEventListener('input', () => {
-            // 每次输入变化，先清除之前选中的 ID
-            delete input.dataset.selectedCode;
-            delete input.dataset.selectedName;
-            
-            const query = input.value.trim().toLowerCase();
-            suggestionsBox.innerHTML = '';
-            if (query.length < 2) return;
 
-            const filtered = allStocks.filter(s => 
-                s.name.toLowerCase().includes(query) || 
-                String(s.code).includes(query)
-            ).slice(0, 10);
+        // 调试：确认事件到达
+        console.log(`[${key}] 捕获到 input 事件，当前值:`, input.value);
 
-            if (filtered.length > 0) {
-                const ul = document.createElement('ul');
-                ul.className = 'suggestions-list';
-                filtered.forEach(stock => {
-                    const li = document.createElement('li');
-                    li.textContent = `${stock.name} (${stock.code})`;
-                    li.onclick = () => {
-                        input.value = `${stock.name} (${stock.code})`;
-                        // 保存当前选择的对象到 input 的 dataset 以供最后提交
-                        input.dataset.selectedCode = stock.code;
-                        input.dataset.selectedName = stock.name;
-                        suggestionsBox.innerHTML = '';
-                    };
-                    ul.appendChild(li);
+        // 清空旧建议
+        suggestionsBox.innerHTML = '';
+
+        const query = input.value.trim().toLowerCase();
+        if (query.length < 2) return;
+
+        const filtered = allStocks.filter(s =>
+            s.name.toLowerCase().includes(query) ||
+            String(s.code).includes(query)
+        ).slice(0, 10);
+
+        console.log(`[${key}] 匹配到 ${filtered.length} 条结果`);
+
+        if (filtered.length > 0) {
+            const ul = document.createElement('ul');
+            ul.className = 'suggestions-list';
+
+            filtered.forEach(stock => {
+                const li = document.createElement('li');
+                li.textContent = `${stock.name} (${stock.code})`;
+                li.addEventListener('click', () => {
+                    input.value = stock.name;  // 只填充名称，更符合用户习惯
+                    input.dataset.selectedCode = stock.code;
+                    input.dataset.selectedName = stock.name;
+                    suggestionsBox.innerHTML = '';
+                    console.log(`[${key}] 已选择: ${stock.name} (${stock.code})`);
                 });
-                suggestionsBox.appendChild(ul);
-            }
-        });
+                ul.appendChild(li);
+            });
 
-        // 点击外部关闭建议
-        document.addEventListener('click', (e) => {
-            if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
-                suggestionsBox.innerHTML = '';
-            }
-        });
+            suggestionsBox.appendChild(ul);
+        }
+    }, { capture: true });
+
+    // 点击页面其他地方关闭所有建议
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('input[id^="adhoc-search-"]') &&
+            !e.target.closest('.suggestions-list-container')) {
+            document.querySelectorAll('.suggestions-list-container').forEach(box => {
+                box.innerHTML = '';
+            });
+        }
     });
 }
 
