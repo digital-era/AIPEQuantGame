@@ -510,7 +510,8 @@
     <script src="adhoc-manager.js"></script>
     <script>
         // ================= CONFIG =================
-        const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
+        // const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
+        const STS_API_URL = 'https://aipeinvestmentagent.pages.dev/api/sts'; 
         const OSS_BUCKET = 'aiep-users'; 
         const OSS_REGION = 'oss-cn-hangzhou'; 
         const OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
@@ -710,13 +711,27 @@
         async function initOSS() {
             if (ossClient) return true;
             try {
-                const res = await fetch(STS_API_URL);
+                // const res = await fetch(STS_API_URL);
+                const res = await fetch(STS_API_URL, {
+		                    method: 'POST',
+		                    headers: {
+		                        'Content-Type': 'application/json',
+		                    } 
+		                }); // 指向你创建的STS凭证颁发函数
+				
                 const data = await res.json();
                 ossClient = new OSS({
                     region: OSS_REGION, accessKeyId: data.AccessKeyId, accessKeySecret: data.AccessKeySecret,
                     stsToken: data.SecurityToken, bucket: OSS_BUCKET,
                     refreshSTSToken: async () => {
-                        const r = await fetch(STS_API_URL); const d = await r.json();
+                        // const r = await fetch(STS_API_URL); 
+                        const r = await fetch(STS_API_URL, {
+		                    method: 'POST',
+		                    headers: {
+		                        'Content-Type': 'application/json',
+		                    } 
+		                }); // 指向你创建的STS凭证颁发函数
+                        const d = await r.json();
                         return { accessKeyId: d.AccessKeyId, accessKeySecret: d.AccessKeySecret, stsToken: d.SecurityToken };
                     }
                 });
