@@ -1329,8 +1329,10 @@
             `;
             
             setTimeout(() => {
-                if(item.history && item.history.length > 1) {
-                    drawSpark(`chart-${key}-${type}-${idx}`, item.history, item.refPrice, (item.currentPrice>=item.refPrice?'#EF4444':'#10B981'));
+                    // 【修复】：如果 refPrice 为空、0 或无效，使用历史数据的第一个点作为基准，避免图表被压扁
+                    const safeRefPrice = (item.refPrice && item.refPrice > 0) ? item.refPrice : item.history[0];
+                    
+                    drawSpark(`chart-${key}-${type}-${idx}`, item.history, safeRefPrice, (item.currentPrice >= safeRefPrice ? '#EF4444' : '#10B981'));
                 }
             }, 0);
             return div;
