@@ -174,7 +174,7 @@
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
         
         .oss-btn {
-            position: absolute; right: 0; top: 20px; background: #224; color: #fff; border: 1px solid #66a;
+            position: static !important; margin-top: 0 !important; height: 38px; right: 0; top: 20px; background: #224; color: #fff; border: 1px solid #66a;
             padding: 8px 12px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 10px; 
             display: flex; align-items: center; gap: 6px; border-radius: 4px;
         }
@@ -299,15 +299,93 @@
             display: flex;
             align-items: center;
         }
+
+		/* --- Header Controls Group (右上角按钮组) --- */
+		.header-controls {
+		    position: absolute; right: 0; top: 20px;
+		    display: flex; gap: 8px; align-items: center;
+		}
+		/* 图标按钮通用样式 */
+		.icon-btn {
+		    background: #222; border: 1px solid #555; color: #aaa;
+		    width: 38px; height: 38px;
+		    display: flex; justify-content: center; align-items: center;
+		    cursor: pointer; border-radius: 4px; transition: all 0.2s;
+		    font-size: 1.2em; /* 图标大小 */
+		}
+		.icon-btn:hover {
+		    background: #333; color: #fff; border-color: #fff;
+		    transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.3);
+		}		
+	
+		/* --- Settings Modal 样式 --- */
+		.setting-row {
+		    display: flex; align-items: center; justify-content: space-between;
+		    padding: 15px; border-bottom: 1px solid #333; font-family: 'Roboto Mono';
+		}
+		.switch-label { color: #e0e0e0; font-size: 1em; }
+		
+		/* --- Ranking Modal 样式 (生动展示) --- */
+		.rank-list {
+		    padding: 10px; overflow-y: auto; height: 100%;
+		}
+		.rank-item {
+		    display: flex; align-items: center; margin-bottom: 15px;
+		    opacity: 0; animation: slideIn 0.6s forwards;
+		}
+		.rank-info {
+		    width: 100px; text-align: right; padding-right: 10px;
+		    display: flex; flex-direction: column; align-items: flex-end;
+		}
+		.rank-name { font-size: 0.8em; font-weight: bold; color: #fff; }
+		.rank-icon { font-size: 1.2em; margin-top: 2px; }
+		.rank-bar-area {
+		    flex-grow: 1; position: relative; height: 26px;
+		    background: rgba(255,255,255,0.05); border-radius: 4px;
+		    display: flex; align-items: center;
+		}
+		.rank-bar {
+		    height: 100%; border-radius: 4px; width: 0%; /* 初始宽度0，JS控制动画 */
+		    transition: width 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+		    position: relative;
+		    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+		}
+		.rank-val {
+		    position: absolute; right: 10px; color: #fff; font-weight: bold;
+		    font-size: 0.9em; text-shadow: 1px 1px 2px #000;
+		    z-index: 2;
+		}
+		.rank-trophy {
+		    position: absolute; right: -40px; font-size: 1.5em;
+		    filter: drop-shadow(0 0 5px gold);
+		    animation: bounce 1s infinite alternate;
+		}
+		@keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+		@keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-5px); } }
+		
+		/* 移动端适配调整 */
+		@media (max-width: 768px) {
+		    .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
+		}
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Quant Guardians</h1>
         <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Real-time Battle System v2.0</div>
-        <button class="oss-btn" onclick="syncToCloud()">
-            <span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD
-        </button>
+		<!-- 新增的按钮组容器 -->
+	    <div class="header-controls">
+	        <!-- 1. 设置图标按钮 (最左) -->
+	        <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+	        
+	        <!-- 2. 排序图标按钮 -->
+	        <button class="icon-btn" onclick="openRanking()" title="Battle Ranking">🏆</button>
+	        
+	        <!-- 3. 原有的 SYNC CLOUD 按钮 -->
+	        <button class="oss-btn" onclick="syncToCloud()">
+	            <span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD
+	        </button>
+	    </div>
     </div>
 
     <div class="container">
@@ -1715,5 +1793,39 @@
             btn.style.boxShadow = "0 0 20px #0f0";
         }
     </script>
+	<!-- SETTINGS MODAL -->
+	<div id="settingsModal" class="modal-overlay" onclick="document.getElementById('settingsModal').style.display='none'">
+		<div class="modal-content" style="height:auto; max-width:400px; border-color:#888;" onclick="event.stopPropagation()">
+			<div class="modal-header">
+				<span class="pixel-font" style="color:#fff;">SYSTEM SETTINGS</span>
+				<button class="close-btn" onclick="document.getElementById('settingsModal').style.display='none'">[X]</button>
+			</div>
+			<div class="setting-row">
+				<span class="switch-label">Github Proxy</span>
+				<!-- 默认打钩 -->
+				<input type="checkbox" id="chkGitProxy" checked onchange="toggleProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
+			</div>
+			<div style="padding:15px; color:#666; font-size:0.7em;">
+				Enable proxy to accelerate model loading if connection is slow.
+			</div>
+		</div>
+	</div>
+	
+	<!-- RANKING MODAL -->
+	<div id="rankingModal" class="modal-overlay" onclick="document.getElementById('rankingModal').style.display='none'">
+		<div class="modal-content" style="border-color:#FFD700; height: 70vh;" onclick="event.stopPropagation()">
+			<div class="modal-header">
+				<div class="pixel-font" style="color:#FFD700; font-size:1.2em;">DAILY BATTLE RANKING</div>
+				<button class="close-btn" onclick="document.getElementById('rankingModal').style.display='none'">[X]</button>
+			</div>
+			<div style="padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:10px; display:flex; justify-content:space-between; color:#aaa; font-size:0.7em;">
+				<span>ENTITY</span>
+				<span>RETURN (%)</span>
+			</div>
+			<div id="rankingList" class="rank-list">
+				<!-- 动态生成的内容 -->
+			</div>
+		</div>
+	</div>
 </body>
 </html>
