@@ -155,7 +155,23 @@
         .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; /* 初始隐藏，JS控制显示 */ }
         .chart-wrapper { position: relative; height: 300px; width: 100%; }
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
-        .start-btn { background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 10px #0f0; margin-bottom: 10px; }
+         .start-btn { 
+            background: #000; 
+            color: #0f0; 
+            border: 2px solid #0f0; 
+            padding: 15px 40px; 
+            font-family: 'Press Start 2P'; 
+            font-size: 1.2em; 
+            cursor: pointer; 
+            box-shadow: 0 0 10px #0f0; 
+            margin-bottom: 10px; 
+            
+            /* --- 新增/修改以下三行 --- */
+            max-width: 100%;       /* 限制最大宽度不超过父容器 */
+            white-space: nowrap;   /* 强制不换行 */
+            overflow: hidden;      /* 超出部分隐藏（防御性）*/
+            text-overflow: ellipsis; /* 如果实在太长显示省略号 */
+        }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
         
