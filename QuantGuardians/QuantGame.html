@@ -776,7 +776,10 @@
         async function loadStrategies() {
             log("Loading Strategy Models...", "cyan");
             const promises = Object.keys(GUARDIAN_CONFIG).map(async (key) => {
-                const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GUARDIAN_CONFIG[key].file}?t=${Date.now()}`;
+				 // --- 修改开始: 调用通用代理函数 ---
+        		const url = getResourceUrl(GUARDIAN_CONFIG[key].file);
+                //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GUARDIAN_CONFIG[key].file}?t=${Date.now()}`;				
+                // --- 修改结束 ---
                 try {
                     const res = await fetch(url);
                     const json = await res.json();
@@ -801,7 +804,10 @@
         // 3. 加载并标记 Sweet Points 的核心逻辑函数
         async function loadSweetPoints() {
             log("Scanning Sweet Points...", "#d8bfd8");
-            const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
+			// --- 修改开始: 调用通用代理函数 ---
+			const url = getResourceUrl(SWEET_POINT_FILE);
+			//const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
+			// --- 修改结束 ---            
             try {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("SweetPoint fetch failed");
@@ -1557,7 +1563,10 @@
             const keys = Object.keys(allFiles);
             
             const requests = keys.map(key => {
-                 const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${allFiles[key]}?t=${Date.now()}`;
+                // --- 修改开始: 调用通用代理函数 ---
+	            const url = getResourceUrl(allFiles[key]);
+				//const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${allFiles[key]}?t=${Date.now()}`;
+	            // --- 修改结束 --- 				
                  return fetch(url).then(res => res.json()).catch(e => null);
             });
             const results = await Promise.all(requests);
