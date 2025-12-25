@@ -591,6 +591,34 @@
             return `${y}${m}${d}${String(h).padStart(2,'0')}${String(min).padStart(2,'0')}`;
         }
 
+		// 全局代理开关：设置为 true 开启代理，false 使用原生链接
+		var gitproxy = true; 
+		
+		// 替换为你刚才部署的 Cloudflare Worker 地址 (末尾不要带斜杠)
+		const PROXY_BASE_URL = "https://githubproxy.aivibeinvest.com"; 
+		
+		/**
+		 * 通用地址生成函数
+		 * @param {string} filename - 文件名
+		 * @returns {string} 最终的请求 URL
+		 */
+		function getResourceUrl(filename) {
+		    // 基础路径结构: User/Repo/Branch/File
+		    const filePath = `${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${filename}`;
+		    
+		    let finalUrl;
+		    if (typeof gitproxy !== 'undefined' && gitproxy === true) {
+		        // 走代理: https://proxy.com/User/Repo/Branch/File
+		        finalUrl = `${PROXY_BASE_URL}/${filePath}`;
+		    } else {
+		        // 走原生: https://raw.githubusercontent.com/User/Repo/Branch/File
+		        finalUrl = `https://raw.githubusercontent.com/${filePath}`;
+		    }
+		    
+		    // 添加时间戳防止缓存
+		    return `${finalUrl}?t=${Date.now()}`;
+		}
+
         // ================= NEW CHART LOGIC =================
         
         // [新增] 关闭模态框
