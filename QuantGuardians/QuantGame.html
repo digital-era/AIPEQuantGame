@@ -1154,6 +1154,19 @@
                     if (item.refPrice === undefined || item.refPrice === null) {
                         item.refPrice = parseFloat(data[0].price);
                     }
+					
+					// ============================================================
+                    // 【修复代码 START】：如果是 ADHOC 标的，数据回来后立即强制刷新列表
+                    // ============================================================
+                    if (item.isAdhoc) {
+                        for (let key in gameState.guardians) {
+                            // 查找这个标的属于哪个守护者
+                            if (gameState.guardians[key].strategy.includes(item)) {
+                                renderLists(key); // 重新渲染该守护者的列表，让价格和微图显示出来
+                                break;
+                            }
+                        }
+                    }
                 } else {
                     // 如果 API 没回数据（无交易），现价即为昨收，涨跌幅显示 0%
                     if (item.refPrice !== null) {
