@@ -1,4 +1,4 @@
-		/ --- 功能 1: 设置相关 ---
+		// --- 功能 1: 设置相关 ---
 		function openSettings() {
 		    document.getElementById('settingsModal').style.display = 'flex';
 		    // 同步 checkbox 状态
