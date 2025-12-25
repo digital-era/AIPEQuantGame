@@ -52,6 +52,7 @@
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
+        /* 增加 text-up/text-down 样式支持 */
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
@@ -90,7 +91,11 @@
 
         /* --- Commander Section --- */
         .commander-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
-        .cmd-row { margin-bottom: 10px; }
+        /*.cmd-row { margin-bottom: 8px; }*/
+        /* --- 统一纵向间距 --- */
+        .cmd-row { 
+            margin-bottom: 10px;  /* 固定的行间距，确保 Buy/Sell/ADHOC 距离一致 */
+        }
         .cmd-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
         .cmd-label { font-size: 0.6em; color: var(--glow-color); font-weight: bold; }
         .cmd-label-sell { color: var(--glow-color); }
@@ -98,23 +103,57 @@
         
         .cmd-controls { display: flex; gap: 4px; width: 100%; align-items: center; }
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 4px; font-size: 0.7em; height: 26px; }
-        .input-price { flex: 1; min-width: 0; }
-        .input-weight { width: 60px; flex: 0 0 60px; color: var(--user-gold); text-align: center; }
+        /*.input-price { flex: 1; min-width: 0; }*/
+        /* --- 价格/名称输入框自动伸缩 --- */
+        .input-price { 
+            flex: 1;              /* 占据剩余的所有空间 */
+            min-width: 0;         /* 关键：防止在 Flex 布局中撑破容器 */
+        }
+        /*.input-weight { width: 60px; flex: 0 0 60px; color: var(--user-gold); text-align: center; }*/
+        /* --- 比例输入框长度固定 --- */
+        .input-weight { 
+            width: 60px; 
+            flex: 0 0 60px;       /* 禁止缩放，保持 60px */
+            color: var(--user-gold); 
+            text-align: center; 
+        }
+        /*.cmd-btn { cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; padding: 0 8px; height: 26px; white-space: nowrap; flex: 0 0 auto; border: 1px solid #555; background: #222; color: #fff;}*/
+        /* --- 统一按钮长度，并增加移动端稳定性 --- */
         .cmd-btn { 
-            cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; 
-            width: 85px !important; flex: 0 0 85px !important; min-width: 85px !important;
-            height: 26px; white-space: nowrap; border: 1px solid #555; 
-            background: #222; color: #fff; padding: 0; text-align: center; box-sizing: border-box; 
+            cursor: pointer; 
+            font-family: 'Press Start 2P'; 
+            font-size: 0.5em; 
+            /* 关键修改：锁定宽度，防止因字符多少而伸缩 */
+            width: 85px !important;          
+            flex: 0 0 85px !important;       
+            min-width: 85px !important;
+            height: 26px; 
+            white-space: nowrap; 
+            border: 1px solid #555; 
+            background: #222; 
+            color: #fff;
+            padding: 0;           /* 清除内边距，确保文字居中 */
+            text-align: center;
+            box-sizing: border-box; /* 确保边框计算在宽度内 */
         }
         .cmd-btn.buy-btn { border-color: var(--glow-color); color: var(--glow-color); }
         .cmd-btn.sell-btn { border-color: var(--glow-color); color: var(--glow-color); }
         .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #444; color: #666; }
 
-        .cmd-msg { height: 15px; font-size: 0.6em; margin-top: -5px; margin-bottom: 10px; color: #ffff00; text-align: left;}
+        /*.cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}*/
+        /* --- 消息提示框：不干扰布局 --- */
+        .cmd-msg { 
+            height: 15px; 
+            font-size: 0.6em; 
+            margin-top: -5px;     /* 稍微往上靠，不占位 */
+            margin-bottom: 10px;  /* 留出下方间距 */
+            color: #ffff00; 
+            text-align: left;
+        }
 
         /* --- System Controls --- */
-        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; }
-        .chart-wrapper { position: relative; height: 350px; width: 100%; } /* Increased height slightly */
+        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; /* 初始隐藏，JS控制显示 */ }
+        .chart-wrapper { position: relative; height: 300px; width: 100%; }
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; box-shadow: 0 0 10px #0f0; margin-bottom: 10px; }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
@@ -139,38 +178,119 @@
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; }
 
-        /* --- Modal & ADHOC Styles --- */
+        /* --- [新增] 动态曲线 Modal 样式 --- */
         .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);
+            display: none; /* 默认隐藏 */
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
         }
         .modal-content {
-            background: #111; border: 2px solid #fff; padding: 20px; width: 90%; max-width: 900px; height: 60vh;
-            border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background: #111;
+            border: 2px solid #fff; /* JS会动态修改颜色 */
+            padding: 20px;
+            width: 90%;
+            max-width: 900px;
+            height: 60vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .close-btn { background: #333; border: 1px solid #555; color: #fff; padding: 8px 16px; cursor: pointer; font-family: 'Roboto Mono'; font-weight: bold; }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+        .close-btn {
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: 'Roboto Mono';
+            font-weight: bold;
+        }
         .close-btn:hover { background: #444; }
-        .detail-chart-wrapper { flex-grow: 1; position: relative; width: 100%; }
-
-        .adhoc-results-container { position: relative; }
-        .suggestions-list-container {
-            position: absolute; top: calc(100% + 2px); left: 0; width: 100%; z-index: 1000;
-            background: #111; border: 1px solid #555; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.8);
-            max-height: 200px; overflow-y: auto; display: block;
+        .detail-chart-wrapper {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
         }
-        .suggestions-list { list-style: none; margin: 0; padding: 0; }
-        .suggestions-list li { padding: 8px 12px; font-size: 0.7em; cursor: pointer; border-bottom: 1px solid #222; color: #e0e0e0; }
-        .suggestions-list li:hover { background: #333; color: var(--user-gold); }
-        .delete-btn { color: #ffff00; cursor: pointer; margin-left: 5px; font-size: 1.2em; font-weight: bold; line-height: 1; vertical-align: middle; display: inline-block; transition: transform 0.2s; }
-        .delete-btn:hover { transform: scale(1.3); color: #FFD700; }
-        .h-name-wrapper { display: flex; align-items: center; }
+
+        /* --- ADHOC 搜索建议样式 --- */
+        .adhoc-results-container {
+            position: relative;            
+            /* 不要在这里加 width: 100%，因为它已经在 cmd-controls 里的 flex 流中了 */
+        }
+       .suggestions-list-container {
+            position: absolute;
+            top: calc(100% + 2px);        /* 稍微拉开一点距离，避免紧贴 */
+            left: 0;
+            width: 100%;                  /* 跟随输入框宽度 */
+            z-index: 1000;                /* 提高层级，避免被其他元素遮挡 */
+            background: #111;
+            border: 1px solid #555;
+            border-radius: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+            max-height: 200px;
+            overflow-y: auto;
+            display: block;               /* 确保可见 */
+        }
+        
+        .suggestions-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .suggestions-list li {
+            padding: 8px 12px;
+            font-size: 0.7em;
+            cursor: pointer;
+            border-bottom: 1px solid #222;
+            color: #e0e0e0;
+        }
+        
+        .suggestions-list li:hover {
+            background: #333;
+            color: var(--user-gold);
+        }
+                
+        /* --- 删除按钮样式 --- */
+        .delete-btn {
+            color: #ffff00;
+            cursor: pointer;
+            margin-left: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+            line-height: 1;
+            vertical-align: middle;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .delete-btn:hover {
+            transform: scale(1.3);
+            color: #FFD700;
+        }
+        .h-name-wrapper {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Quant Guardians</h1>
-        <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Real-time Battle System v2.1</div>
+        <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Real-time Battle System v2.0</div>
         <button class="oss-btn" onclick="syncToCloud()">
             <span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD
         </button>
@@ -185,10 +305,12 @@
                 <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
                 <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
             </div>
+            
             <div class="list-header">STRATEGY SUGGESTIONS</div>
             <div class="holdings-list" id="list-genbu"></div>
+            
             <div class="commander-section">
-                <!-- BUY/SELL/ADHOC Controls -->
+                <!-- BUY -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div>
                     <div class="cmd-controls">
@@ -197,6 +319,7 @@
                         <button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button>
                     </div>
                 </div>
+                <!-- SELL -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div>
                     <div class="cmd-controls">
@@ -205,6 +328,7 @@
                         <button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button>
                     </div>
                 </div>     
+                <!-- ADHOC GENBU-->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
                     <div class="cmd-controls adhoc-results-container">
@@ -214,8 +338,10 @@
                         <div id="suggestions-genbu" class="suggestions-list-container"></div>
                     </div>
                 </div>
+                
                 <div class="cmd-msg" id="msg-genbu"></div>
             </div>
+
             <div class="list-header">PORTFOLIO HOLDINGS</div>
             <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
         </div>
@@ -247,6 +373,7 @@
                         <button class="cmd-btn sell-btn" id="btn-sell-suzaku" onclick="executeOrder('suzaku', 'sell')">CONFIRM</button>
                     </div>
                 </div>
+                <!-- ADHOC SUZAKU -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
                     <div class="cmd-controls adhoc-results-container">
@@ -256,6 +383,7 @@
                         <div id="suggestions-suzaku" class="suggestions-list-container"></div>
                     </div>
                 </div>
+                
                 <div class="cmd-msg" id="msg-suzaku"></div>
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
@@ -289,6 +417,8 @@
                         <button class="cmd-btn sell-btn" id="btn-sell-sirius" onclick="executeOrder('sirius', 'sell')">CONFIRM</button>
                     </div>
                 </div>
+                
+                 <!-- ADHOC SIRIUS -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
                     <div class="cmd-controls adhoc-results-container">
@@ -298,6 +428,7 @@
                         <div id="suggestions-sirius" class="suggestions-list-container"></div>
                     </div>
                 </div>
+                
                 <div class="cmd-msg" id="msg-sirius"></div>
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
@@ -331,6 +462,8 @@
                         <button class="cmd-btn sell-btn" id="btn-sell-kirin" onclick="executeOrder('kirin', 'sell')">CONFIRM</button>
                     </div>
                 </div>
+                
+                <!-- ADHOC KIRIN -->
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
                     <div class="cmd-controls adhoc-results-container">
@@ -340,6 +473,7 @@
                         <div id="suggestions-kirin" class="suggestions-list-container"></div>
                     </div>
                 </div>
+                
                 <div class="cmd-msg" id="msg-kirin"></div>
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
@@ -347,7 +481,7 @@
         </div>
     </div>
 
-    <!-- Settlement Panel -->
+    <!-- Settlement Panel: 控制显示与否 -->
     <div class="settlement-panel" id="settlementPanel">
         <h3 class="pixel-font" style="text-align:center;color:#fff;">Historical Performance</h3>
         <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
@@ -358,13 +492,14 @@
         <div class="log-box" id="systemLog"><div class="log-line">> System Standby...</div></div>
     </div>
 
-    <!-- Modal -->
+    <!-- [新增] 动态曲线 Modal 结构 -->
     <div id="chartModal" class="modal-overlay" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <div style="display: flex; align-items: baseline;">
                     <span id="modalTitle" class="pixel-font" style="font-size:1.2em; color:#FFD700;">STOCK</span>
                     <span id="modalCode" style="color:#888; margin-left:10px; font-family:'Roboto Mono';">(--)</span>
+                    <!-- 新增：实时涨跌幅跳动显示 -->
                     <span id="modalPct" style="margin-left:20px; font-weight:bold; font-size:1.4em;">0.00%</span>
                 </div>
                 <button class="close-btn" onclick="closeModal()">[X] CLOSE</button>
@@ -375,6 +510,7 @@
     <script src="adhoc-manager.js"></script>
     <script>
         // ================= CONFIG =================
+        // const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
         const STS_API_URL = 'https://aipeinvestmentagent.pages.dev/api/sts-credentials'; 
         const OSS_BUCKET = 'aiep-users'; 
         const OSS_REGION = 'oss-cn-hangzhou'; 
@@ -385,6 +521,7 @@
         const GITHUB_BRANCH = 'main';
         const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 
+        // 1. 定义甜点文件名常量
         const SWEET_POINT_FILE = 'SweetPoint_New.json';
 
         const GUARDIAN_CONFIG = {
@@ -405,6 +542,7 @@
             user: 'User模型综合评估.json'
         };
 
+        // [新增] 颜色映射和全局图表变量
         const GUARDIAN_COLORS = { 
             genbu: '#10B981', 
             suzaku: '#EF4444', 
@@ -453,14 +591,17 @@
             return `${y}${m}${d}${String(h).padStart(2,'0')}${String(min).padStart(2,'0')}`;
         }
 
-        // ================= CHART & MODAL LOGIC =================
+        // ================= NEW CHART LOGIC =================
+        
+        // [新增] 关闭模态框
         function closeModal() {
             document.getElementById('chartModal').style.display = 'none';
             if (playbackTimer) clearInterval(playbackTimer);
         }
 
+        // [新增] 触发微图点击的处理函数
         function onSparkClick(event, key, type, idx) {
-            event.stopPropagation();
+            event.stopPropagation(); // 阻止冒泡，避免触发选行
             let item;
             if (type === 'strategy') {
                 item = gameState.guardians[key].strategy[idx];
@@ -473,10 +614,11 @@
             }
         }
 
+        // [新增] 替换原来的 openDetailChart 函数（核心逻辑带涨跌幅量化）
         function openDetailChart(item, color) {
             if (!item.history || item.history.length === 0) return;
             
-            const refPrice = item.refPrice || item.history[0];
+            const refPrice = item.refPrice || item.history[0]; // 基准价（开盘价）
             const pctEl = document.getElementById('modalPct');
             
             document.getElementById('modalTitle').innerText = item.name;
@@ -499,7 +641,7 @@
                     datasets: [
                         {
                             label: 'Price',
-                            data: [],
+                            data: [], // 动态生长数据
                             borderColor: color,
                             borderWidth: 3,
                             pointRadius: 0,
@@ -530,8 +672,17 @@
                     },
                     scales: {
                         x: { display: false },
-                        y: { position: 'left', grid: { color: '#222' }, ticks: { color: '#888' } },
-                        y1: { position: 'right', grid: { display: false }, ticks: { display: false } }
+                        y: {
+                            position: 'left',
+                            grid: { color: '#222' },
+                            ticks: { color: '#888' }
+                        },
+                        // 修改处：右侧轴隐藏刻度数值
+                        y1: {
+                            position: 'right',
+                            grid: { display: false },
+                            ticks: { display: false } 
+                        }
                     }
                 }
             });
@@ -546,9 +697,11 @@
                 const currentSlice = fullHistory.slice(0, step);
                 const lastPrice = currentSlice[currentSlice.length - 1];
         
+                // 更新大图数据
                 detailChart.data.datasets[0].data = currentSlice;
                 detailChart.update('none');
         
+                // 更新顶部 HUD 的百分比和颜色
                 if (lastPrice) {
                     const currentChg = ((lastPrice - refPrice) / refPrice * 100).toFixed(2);
                     pctEl.innerText = (currentChg > 0 ? '+' : '') + currentChg + '%';
@@ -559,18 +712,31 @@
             }, 30);
         }
 
-        // ================= BUSINESS LOGIC =================
+        // ================= LOGIC =================
 
         async function initOSS() {
             if (ossClient) return true;
             try {
-                const res = await fetch(STS_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                // const res = await fetch(STS_API_URL);
+                const res = await fetch(STS_API_URL, {
+		                    method: 'POST',
+		                    headers: {
+		                        'Content-Type': 'application/json',
+		                    } 
+		                }); // 指向你创建的STS凭证颁发函数
+				
                 const data = await res.json();
                 ossClient = new OSS({
                     region: OSS_REGION, accessKeyId: data.AccessKeyId, accessKeySecret: data.AccessKeySecret,
                     stsToken: data.SecurityToken, bucket: OSS_BUCKET,
                     refreshSTSToken: async () => {
-                        const r = await fetch(STS_API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                        // const r = await fetch(STS_API_URL); 
+                        const r = await fetch(STS_API_URL, {
+		                    method: 'POST',
+		                    headers: {
+		                        'Content-Type': 'application/json',
+		                    } 
+		                }); // 指向你创建的STS凭证颁发函数
                         const d = await r.json();
                         return { accessKeyId: d.AccessKeyId, accessKeySecret: d.AccessKeySecret, stsToken: d.SecurityToken };
                     }
@@ -589,10 +755,14 @@
                     const data = json.结果 || json;
                     gameState.guardians[key].power = parseFloat(data.风控因子信息.综合建议仓位因子);
                     gameState.guardians[key].strategy = data.最优投资组合配置.配置详情.map(p => ({
-                        name: p.名称, code: p.代码, 
+                        name: p.名称, 
+                        code: p.代码, 
+                       // 优先读取“收盘价格”，如果没有则回退到“最近一日价格”
                         refPrice: parseFloat(p["收盘价格"] || p["最近一日价格"]), 
                         weight: parseFloat(p["最优权重(%)"]), 
-                        currentPrice: null, history: [], isSweet: false
+                        currentPrice: null, 
+                        history: [],
+                        isSweet: false // 2. 数据结构初始化默认为 false
                     }));
                     document.getElementById(`power-${key}`).innerText = (gameState.guardians[key].power * 100).toFixed(0) + "%";
                 } catch (e) { log(`[${key}] Model Err`, "red"); }
@@ -600,6 +770,7 @@
             await Promise.all(promises);
         }
 
+        // 3. 加载并标记 Sweet Points 的核心逻辑函数
         async function loadSweetPoints() {
             log("Scanning Sweet Points...", "#d8bfd8");
             const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
@@ -607,11 +778,18 @@
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("SweetPoint fetch failed");
                 const json = await res.json();
+                
+                // 创建代码集合用于快速匹配
                 const sweetCodes = new Set(json.map(item => item.代码));
+
                 let count = 0;
+                // 遍历所有守护者
                 for (let key in gameState.guardians) {
                     gameState.guardians[key].strategy.forEach(stock => {
-                        if (sweetCodes.has(stock.code)) { stock.isSweet = true; count++; }
+                        if (sweetCodes.has(stock.code)) {
+                            stock.isSweet = true; // 标记为真
+                            count++;
+                        }
                     });
                 }
                 log(`Sweet Points Applied: ${count}`, "#d8bfd8");
@@ -629,42 +807,85 @@
                     const sheetName = GUARDIAN_CONFIG[key].simpleName;
                     const g = gameState.guardians[key];
                     g.portfolio = []; 
+        
                     if (wb.Sheets[sheetName]) {                        
+                        // 关键修改：使用 { raw: true } 获取原始单元格值，然后手动处理
                         const ws = wb.Sheets[sheetName];
                         const range = XLSX.utils.decode_range(ws['!ref']);
+                        
+                        // 找到表头行
                         const headers = {};
                         for (let C = range.s.c; C <= range.e.c; ++C) {
-                            const cell = ws[XLSX.utils.encode_cell({r: 0, c: C})];
-                            if (cell) headers[C] = cell.v;
+                            const cellAddress = XLSX.utils.encode_cell({r: 0, c: C});
+                            const cell = ws[cellAddress];
+                            if (cell) {
+                                headers[C] = cell.v;
+                            }
                         }
+                        
+                        // 手动解析数据行，确保股票代码保持原始字符串格式
                         let raw = [];
                         for (let R = 1; R <= range.e.r; ++R) {
                             const row = {};
                             for (let C = range.s.c; C <= range.e.c; ++C) {
-                                const cell = ws[XLSX.utils.encode_cell({r: R, c: C})];
+                                const cellAddress = XLSX.utils.encode_cell({r: R, c: C});
+                                const cell = ws[cellAddress];
                                 if (cell) {
                                     const header = headers[C];
-                                    row[header] = (header === '股票代码') ? (cell.w !== undefined ? String(cell.w) : String(cell.v || '')) : (cell.w || cell.v || '');
+                                    if (header === '股票代码') {
+                                        // 关键：对于股票代码，使用cell.w（格式化文本）或cell.v（原始值）
+                                        // 优先使用w（显示文本），如果没有则使用v
+                                        row[header] = cell.w !== undefined ? String(cell.w) : 
+                                                      (cell.v !== undefined ? String(cell.v) : '');
+                                    } else {
+                                        // 其他列正常处理
+                                        row[header] = cell.w !== undefined ? cell.w : 
+                                                      (cell.v !== undefined ? cell.v : '');
+                                    }
                                 }
                             }
-                            if (Object.keys(row).length > 0) raw.push(row);
+                            if (Object.keys(row).length > 0) {
+                                raw.push(row);
+                            }
                         }
                         
                         let maxDateInt = 0;
                         raw.forEach(row => {
                             const t = String(row['修改时间'] || '');
-                            if (t.length >= 8) maxDateInt = Math.max(maxDateInt, parseInt(t.substring(0, 8)) || 0);
+                            if (t.length >= 8) {
+                                const dateVal = parseInt(t.substring(0, 8));
+                                if (!isNaN(dateVal) && dateVal > maxDateInt) {
+                                    maxDateInt = dateVal;
+                                }
+                            }
                         });
+        
+                        let holdingsMap = {};
                         const targetPrefix = String(maxDateInt);
-                        raw.filter(r => String(r['修改时间'] || '').startsWith(targetPrefix)).forEach(row => {
+        
+                        raw.forEach(row => {
+                            const t = String(row['修改时间'] || '');
+                            if (maxDateInt > 0 && t.startsWith(targetPrefix)) {
+                                // 保持原始股票代码字符串，不做任何格式化
+                                const stockCode = String(row['股票代码'] || '');
+                                holdingsMap[stockCode] = row;
+                            }
+                        });
+        
+                        Object.values(holdingsMap).forEach(row => {
                             if (parseFloat(row['配置比例 (%)']) > 0) {
+                                // 使用原始股票代码，保持Excel中的格式
                                 const code = String(row['股票代码'] || '');
+                                
                                 const strategyItem = g.strategy.find(s => s.code === code);
+                                const yesterdayClose = strategyItem ? strategyItem.refPrice : null;
+                        
                                 g.portfolio.push({
-                                    code: code, name: row['股票名称'],
+                                    code: code,
+                                    name: row['股票名称'],
                                     weight: parseFloat(row['配置比例 (%)']), 
                                     currentPrice: null, 
-                                    refPrice: strategyItem ? strategyItem.refPrice : null,
+                                    refPrice: yesterdayClose,
                                     history: []
                                 });
                             }
@@ -677,42 +898,121 @@
                 if (e.name === 'NoSuchKeyError' || e.code === 'NoSuchKey') {
                     log("No Cloud Save. Starting Fresh.", "#888");
                     for (let k in GUARDIAN_CONFIG) updateCash(k);
-                } else { log("Cloud Load Error: " + e.message, "red"); }
+                } else {
+                    log("Cloud Load Error: " + e.message, "red");
+                }
             }
         }
 
-        async function loadTodayFlows() { /* Placeholder if needed later */ }
+        // 建议增加的内存结构
+        let todayInitialAssets = 100000; // 假设每日初始资金
+        
+        async function loadTodayFlows() {
+            if (!ossClient) return;
+            try {
+                const result = await ossClient.get(OSS_FILE_NAME);
+                const wb = XLSX.read(result.content, { type: 'array' });
+                const todayStr = getOpTime().substring(0, 8); // 获取 YYYYMMDD
+                
+                memoryFlows = []; // 清空内存记录
+                
+                for (let key in GUARDIAN_CONFIG) {
+                    const flowSheetName = GUARDIAN_CONFIG[key].flowName;
+                    const sheet = wb.Sheets[flowSheetName];
+                    if (sheet) {
+                        const rows = XLSX.utils.sheet_to_json(sheet);
+                        const todayRows = rows.filter(r => String(r["修改时间"]).startsWith(todayStr));
+                        
+                        // 将今日已存在的记录读入内存
+                        todayRows.forEach(r => {
+                            memoryFlows.push({
+                                sheet: flowSheetName,
+                                data: r
+                            });
+                        });
+                    }
+                }
+                log(`Loaded ${memoryFlows.length} transactions from today.`, "#0f0");
+            } catch (e) { console.error("Load flows error", e); }
+        }
 
         function calculateUserRtn(key) {
             const g = gameState.guardians[key];
             const flowName = GUARDIAN_CONFIG[key].flowName;
-            const initialTotalAssets = 100000;
+            const initialTotalAssets = 100000; // 每日初始虚拟资金基数
+            
+            // 1. 获取今日该守护者的所有内存操作记录
             const todayFlows = memoryFlows.filter(f => f.sheet === flowName);
+            
             let totalPnL = 0;
         
+            /**
+             * 核心逻辑：
+             * 收益 = Σ(当前持仓价值 - 当前持仓昨日价值) + Σ(今日卖出贡献) - Σ(今日买入产生的成本偏差)
+             * 
+             * 简单推演公式：
+             * 1. 对于当前持仓：贡献 = (现价 - 今日开盘价) * 当前数量
+             * 2. 对于今日买入：因为第1步用了开盘价，所以要扣除 (买入价 - 今日开盘价) * 买入数量
+             * 3. 对于今日卖出：贡献 = (卖出价 - 今日开盘价) * 卖出数量
+             */
+        
+            // --- 第一部分：计算当前 Portfolio 中标的的浮动盈亏 (相对于开盘价/基准价) ---
             g.portfolio.forEach(p => {
-                if (p.isCash) return;
-                const nowPrice = p.currentPrice, refPrice = p.refPrice;
+                if (p.isCash) return; // 跳过现金
+                
+                // 优先从 portfolio 找现价，找不到则视为无波动
+                const nowPrice = p.currentPrice;
+                const refPrice = p.refPrice; // 这里的 refPrice 是今日开盘价
+        
                 if (nowPrice && refPrice) {
+                    // 计算当前持仓在今日的波动：(当前价 - 开盘价) * 持仓数量
+                    // 持仓数量 = (总资产 * 权重 / 100) / 当前价
                     const currentWeightValue = initialTotalAssets * (p.weight / 100);
                     const quantity = currentWeightValue / nowPrice;
                     totalPnL += (nowPrice - refPrice) * quantity;
                 }
             });
         
+            // --- 第二部分：通过 memoryFlows 修正买入成本，并累加卖出已实现收益 ---
             todayFlows.forEach(f => {
-                const code = f.data["股票代码"], tradePrice = f.data["价格"], tradeQty = f.data["标的数量"];
-                const item = g.strategy.find(s => s.code === code) || g.portfolio.find(p => p.code === code);
+                const code = f.data["股票代码"];
+                const tradePrice = f.data["价格"];
+                const tradeQty = f.data["标的数量"];
+                
+                // 尝试获取该标的的基准价（今日开盘价）
+                // 逻辑：先看 strategy（策略里存了 refPrice），再看 portfolio
+                const item = g.strategy.find(s => s.code === code) || 
+                             g.portfolio.find(p => p.code === code);
+                
                 const refPrice = item ? item.refPrice : tradePrice;
         
-                if (f.data["操作类型"] === "Buy" && tradePrice && refPrice) {
-                    totalPnL -= (tradePrice - refPrice) * tradeQty;
-                } else if (f.data["操作类型"] === "Sell" && tradePrice && refPrice) {
-                    totalPnL += (tradePrice - refPrice) * tradeQty;
+                if (f.data["操作类型"] === "Buy") {
+                    /**
+                     * 买入修正：
+                     * 在第一部分计算中，我们假设所有持仓都是从 refPrice（开盘）开始波动的。
+                     * 但今日买入的标的，其实是从 tradePrice 开始波动的。
+                     * 所以要减去 (买入价 - 开盘价) 这一段多算的/少算的差额。
+                     */
+                    if (tradePrice && refPrice) {
+                        totalPnL -= (tradePrice - refPrice) * tradeQty;
+                    }
+                } 
+                else if (f.data["操作类型"] === "Sell") {
+                    /**
+                     * 卖出贡献（按您要求的逻辑）：
+                     * 卖出时的价格与今日开盘价（refPrice）的差额作为今日收益贡献。
+                     * 卖出后标的不在 portfolio 了，所以这部分是“锁定”的今日收益。
+                     */
+                    if (tradePrice && refPrice) {
+                        totalPnL += (tradePrice - refPrice) * tradeQty;
+                    }
                 }
             });
         
+            // 3. 计算收益率百分比
             const rtnPercentage = (totalPnL / initialTotalAssets) * 100;
+            
+            // 返回数值，外层调用可以用 .toFixed(2)
             return isNaN(rtnPercentage) ? 0 : rtnPercentage;
         }
 
@@ -720,36 +1020,63 @@
             const g = gameState.guardians[key];
             g.portfolio = g.portfolio.filter(p => p.code !== '100000');
             const totalStockWeight = g.portfolio.reduce((sum, p) => sum + p.weight, 0);
+            const cashWeight = Math.max(0, 100 - totalStockWeight);
             g.portfolio.push({
-                code: '100000', name: '现金', weight: Math.max(0, 100 - totalStockWeight), 
+                code: '100000', name: '现金', weight: cashWeight, 
                 currentPrice: 1, history: [], isCash: true
             });
         }
 
         async function updateMarketData() {
+            // 1. 在请求开始时打印提示
             log("Sync Price Data", "#aaa"); 
             for (let k in gameState.guardians) {
                 const g = gameState.guardians[k];
+                let currentAssets = 0;
+                
+                // 1. Update Strategy Prices and Calc System Rtn
                 let systemRtn = 0; 
                 for (let s of g.strategy) {
                     await fetchPrice(s);
-                    if (s.currentPrice && s.refPrice && s.isAdhoc !== true) {
-                         systemRtn += ((s.currentPrice - s.refPrice) / s.refPrice) * (s.weight / 100);
+                    // 【核心修改】：只有当标的存在价格，且不是 ADHOC 临时标的时，才计算入 System Rtn
+                    if (s.currentPrice && s.refPrice) {
+                         if (s.isAdhoc !== true) { 
+                             const chg = (s.currentPrice - s.refPrice) / s.refPrice;
+                             systemRtn += chg * (s.weight / 100);
+                         }
                     }
                 }
+
+                // --- 2. 更新数值和颜色 ---
                 const sysRtnElem = document.getElementById(`rtn-${k}`);
                 const cardElem = document.getElementById(`card-${k}`);
+                
                 if (sysRtnElem) {
                     sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
                     sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
                 }
-                if (systemRtn > 0) cardElem.classList.add('active'); 
-                else cardElem.classList.remove('active');
-
+        
+                // --- 3. 根据系统收益率正负切换边框发光状态 ---
+                if (systemRtn > 0) {
+                    cardElem.classList.add('active'); // 收益为正，激活发光
+                } else {
+                    cardElem.classList.remove('active'); // 收益为负或零，移除发光
+                }              
+               
+                // 2. Update Portfolio Prices & Value (用户持仓部分不受影响，买入即计算)
                 for (let p of g.portfolio) {
-                    if (!p.isCash) await fetchPrice(p);
+                    if (p.isCash) {
+                        currentAssets += 100000 * (p.weight / 100); 
+                    } else {
+                        await fetchPrice(p);
+                        currentAssets += 100000 * (p.weight / 100); 
+                    }
                 }
                 
+                if (g.initialAssets === 0 && currentAssets > 0) {
+                    g.initialAssets = 100000;
+                }
+
                 let portRtn = calculateUserRtn(k);         
                 const userRtnElem = document.getElementById(`user-rtn-${k}`);
                 userRtnElem.innerText = portRtn.toFixed(2) + "%";
@@ -757,6 +1084,7 @@
                 
                 renderLists(k);
             }
+            // 2. 在循环结束后打印完成提示
             log("Sync Price Data Finish", "#aaa"); 
         }
 
@@ -767,14 +1095,25 @@
                 const url = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
                 const res = await fetch(url);
                 const data = await res.json();
+        
                 if (data && data.length > 0) {
                     item.currentPrice = parseFloat(data[data.length-1].price);
                     item.history = data.map(d => d.price);
-                    if (item.refPrice === undefined || item.refPrice === null) item.refPrice = parseFloat(data[0].price);
-                } else if (item.refPrice !== null) {
-                    item.currentPrice = item.refPrice;
+                    
+                    // --- 核心逻辑：只有在 Excel 没提供价格的情况下，才用分时图的第一笔当开盘价 ---
+                    if (item.refPrice === undefined || item.refPrice === null) {
+                        item.refPrice = parseFloat(data[0].price);
+                    }
+                } else {
+                    // 如果 API 没回数据（无交易），现价即为昨收，涨跌幅显示 0%
+                    if (item.refPrice !== null) {
+                        item.currentPrice = item.refPrice;
+                    }
                 }
-            } catch(e) { if (item.refPrice !== null) item.currentPrice = item.refPrice; }
+            } catch(e) {
+                // 网络异常时保持 Excel 初始价格
+                if (item.refPrice !== null) item.currentPrice = item.refPrice;
+            }
         }
         
         function renderLists(key) {
@@ -787,12 +1126,14 @@
                 if(g.selectedBuy === i) el.classList.add('selected');
                 listEl.appendChild(el);
             });
+
             const portEl = document.getElementById(`portfolio-${key}`);
             portEl.innerHTML = '';
             g.portfolio.forEach((p, i) => {
                 const el = createRow(key, p, i, 'portfolio');
                 if (p.isCash) el.classList.add('is-cash');
                 else el.onclick = () => selectPortfolioItem(key, i);
+                
                 if(g.selectedSell === i && !p.isCash) el.classList.add('selected');
                 portEl.appendChild(el);
             });
@@ -801,33 +1142,58 @@
         function createRow(key, item, idx, type) {
             const div = document.createElement('div');
             div.className = 'holding-item';
+
             if (!item.isCash) {
                 const stockUrl = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
-                div.ondblclick = (e) => { e.stopPropagation(); window.open(stockUrl, '_blank'); };
+                div.ondblclick = (e) => { 
+                    e.stopPropagation(); 
+                    window.open(stockUrl, '_blank'); 
+                };
             }
             
-            let iconPrefix = item.isSweet ? "🍬 " : "";
+            // 4. 界面渲染逻辑：如果是甜点，在股票名称前添加糖果图标 🍬
+            let iconPrefix = "";
+            if(item.isSweet) iconPrefix += "🍬"; 
+            if(iconPrefix !== "") iconPrefix += " ";
+            // --- 修改点：如果是 strategy 且是 adhoc 类型，增加减号 ---
             let deleteHtml = (type === 'strategy' && item.isAdhoc) ? 
                 `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>` : '';
+        
             let nameHtml = `<div class="h-name-wrapper"><span class="h-name">${iconPrefix}${item.name}</span>${deleteHtml}</div>`;
+            //let nameHtml = `${iconPrefix}${item.name}`;
 
-            let wHtml = type === 'strategy' ? `<span class="h-weight">[${item.weight.toFixed(2)}%]</span>` : `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
-            
+            let wHtml = "";
             let pHtml = "";
+            
             if (item.currentPrice && item.refPrice) {
                 const chg = (item.currentPrice - item.refPrice) / item.refPrice;
                 const cls = chg >= 0 ? "text-up" : "text-down";
-                pHtml = `<span class="h-price ${cls}">${item.currentPrice.toFixed(2)}</span><span class="h-pct ${cls}">${(chg*100).toFixed(2)}%</span>`;
+                pHtml = `<span class="h-price ${cls}">${item.currentPrice.toFixed(2)}</span>
+                         <span class="h-pct ${cls}">${(chg*100).toFixed(2)}%</span>`;
             } else {
                 pHtml = `<span class="h-price">${item.currentPrice ? item.currentPrice.toFixed(2) : '--'}</span>`;
             }
 
+            if (type === 'strategy') {
+                wHtml = `<span class="h-weight">[${item.weight.toFixed(2)}%]</span>`;
+            } else {
+                wHtml = `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
+            }
+
+            // ... 后面的 innerHTML 拼接中使用 nameHtml ...
             div.innerHTML = `
                 <div class="h-info">${nameHtml}<div class="h-weight-row">${wHtml}</div></div>
                 <div class="h-price-col">${pHtml}</div>
-                <div class="mini-chart-container" onclick="onSparkClick(event, '${key}', '${type}', ${idx})"><canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas></div>
+                <div class="mini-chart-container" onclick="onSparkClick(event, '${key}', '${type}', ${idx})">
+                    <canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas>
+                </div>
             `;
-            setTimeout(() => { if(item.history && item.history.length > 1) drawSpark(`chart-${key}-${type}-${idx}`, item.history, item.refPrice, (item.currentPrice>=item.refPrice?'#EF4444':'#10B981')); }, 0);
+            
+            setTimeout(() => {
+                if(item.history && item.history.length > 1) {
+                    drawSpark(`chart-${key}-${type}-${idx}`, item.history, item.refPrice, (item.currentPrice>=item.refPrice?'#EF4444':'#10B981'));
+                }
+            }, 0);
             return div;
         }
 
@@ -851,7 +1217,8 @@
         function selectStrategyItem(key, idx) {
             gameState.guardians[key].selectedBuy = idx;
             const item = gameState.guardians[key].strategy[idx];
-            document.getElementById(`buy-price-${key}`).value = (item.currentPrice || item.refPrice || 0).toFixed(2);
+            const price = item.currentPrice || item.refPrice;
+            document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
             document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
             renderLists(key);
             calcQty(key, 'buy');
@@ -861,7 +1228,8 @@
             const p = gameState.guardians[key].portfolio[idx];
             if (p.isCash) return;
             gameState.guardians[key].selectedSell = idx;
-            document.getElementById(`sell-price-${key}`).value = (p.currentPrice || p.refPrice || 0).toFixed(2);
+            const price = p.currentPrice || p.refPrice;
+            document.getElementById(`sell-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
             document.getElementById(`sell-weight-${key}`).value = p.weight.toFixed(2);
             renderLists(key);
             calcQty(key, 'sell');
@@ -875,11 +1243,14 @@
             
             if (price > 0 && weight > 0) {
                 const totalAssets = 100000; 
-                let actualWeight = (type === 'buy') ? weight * g.power : weight;
+                let actualWeight = weight;
+                if (type === 'buy') actualWeight = weight * g.power; 
                 const val = totalAssets * (actualWeight / 100);
                 const qty = Math.floor(val / price);
                 resEl.innerText = `Qty: ${qty}`;
-            } else { resEl.innerText = ""; }
+            } else {
+                resEl.innerText = "";
+            }
         }
 
         function executeOrder(key, type) {
@@ -895,24 +1266,40 @@
                 const item = g.strategy[g.selectedBuy];
                 const increment = weight * g.power;
                 const currentSum = g.portfolio.reduce((s, p) => p.isCash ? s : s + p.weight, 0);
-                if (currentSum + increment > 100.1) { msgEl.innerText = `ERR: Limit Exceeded`; msgEl.style.color="red"; return; }
+                if (currentSum + increment > 100.1) { 
+                    msgEl.innerText = `ERR: Limit Exceeded (Max 100%)`; msgEl.style.color="red"; return;
+                }
                 let existing = g.portfolio.find(p => p.code === item.code);
-                if (existing) { existing.weight += increment; existing.currentPrice = price; } 
-                else { g.portfolio.unshift({ code: item.code, name: item.name, weight: increment, currentPrice: price, refPrice: item.refPrice, history: item.history }); }
+                if (existing) {
+                    existing.weight += increment;
+                    existing.currentPrice = price; 
+                } else {
+                    g.portfolio.unshift({ 
+                        code: item.code, name: item.name, weight: increment,
+                        currentPrice: price, refPrice: item.refPrice, history: item.history
+                    });
+                }
                 recordFlow(key, 'Buy', item.code, item.name, weight, price);
                 msgEl.innerText = `BOUGHT ${item.name}`;
+
             } else if (type === 'sell') {
                 if (g.selectedSell === null) return;
                 const item = g.portfolio[g.selectedSell];
-                if (weight > item.weight + 0.01) { msgEl.innerText = `ERR: Insufficient Holdings`; msgEl.style.color="red"; return; }
+                if (weight > item.weight + 0.01) {
+                    msgEl.innerText = `ERR: Insufficient Holdings`; msgEl.style.color="red"; return;
+                }
                 item.weight -= weight;
-                if (item.weight < 0.01) { g.portfolio.splice(g.selectedSell, 1); g.selectedSell = null; }
+                if (item.weight < 0.01) {
+                    g.portfolio.splice(g.selectedSell, 1);
+                    g.selectedSell = null;
+                }
                 recordFlow(key, 'Sell', item.code, item.name, weight, price);
                 msgEl.innerText = `SOLD ${item.name}`;
             }
 
             msgEl.style.color = "#FFD700";
             updateCash(key);
+            // 【新增】：操作完后立即刷新一次收益率显示
             const portRtn = calculateUserRtn(key);
             const userRtnElem = document.getElementById(`user-rtn-${key}`);
             userRtnElem.innerText = portRtn.toFixed(2) + "%";
@@ -921,15 +1308,24 @@
 
         function recordFlow(key, opType, code, name, inputWeight, price) {
             const g = gameState.guardians[key];
+            const totalAssets = 100000;
             let actualWeight = (opType === 'Buy') ? inputWeight * g.power : inputWeight;
-            const val = 100000 * (actualWeight / 100);
+            const val = totalAssets * (actualWeight / 100);
             const qty = Math.floor(val / price);
+            const value = (qty * price).toFixed(2);
+            
             memoryFlows.push({
                 sheet: GUARDIAN_CONFIG[key].flowName,
                 data: {
-                    "组合名称": GUARDIAN_CONFIG[key].simpleName, "股票代码": code, "股票名称": name,
-                    "配置比例 (%)": actualWeight.toFixed(2), "标的数量": qty, "价格": price,
-                    "价值": (qty * price).toFixed(2), "操作类型": opType, "修改时间": getOpTime(true)
+                    "组合名称": GUARDIAN_CONFIG[key].simpleName,
+                    "股票代码": code,
+                    "股票名称": name,
+                    "配置比例 (%)": actualWeight.toFixed(2), 
+                    "标的数量": qty,
+                    "价格": price,
+                    "价值": value,
+                    "操作类型": opType,
+                    "修改时间": getOpTime(true)
                 }
             });
         }
@@ -941,30 +1337,44 @@
                 const result = await ossClient.get(OSS_FILE_NAME);
                 const wb = XLSX.read(result.content, { type: 'array' });
                 const sheet = wb.Sheets["ADHOC"];
+                
                 if (sheet) {
-                    XLSX.utils.sheet_to_json(sheet, { raw: false }).forEach(row => {
-                        const key = Object.keys(GUARDIAN_CONFIG).find(k => GUARDIAN_CONFIG[k].simpleName === row["组合名称"]);
+                    const raw = XLSX.utils.sheet_to_json(sheet, { raw: false });
+                    raw.forEach(row => {
+                        const simpleName = row["组合名称"];
+                        const key = Object.keys(GUARDIAN_CONFIG).find(k => GUARDIAN_CONFIG[k].simpleName === simpleName);
+                        
                         if (key) {
                             const g = gameState.guardians[key];
                             if (!g.strategy.some(s => s.code === String(row["股票代码"]))) {
+                                // --- 修改：读取收盘价格作为基准价 ---
                                 const excelClosePrice = row["收盘价格"] ? parseFloat(row["收盘价格"]) : null;
+                                
                                 g.strategy.push({
-                                    name: row["股票名称"], code: String(row["股票代码"]),
-                                    weight: parseFloat(row["建议比例 (%)"]), refPrice: excelClosePrice,
-                                    currentPrice: excelClosePrice, history: [], isSweet: false, isAdhoc: true 
+                                    name: row["股票名称"],
+                                    code: String(row["股票代码"]),
+                                    weight: parseFloat(row["建议比例 (%)"]),
+                                    refPrice: excelClosePrice, // 这里的 refPrice 就是你要求的“奇点价格”
+                                    currentPrice: excelClosePrice, // 初始现价也设为它，防止没买卖时显示错误
+                                    history: [],
+                                    isSweet: false,
+                                    isAdhoc: true 
                                 });
                             }
                         }
                     });
                     log("ADHOC Suggestions Imported.", "#0f0");
                 }
-            } catch (e) { log("No ADHOC data found.", "#888"); }
+            } catch (e) {
+                log("No ADHOC data found.", "#888");
+            }
         }
 
         async function syncToCloud() {
             if (!await initOSS()) return;
             const dot = document.getElementById('ossStatusDot');
             dot.className = "oss-status syncing";
+            
             try {
                 let wb;
                 try {
@@ -973,68 +1383,147 @@
                 } catch { wb = XLSX.utils.book_new(); }
 
                 const timeStr = getOpTime(true);
-                const todayPrefix = timeStr.substring(0, 8); 
+                const todayPrefix = timeStr.substring(0, 8); // 提取如 "20231027"
 
                 for (let key in GUARDIAN_CONFIG) {
-                    const cfg = GUARDIAN_CONFIG[key], g = gameState.guardians[key];
+                    const cfg = GUARDIAN_CONFIG[key];
+                    const g = gameState.guardians[key];
+                    hasNewData = false;
+
                     let snapData = [];
                     if (wb.Sheets[cfg.simpleName]) {
-                        snapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]).filter(row => String(row["修改时间"] || "").substring(0, 8) !== todayPrefix);
+                        // 1. 先把 Sheet 里的旧数据全读出来
+                        const oldSnapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
+                        
+                        // 2. 【核心修改】过滤掉“修改时间”前8位等于今天的数据
+                        snapData = oldSnapData.filter(row => {
+                            const rowTime = String(row["修改时间"] || "");
+                            return rowTime.substring(0, 8) !== todayPrefix; 
+                        });
                     }
                     g.portfolio.forEach(p => {
                         snapData.push({
-                            "组合名称": cfg.simpleName, "股票代码": p.code, "股票名称": p.name, "来源": "QuantGuardians",
-                            "配置比例 (%)": p.weight.toFixed(2), "修改时间": timeStr
+                            "组合名称": cfg.simpleName,
+                            "股票代码": p.code,
+                            "股票名称": p.name,
+                            "来源": "QuantGuardians",
+                            "配置比例 (%)": p.weight.toFixed(2),
+                            "修改时间": timeStr
                         });
                     });
                     const newSnapWs = XLSX.utils.json_to_sheet(snapData, { header: ["组合名称","股票代码","股票名称","来源","配置比例 (%)","修改时间"] });
                     if(wb.Sheets[cfg.simpleName]) wb.Sheets[cfg.simpleName] = newSnapWs;
                     else XLSX.utils.book_append_sheet(wb, newSnapWs, cfg.simpleName);
 
-                    let flowData = wb.Sheets[cfg.flowName] ? XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]) : [];
-                    let hasNewData = false;
-                    memoryFlows.filter(f => f.sheet === cfg.flowName).forEach(newItem => {
-                        const isDuplicate = flowData.some(existing => 
-                            existing["股票代码"] === newItem.data["股票代码"] && existing["修改时间"] === newItem.data["修改时间"] &&
-                            existing["操作类型"] === newItem.data["操作类型"] && parseFloat(existing["价格"]) === parseFloat(newItem.data["价格"])
-                        );
-                        if (!isDuplicate) { flowData.push(newItem.data); hasNewData = true; }
+                    // 在 syncToCloud 内部处理 flowName Sheet 的逻辑
+                    let flowData = [];
+                    if (wb.Sheets[cfg.flowName]) {
+                        flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
+                    }
+                    
+                    const pending = memoryFlows.filter(f => f.sheet === cfg.flowName);
+                    
+                    pending.forEach(newItem => {
+                        // 严格匹配逻辑：将对象转为 JSON 字符串进行比对
+                        const isDuplicate = flowData.some(existingItem => {
+                            return existingItem["股票代码"] === newItem.data["股票代码"] &&
+                                   existingItem["修改时间"] === newItem.data["修改时间"] &&
+                                   existingItem["操作类型"] === newItem.data["操作类型"] &&
+                                   parseFloat(existingItem["价格"]) === parseFloat(newItem.data["价格"]) &&
+                                   parseFloat(existingItem["标的数量"]) === parseFloat(newItem.data["标的数量"]);
+                        });
+                    
+                        if (!isDuplicate) {
+                            flowData.push(newItem.data);
+                             hasNewData = true; // 【新增】只有真正插入数据时才标记为 true
+                        }
                     });
 
-                    if (hasNewData || (!wb.Sheets[cfg.flowName] && flowData.length > 0)) {
-                        const newFlowWs = XLSX.utils.json_to_sheet(flowData, { header: ["组合名称","股票代码","股票名称","配置比例 (%)","标的数量","价格","价值","操作类型","修改时间"] });
-                        if (wb.Sheets[cfg.flowName]) wb.Sheets[cfg.flowName] = newFlowWs;
-                        else XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
+                    // 【核心保护】只有当确实有新数据写入，或者原本没有这个 Sheet (初始化) 时，才执行写入
+                    // 如果 flowData 不为空且没有 Sheet，说明是第一次创建，也要写入
+                    const sheetExists = !!wb.Sheets[cfg.flowName];
+                    
+                    if (hasNewData || (!sheetExists && flowData.length > 0)) {
+                        const headers = [
+                            "组合名称",
+                            "股票代码",
+                            "股票名称",
+                            "配置比例 (%)",
+                            "标的数量",
+                            "价格",
+                            "价值",
+                            "操作类型",
+                            "修改时间"
+                        ];
+                        
+                        const newFlowWs = XLSX.utils.json_to_sheet(flowData, {
+                            header: headers,
+                            skipHeader: false
+                        });;
+                    
+                        if (sheetExists) {
+                            wb.Sheets[cfg.flowName] = newFlowWs;
+                        } else {
+                            XLSX.utils.book_append_sheet(wb, newFlowWs, cfg.flowName);
+                        }
+                        console.log(`[${cfg.flowName}] 更新完成，新增 ${pending.length} 条记录`);
+                    } else {
+                        // 没变化时什么都不做，wb 中保留原有的 Sheet 对象，最大程度保留原格式
+                        console.log(`[${cfg.flowName}] 无新增记录，跳过写入`);
                     }
+
                 }
 
+                // 收集所有守护者的 ADHOC 标的
                 let adhocData = [];
+                const adhocTimeStr = getOpTime(true);
+                
                 for (let key in GUARDIAN_CONFIG) {
-                    gameState.guardians[key].strategy.filter(s => s.isAdhoc === true).forEach(item => {
+                    const cfg = GUARDIAN_CONFIG[key];
+                    const g = gameState.guardians[key];
+                    const adhocItems = g.strategy.filter(s => s.isAdhoc === true);
+                    
+                    adhocItems.forEach(item => {
                         adhocData.push({
-                            "组合名称": GUARDIAN_CONFIG[key].simpleName, "股票代码": item.code, "股票名称": item.name,
-                            "来源": "QuantGuardians", "建议比例 (%)": item.weight.toFixed(2), "修改时间": timeStr, "收盘价格": item.refPrice
+                            "组合名称": GUARDIAN_CONFIG[key].simpleName,
+                            "股票代码": item.code,
+                            "股票名称": item.name,
+                            "来源": "QuantGuardians",
+                            "建议比例 (%)": item.weight.toFixed(2),
+                            "修改时间": adhocTimeStr,
+                            "收盘价格": item.refPrice // --- 保存当前记录的基准价到 Excel ---
                         });
                     });   
+               
                 }
-                const adhocWs = XLSX.utils.json_to_sheet(adhocData, { header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间"] });
-                if (wb.Sheets["ADHOC"]) wb.Sheets["ADHOC"] = adhocWs;
-                else XLSX.utils.book_append_sheet(wb, adhocWs, "ADHOC");
+                
+                // 将收集到的 ADHOC 数据写入 Sheet (全量覆盖)
+                const adhocWs = XLSX.utils.json_to_sheet(adhocData, { 
+                    header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间"] 
+                });
+                
+                if (wb.Sheets["ADHOC"]) {
+                    wb.Sheets["ADHOC"] = adhocWs;
+                } else {
+                    XLSX.utils.book_append_sheet(wb, adhocWs, "ADHOC");
+                }
 
-                const wbout = XLSX.write(wb, { bookType:'xlsx', bookSST:false, type:'array' });
-                await ossClient.put(OSS_FILE_NAME, new Blob([wbout], {type:"application/octet-stream"}));
+                const wopts = { bookType:'xlsx', bookSST:false, type:'array' };
+                const wbout = XLSX.write(wb, wopts);
+                const blob = new Blob([wbout], {type:"application/octet-stream"});
+                await ossClient.put(OSS_FILE_NAME, blob);
                 
                 dot.className = "oss-status done";
                 log("Cloud Sync Success.", "#0f0");
                 memoryFlows = []; 
-            } catch (e) { dot.className = "oss-status"; log("Sync Error: " + e.message, "red"); }
+            } catch (e) {
+                dot.className = "oss-status";
+                log("Sync Error: " + e.message, "red");
+            }
         }
-
-        // ================= UPDATED HISTORY LOGIC =================
 
         async function loadHistoryData() {
             log("Loading Historical Data...", "#88f");
-            
             // 1. 合并原有四大神兽文件 + 新增的 Guardians/User 文件
             const allFiles = { ...HISTORY_FILES, ...EXTRA_HISTORY_FILES };
             const keys = Object.keys(allFiles);
@@ -1055,8 +1544,7 @@
             historyData.dates = Array.from(allDatesSet).sort();
             
             results.forEach((json, index) => {
-                const key = keys[index]; // key 可能是 genbu, guardians, user 等
-                
+                const key = keys[index];
                 if (json && json.每日评估数据) {
                     const returnMap = new Map();
                     const sp500Map = new Map(); // 用于存储标普500数据
@@ -1101,18 +1589,22 @@
                 data: {
                     labels: historyData.dates,
                     datasets: [
+                        createDataset('GENBU', '#10B981', 'genbu'),
+                        createDataset('SUZAKU', '#EF4444', 'suzaku'),
+                        createDataset('SIRIUS', '#8B5CF6', 'sirius'),
+                        createDataset('KIRIN', '#3B82F6', 'kirin')
+
                         // 新增：Guardians (总护卫队)
                         createDataset('Guardians', '#FFD700', 'guardians', { borderWidth: 3, order: 1 }),
                         // 新增：User (用户)
                         createDataset('User', '#00FFFF', 'user', { borderWidth: 2, order: 2 }),
                         // 新增：S&P 500 (作为基准线，虚线)
-                        createDataset('S&P 500', '#666666', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
-                        
+                        createDataset('S&P 500', '#666666', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),                        
                         // 原有四大神兽
-                        createDataset('GENBU', '#10B981', 'genbu', { hidden: true }), // 默认隐藏以突出重点，可点击图例显示
-                        createDataset('SUZAKU', '#EF4444', 'suzaku', { hidden: true }),
-                        createDataset('SIRIUS', '#8B5CF6', 'sirius', { hidden: true }),
-                        createDataset('KIRIN', '#3B82F6', 'kirin', { hidden: true })
+                        createDataset('GENBU', '#10B981', 'genbu', { hidden: false }), // 默认显示，可点击图例隐藏
+                        createDataset('SUZAKU', '#EF4444', 'suzaku', { hidden: false }),
+                        createDataset('SIRIUS', '#8B5CF6', 'sirius', { hidden: false }),
+                        createDataset('KIRIN', '#3B82F6', 'kirin', { hidden: false })
                     ]
                 },
                 options: {
@@ -1133,16 +1625,27 @@
             btn.innerText = "INITIALIZING...";
             
             await initOSS();
-            await Promise.all([ loadStrategies(), loadHistoryData() ]);
+            
+            // 加载策略和历史数据
+            await Promise.all([
+                loadStrategies(),
+                loadHistoryData()
+            ]);
+
+            // 5. 在系统初始化流程中，策略加载后立即调用加载函数
             await loadSweetPoints(); 
+
+            //  【新增】从云端导入 ADHOC 标的到 Strategy Suggestions
             await loadAdhocFromCloud();
+            
             await loadCloudPortfolio();
             
             updateMarketData();
             setInterval(updateMarketData, 300000); 
 
-            await fetchAllStocksData(); 
-            setupAllAdhocAutoCompletes(); 
+            await fetchAllStocksData(); // 新增：获取全量搜索数据
+            setupAllAdhocAutoCompletes(); // 新增：设置自动补全
+            
             
             gameState.active = true;
             btn.innerText = "SYSTEM ONLINE";
