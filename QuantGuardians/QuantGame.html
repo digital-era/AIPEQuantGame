@@ -1522,7 +1522,7 @@
             }
         }
 
-        async function loadHistoryData() {
+		async function loadHistoryData() {
             log("Loading Historical Data...", "#88f");
             // 1. 合并原有四大神兽文件 + 新增的 Guardians/User 文件
             const allFiles = { ...HISTORY_FILES, ...EXTRA_HISTORY_FILES };
@@ -1547,21 +1547,25 @@
                 const key = keys[index];
                 if (json && json.每日评估数据) {
                     const returnMap = new Map();
-                    const sp500Map = new Map(); // 用于存储标普500数据
                     
+                    // 1. 处理每日评估数据 (仅处理累计收益率)
                     json.每日评估数据.forEach(d => {
                         returnMap.set(d.日期, d.累计收益率 * 100);
-                        if (d["标普500收益率"] !== undefined) {
-                            sp500Map.set(d.日期, d["标普500收益率"] * 100);
-                        }
                     });
                     
-                    // 保存主要曲线数据
+                    // 2. 从 JSON 外层获取固定的标普500收益率
+                    let sp500FixedValue = null;
+                    if (json["标普500收益率"] !== undefined) {
+                        sp500FixedValue = json["标普500收益率"] * 100;
+                    }
+
+                    // 3. 保存主要曲线数据 (策略收益率)
                     historyData.datasets[key] = historyData.dates.map(date => returnMap.has(date) ? returnMap.get(date) : null);
                     
-                    // 如果是 guardians 文件，额外提取 sp500 数据
+                    // 4. 如果是 guardians 文件，额外生成 sp500 数据
+                    // 逻辑：创建一个与日期数组等长的数组，每个元素都是那个固定的 sp500FixedValue
                     if (key === 'guardians') {
-                        historyData.datasets['sp500'] = historyData.dates.map(date => sp500Map.has(date) ? sp500Map.get(date) : null);
+                        historyData.datasets['sp500'] = historyData.dates.map(() => sp500FixedValue);
                     }
                 } else {
                     historyData.datasets[key] = [];
