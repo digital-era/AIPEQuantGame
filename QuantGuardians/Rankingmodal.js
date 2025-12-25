@@ -70,7 +70,8 @@
 		        // 条件2: 护卫队整体(guardiansVal) > 标普500(sp500Val)
 		        let trophyHtml = '';
 		        if (index === 0 && guardiansVal > sp500Val) {
-		            trophyHtml = `<div class="rank-trophy">🏆</div>`;
+		            //trophyHtml = `<div class="rank-trophy">🏆</div>`;
+					trophyHtml = `<div class="rank-trophy" style="position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; z-index: 10; font-size: 1.5em; text-shadow: 0 0 5px gold;">🏆</div>`;
 		        }
 		
 		        // 格式化数值
@@ -107,6 +108,19 @@
 		                </div>
 		                ${trophyHtml}
 		            </div>
+					         
+		            <!-- 【关键修改】给父容器加上 position: relative，作为定位基准 -->
+		            <div class="rank-bar-area" style="position: relative; flex: 1; margin-left: 10px; height: 100%; display: flex; align-items: center;">
+		                
+		                <div class="rank-bar" id="bar-${item.key}" style="background:${barColor}; width: 0%; height: 80%; border-radius: 4px; transition: width 1s ease;">
+		                    <!-- 数值也建议绝对定位，防止进度条太短时文字显示不全 -->
+		                    <span class="rank-val" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 0.8em; white-space: nowrap; mix-blend-mode: difference;">
+		                        ${valStr}
+		                    </span>
+		                </div>
+		                <!-- 奖杯 html 插入在这里，它拥有 absolute 属性 -->
+		                ${trophyHtml}
+		            </div>						
 		        `;
 		        listEl.appendChild(div);
 		
