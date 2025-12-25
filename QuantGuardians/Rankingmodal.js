@@ -104,17 +104,17 @@
 		            </div>
 					         
 		            <!-- 【关键修改】给父容器加上 position: relative，作为定位基准 -->
-		            <div class="rank-bar-area" style="position: relative; flex: 1; margin-left: 10px; height: 100%; display: flex; align-items: center;">
+		            <div class="rank-bar-area" style="position: relative; flex: 1; margin-left: 10px; height: 30px; display: flex; align-items: center;">
 		                
 		                <div class="rank-bar" id="bar-${item.key}" style="background:${barColor}; width: 0%; height: 80%; border-radius: 4px; transition: width 1s ease;">
-		                    <!-- 数值也建议绝对定位，防止进度条太短时文字显示不全 -->
+		                    <!-- 数值绝对定位 -->
 		                    <span class="rank-val" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 0.8em; white-space: nowrap; mix-blend-mode: difference;">
 		                        ${valStr}
 		                    </span>
 		                </div>
-		                <!-- 奖杯 html 插入在这里，它拥有 absolute 属性 -->
+		                <!-- 奖杯 -->
 		                ${trophyHtml}
-		            </div>						
+		            </div>				
 		        `;
 		        listEl.appendChild(div);
 		
