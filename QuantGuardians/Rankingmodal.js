@@ -102,12 +102,6 @@
 		                <span class="rank-name">${item.name}</span>
 		                <span class="rank-icon">${item.icon}</span>
 		            </div>
-		            <div class="rank-bar-area">
-		                <div class="rank-bar" id="bar-${item.key}" style="background:${barColor};">
-		                    <span class="rank-val" style="right: ${item.value < 0 ? '-60px' : '10px'}">${valStr}</span>
-		                </div>
-		                ${trophyHtml}
-		            </div>
 					         
 		            <!-- 【关键修改】给父容器加上 position: relative，作为定位基准 -->
 		            <div class="rank-bar-area" style="position: relative; flex: 1; margin-left: 10px; height: 100%; display: flex; align-items: center;">
