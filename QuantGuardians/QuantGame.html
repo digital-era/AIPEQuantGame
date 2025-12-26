@@ -367,6 +367,22 @@
 		@media (max-width: 768px) {
 		    .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
 		}
+		
+		/* --- 2. 仅针对电脑端 (屏幕宽度大于 1024px) 开启缩放 --- */
+	    @media (min-width: 1024px) {
+	        body {
+	            /* 只有电脑上才会缩放 */
+	            zoom: 0.9;
+	            /* 补偿缩放后的高度 */
+	            min-height: 111.11vh; 
+	        }
+	
+	        .modal-overlay {
+	            /* 补偿缩放后的遮罩尺寸 */
+	            width: 111.11%; 
+	            height: 111.11%;
+	        }
+	    }
     </style>
 </head>
 <body>
