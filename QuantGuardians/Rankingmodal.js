@@ -37,7 +37,7 @@
 		        { key: 'sirius',  name: 'SIRIUS',   icon: '🐺', color: GUARDIAN_COLORS.sirius },
 		        { key: 'kirin',   name: 'KIRIN',    icon: '🦄', color: GUARDIAN_COLORS.kirin },
 		        { key: 'user',    name: 'USER',     icon: '👤', color: '#00FFFF' }, // 用户
-		        { key: 'guardians',name:'Guardians',     icon: '⚔️', color: '#FFD700' }  // 护卫队总分
+		        { key: 'guardians',name:'Guardians',     icon: '💠', color: '#FFD700' }  // 护卫队总分
 		    ];
 		
 		    // 提取数值并构建数组
