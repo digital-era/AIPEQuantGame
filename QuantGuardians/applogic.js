@@ -1440,6 +1440,7 @@ let showN3 = false;
 
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
+// ================= 终极解决方案：自定义图例系统 =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
@@ -1447,31 +1448,36 @@ function renderHistoryChart() {
     // 1. 显示容器
     chartContainer.style.display = 'block';
     
-    // 2. 插入控制开关
-    if (!document.getElementById('chartVariantControls')) {
-        const controlsDiv = document.createElement('div');
-        controlsDiv.id = 'chartVariantControls';
-        controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa; height:25px;";
-        controlsDiv.innerHTML = `
-            <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
-                <span style="border-bottom: 2px dashed #888">Show N+2 (Dashed)</span>
-            </label>
-            <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" style="margin-right:5px;"> 
-                <span style="border-bottom: 2px dotted #888">Show N+3 (Dotted)</span>
-            </label>
-        `;
-        canvas.parentNode.insertBefore(controlsDiv, canvas);
-    }
-
-    // 3. 销毁旧图表
+    // 2. 首先销毁旧图表
     if (perfChart) {
         perfChart.destroy();
         perfChart = null;
     }
-
-    // 4. 延迟初始化
+    
+    // 3. 创建自定义图例容器
+    const customLegendId = 'customChartLegend';
+    let customLegend = document.getElementById(customLegendId);
+    
+    if (!customLegend) {
+        customLegend = document.createElement('div');
+        customLegend.id = customLegendId;
+        customLegend.style.cssText = `
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            justify-content: center;
+        `;
+        chartContainer.insertBefore(customLegend, canvas);
+    } else {
+        // 清空现有内容
+        customLegend.innerHTML = '';
+    }
+    
+    // 4. 延迟初始化图表
     setTimeout(() => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -1531,17 +1537,109 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 构建标签到索引的映射 ---
-        const labelToIndexMap = {};
-        datasets.forEach((dataset, originalIndex) => {
+        // --- 关键：构建主线数据集映射表 ---
+        const mainDatasetMap = new Map(); // label -> {index, groupKey, color}
+        datasets.forEach((dataset, index) => {
             if (dataset.isMain === true) {
-                labelToIndexMap[dataset.label] = originalIndex;
+                mainDatasetMap.set(dataset.label, {
+                    index: index,
+                    groupKey: dataset.groupKey,
+                    color: dataset.borderColor,
+                    isVisible: true
+                });
             }
         });
 
-        console.log('Label to index mapping:', labelToIndexMap);
+        // --- 创建自定义图例项 ---
+        mainDatasetMap.forEach((info, label) => {
+            const legendItem = document.createElement('div');
+            legendItem.className = 'custom-legend-item';
+            legendItem.dataset.label = label;
+            legendItem.dataset.groupKey = info.groupKey;
+            legendItem.style.cssText = `
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                padding: 5px 10px;
+                border-radius: 3px;
+                background: ${info.isVisible ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)'};
+                color: ${info.isVisible ? '#fff' : '#888'};
+                border-left: 4px solid ${info.color};
+                transition: all 0.3s;
+                user-select: none;
+            `;
+            
+            legendItem.innerHTML = `
+                <div style="width: 12px; height: 2px; background: ${info.color}; margin-right: 8px;"></div>
+                <span style="font-size: 12px; font-weight: 500;">${label}</span>
+            `;
+            
+            // 添加点击事件
+            legendItem.addEventListener('click', function() {
+                const label = this.dataset.label;
+                const groupKey = this.dataset.groupKey;
+                
+                console.log('点击自定义图例:', label, '分组:', groupKey);
+                
+                // 获取当前状态
+                const info = mainDatasetMap.get(label);
+                if (!info) return;
+                
+                // 切换可见性
+                const isCurrentlyVisible = info.isVisible;
+                
+                // 切换整个组
+                datasets.forEach((dataset, idx) => {
+                    if (dataset.groupKey === groupKey) {
+                        if (isCurrentlyVisible) {
+                            // 隐藏
+                            perfChart.setDatasetVisibility(idx, false);
+                        } else {
+                            // 显示
+                            perfChart.setDatasetVisibility(idx, true);
+                        }
+                    }
+                });
+                
+                // 更新状态
+                info.isVisible = !isCurrentlyVisible;
+                mainDatasetMap.set(label, info);
+                
+                // 更新图例项样式
+                this.style.background = info.isVisible ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)';
+                this.style.color = info.isVisible ? '#fff' : '#888';
+                
+                // 更新图表
+                perfChart.update();
+                
+                // 更新复选框
+                if (typeof window.updateVariantVisibility === 'function') {
+                    setTimeout(window.updateVariantVisibility, 50);
+                }
+            });
+            
+            customLegend.appendChild(legendItem);
+        });
 
-        // --- 初始化 Chart ---
+        // 5. 插入控制开关
+        if (!document.getElementById('chartVariantControls')) {
+            const controlsDiv = document.createElement('div');
+            controlsDiv.id = 'chartVariantControls';
+            controlsDiv.style.cssText = "display:flex; justify-content:center; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa; height:25px;";
+            controlsDiv.innerHTML = `
+                <label style="cursor:pointer; display:flex; align-items:center;">
+                    <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
+                    <span style="border-bottom: 2px dashed #888">Show N+2 (Dashed)</span>
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center;">
+                    <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" style="margin-right:5px;"> 
+                    <span style="border-bottom: 2px dotted #888">Show N+3 (Dotted)</span>
+                </label>
+            `;
+            chartContainer.insertBefore(controlsDiv, canvas);
+        }
+
+        // 6. 初始化图表（禁用内置图例）
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1554,72 +1652,7 @@ function renderHistoryChart() {
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
-                        display: true,
-                        labels: { 
-                            color: '#ccc',
-                            font: { size: 12 },
-                            // 使用filter保持图标显示
-                            filter: function(item, chartData) {
-                                const ds = chartData.datasets[item.datasetIndex];
-                                return ds.isMain === true;
-                            }
-                        },
-                        // 修复点击事件：移除 e.stopPropagation()
-                        onClick: function(e, legendItem, legend) {
-                            // 关键修复：移除 e.stopPropagation() 或者检查 e 是否存在
-                            // if (e && e.stopPropagation && typeof e.stopPropagation === 'function') {
-                            //     e.stopPropagation();
-                            // }
-                            
-                            const chart = legend.chart;
-                            const clickedLabel = legendItem.text;
-                            
-                            console.log('Clicked legend label:', clickedLabel);
-                            
-                            // 方法A：使用预构建的映射表获取原始索引
-                            let targetOriginalIndex = labelToIndexMap[clickedLabel];
-                            
-                            // 方法B：如果映射表没找到，回退到遍历查找
-                            if (targetOriginalIndex === undefined) {
-                                chart.data.datasets.forEach((dataset, idx) => {
-                                    if (dataset.label === clickedLabel) {
-                                        targetOriginalIndex = idx;
-                                    }
-                                });
-                            }
-                            
-                            if (targetOriginalIndex === undefined || targetOriginalIndex < 0) {
-                                console.error('Could not find dataset for label:', clickedLabel);
-                                return;
-                            }
-                            
-                            console.log('Found dataset at original index:', targetOriginalIndex);
-                            
-                            const dataset = chart.data.datasets[targetOriginalIndex];
-                            const meta = chart.getDatasetMeta(targetOriginalIndex);
-                            const isCurrentlyVisible = !meta.hidden;
-                            
-                            // 切换整个组（主线 + 所有变体）
-                            chart.data.datasets.forEach((ds, idx) => {
-                                if (ds.groupKey === dataset.groupKey) {
-                                    if (isCurrentlyVisible) {
-                                        chart.hide(idx);
-                                    } else {
-                                        chart.show(idx);
-                                    }
-                                }
-                            });
-                            
-                            // 更新图例项状态
-                            legendItem.hidden = isCurrentlyVisible;
-                            
-                            chart.update();
-                            
-                            // 更新复选框状态
-                            if (typeof window.updateVariantVisibility === 'function') {
-                                setTimeout(window.updateVariantVisibility, 50);
-                            }
-                        }
+                        display: false, // 禁用内置图例
                     },
                     tooltip: {
                         itemSort: (a, b) => {
@@ -1636,17 +1669,15 @@ function renderHistoryChart() {
             }
         });
 
-        // 强制调整大小和更新
+        // 7. 强制稳定布局
         setTimeout(() => {
             if (perfChart) {
-                // 强制布局计算
+                // 多次强制重排以确保稳定
                 void chartContainer.offsetHeight;
-                
-                // 调整大小
                 perfChart.resize();
-                
-                // 更新图表
+                void chartContainer.offsetHeight;
                 perfChart.update();
+                void chartContainer.offsetHeight;
                 
                 // 更新复选框状态
                 if (typeof window.updateVariantVisibility === 'function') {
@@ -1657,6 +1688,60 @@ function renderHistoryChart() {
 
     }, 50);
 }
+
+// 更新辅助函数
+window.updateVariantVisibility = function() {
+    if (!perfChart) return;
+    
+    try {
+        const n2Checkbox = document.getElementById('toggleN2');
+        const n3Checkbox = document.getElementById('toggleN3');
+        
+        if (n2Checkbox) {
+            let anyN2Visible = false;
+            perfChart.data.datasets.forEach((dataset, index) => {
+                if (dataset.variantType === 'n2' && !perfChart.getDatasetMeta(index).hidden) {
+                    anyN2Visible = true;
+                }
+            });
+            n2Checkbox.checked = anyN2Visible;
+        }
+        
+        if (n3Checkbox) {
+            let anyN3Visible = false;
+            perfChart.data.datasets.forEach((dataset, index) => {
+                if (dataset.variantType === 'n3' && !perfChart.getDatasetMeta(index).hidden) {
+                    anyN3Visible = true;
+                }
+            });
+            n3Checkbox.checked = anyN3Visible;
+        }
+    } catch (error) {
+        console.error('updateVariantVisibility error:', error);
+    }
+};
+
+window.toggleVariantState = function(type) {
+    if (!perfChart) return;
+    
+    try {
+        const checkboxId = type === 'n2' ? 'toggleN2' : 'toggleN3';
+        const checkbox = document.getElementById(checkboxId);
+        if (!checkbox) return;
+        
+        const isChecked = checkbox.checked;
+        
+        perfChart.data.datasets.forEach((dataset, index) => {
+            if (dataset.variantType === type) {
+                perfChart.setDatasetVisibility(index, isChecked);
+            }
+        });
+        
+        perfChart.update();
+    } catch (error) {
+        console.error('toggleVariantState error:', error);
+    }
+};
 
 async function initSystem() {
     if (gameState.active) return;
