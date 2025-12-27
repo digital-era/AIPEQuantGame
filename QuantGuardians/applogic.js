@@ -579,9 +579,29 @@ function updateCash(key) {
     });
 }
 
-async function updateMarketData() {
-    // 1. 在请求开始时打印提示
+/**
+ * 更新市场数据，根据市场状态决定是否获取最新价格
+ * @param {boolean} forceFetch - 强制获取价格，即使 hasClosedPrices 为 true。用于系统初始化。
+ */
+async function updateMarketData(forceFetch = false) {
+    // 如果市场已关闭且已获取收盘价，且不是强制获取，则跳过价格数据请求
+    if (hasClosedPrices && !forceFetch) {
+        log("Market closed. Skipping price data fetch.", "#666");
+        // 即使不获取新价格，仍需要重新计算和渲染，因为用户可能进行了交易
+        for (let k in gameState.guardians) {
+            const g = gameState.guardians[k];
+            let portRtn = calculateUserRtn(k);
+            const userRtnElem = document.getElementById(`user-rtn-${k}`);
+            userRtnElem.innerText = portRtn.toFixed(2) + "%";
+            userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
+            renderLists(k); 
+        }
+        return; // 退出函数
+    }
+
     log("Sync Price Data", "#aaa"); 
+    let allPricesFetchedSuccessfully = true; // 跟踪是否所有价格都成功获取
+
     for (let k in gameState.guardians) {
         const g = gameState.guardians[k];
         let currentAssets = 0;
@@ -589,7 +609,9 @@ async function updateMarketData() {
         // 1. Update Strategy Prices and Calc System Rtn
         let systemRtn = 0; 
         for (let s of g.strategy) {
-            await fetchPrice(s);
+            await fetchPrice(s); // fetchPrice 内部会处理市场关闭逻辑
+            if (s.currentPrice === null) allPricesFetchedSuccessfully = false; // 任何一个价格未获取成功，就标记为失败
+
             // 【核心修改】：只有当标的存在价格，且不是 ADHOC 临时标的时，才计算入 System Rtn
             if (s.currentPrice && s.refPrice) {
                  if (s.isAdhoc !== true) { 
@@ -620,7 +642,8 @@ async function updateMarketData() {
             if (p.isCash) {
                 currentAssets += 100000 * (p.weight / 100); 
             } else {
-                await fetchPrice(p);
+                await fetchPrice(p); // fetchPrice 内部会处理市场关闭逻辑
+                if (p.currentPrice === null) allPricesFetchedSuccessfully = false; // 任何一个价格未获取成功，就标记为失败
                 currentAssets += 100000 * (p.weight / 100); 
             }
         }
@@ -638,6 +661,16 @@ async function updateMarketData() {
     }
     // 2. 在循环结束后打印完成提示
     log("Sync Price Data Finish", "#aaa"); 
+
+    // 在所有价格获取并显示成功后，检查市场是否已关闭
+    if (isMarketClosed() && allPricesFetchedSuccessfully && !hasClosedPrices) {
+        hasClosedPrices = true; // 设置收盘标识
+        if (priceUpdateInterval) {
+            clearInterval(priceUpdateInterval); // 清除定时器，停止价格轮询
+            priceUpdateInterval = null; // 重置 interval ID
+        }
+        log("Market closed. Prices locked to official closing prices. Price requests stopped.", "yellow");
+    }
 }
 
 /**
@@ -1258,8 +1291,18 @@ async function initSystem() {
     
     await loadCloudPortfolio();
     
-    updateMarketData();
-    setInterval(updateMarketData, 300000); 
+    // 首次获取市场数据，强制获取一次，因为这是系统启动，需要确定初始价格和市场状态
+    await updateMarketData(true); 
+
+    // 根据首次获取后的状态，决定是否启动定时器
+    if (hasClosedPrices) { 
+        // 如果市场已关闭且价格已锁定，则不再启动定时器
+        log("Market currently closed on init. Price polling will not start.", "yellow");
+    } else {
+        // 市场开放，启动定时器，每 5 分钟更新一次（非强制获取）
+        priceUpdateInterval = setInterval(() => updateMarketData(false), 300000); // 5 minutes = 300000 ms
+        log("Market is open. Price polling started every 5 minutes.", "#0f0");
+    }
 
     await fetchAllStocksData(); // 新增：获取全量搜索数据
     setupAllAdhocAutoCompletes(); // 新增：设置自动补全
