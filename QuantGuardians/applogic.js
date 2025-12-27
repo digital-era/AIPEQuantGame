@@ -1441,41 +1441,45 @@ let showN3 = false;
 // ================= FIXED: renderHistoryChart =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
-    // 1. 先显示容器，触发布局计算
+    const canvas = document.getElementById('performanceChart');
+    
+    // 1. 先将容器显示出来，触发浏览器的布局计算
     chartContainer.style.display = 'block';
 
-    // --- A. 插入控制开关 (保持单例模式，防止重复插入) ---
+    // 2. 插入控制开关 (Checkboxes)
+    // 这一步会改变 DOM 高度，如果此时 Chart 已经初始化，会导致坐标错位。
     if (!document.getElementById('chartVariantControls')) {
         const controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
-        controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa;";
+        // 设定固定高度，减少布局抖动
+        controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa; height:25px;";
         
-        // 注意：这里的 toggleVariantState 调用的是你在全局定义的 window.toggleVariantState
         controlsDiv.innerHTML = `
             <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN2" onchange="toggleVariantState('n2')" style="margin-right:5px;"> 
+                <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
                 <span style="border-bottom: 2px dashed #888">Show N+2 (Dashed)</span>
             </label>
             <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN3" onchange="toggleVariantState('n3')" style="margin-right:5px;"> 
+                <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" style="margin-right:5px;"> 
                 <span style="border-bottom: 2px dotted #888">Show N+3 (Dotted)</span>
             </label>
         `;
-        const canvas = document.getElementById('performanceChart');
-        // 插入 DOM 元素会改变 Canvas 的父容器高度，导致坐标偏移
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
 
-    // 【关键修复】：使用 setTimeout 延迟初始化
-    // 这给浏览器留出短暂时间（50ms）完成 CSS 布局重绘（Reflow），
-    // 确保 Chart.js 初始化时读取到的是 DOM 稳定后的正确坐标。
-    setTimeout(() => {
-        const ctx = document.getElementById('performanceChart').getContext('2d');
-        
-        // 销毁旧实例，防止内存泄漏和重影
-        if (perfChart) perfChart.destroy();
+    // 3. 彻底销毁旧实例，防止事件监听器残留
+    if (perfChart) {
+        perfChart.destroy();
+        perfChart = null;
+    }
 
-        // --- B. 数据集构建辅助函数 ---
+    // 4. 【核心修复机制】
+    // 使用 setTimeout 延时，确保上述 DOM 插入操作引发的“高度变化”已经完全结束。
+    // 如果没有这个延时，Chart.js 会在 Canvas 还没被推下来之前计算坐标，导致点击位置偏上。
+    setTimeout(() => {
+        const ctx = canvas.getContext('2d');
+
+        // --- 数据集构建 (逻辑保持不变) ---
         const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
             label: label, 
             borderColor: color, 
@@ -1502,7 +1506,7 @@ function renderHistoryChart() {
                 pointRadius: 0,
                 tension: 0.3,
                 fill: false,
-                hidden: true, // 默认隐藏，由 updateVariantVisibility 控制
+                hidden: true, 
                 order: 10,
                 variantType: type,
                 groupKey: groupKey,
@@ -1510,15 +1514,12 @@ function renderHistoryChart() {
             };
         };
 
-        // --- C. 构建 datasets ---
         const datasets = [
-            // 固定数据集：Guardians, User, S&P 500
             createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
             createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
             createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
         ];
 
-        // 动态数据集：四大神兽
         const beasts = [
             { key: 'suzaku', label: 'SUZAKU' },
             { key: 'sirius', label: 'SIRIUS' },
@@ -1528,15 +1529,12 @@ function renderHistoryChart() {
 
         beasts.forEach(b => {
             const color = GUARDIAN_COLORS[b.key];
-            // 1. 主线
             datasets.push(createDataset(b.label, color, b.key, b.key));
-            // 2. N+2 变体
             datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
-            // 3. N+3 变体
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- D. 初始化图表 ---
+        // --- 初始化图表 ---
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1546,25 +1544,25 @@ function renderHistoryChart() {
             options: {
                 responsive: true, 
                 maintainAspectRatio: false, 
-                // 确保鼠标交互模式准确
+                // 确保交互模式为最近的 X 轴点，且不要求必须点在线上
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
                         labels: { 
                             color: '#ccc',
-                            // 过滤器：只在图例中显示“主线”，隐藏虚线变体
+                            // 过滤器：只显示主线
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
                                 return ds.isMain === true || ds.isMain === undefined; 
                             }
                         },
-                        // 【核心修复】：手动控制点击行为
+                        // 【点击逻辑修复】：
+                        // 不依赖 Chart.js 自动计算的 item，直接操作 Dataset
                         onClick: function(e, legendItem, legend) {
                             const index = legendItem.datasetIndex;
                             const ci = legend.chart;
 
-                            // 1. 切换当前点击项的可见性
-                            // 使用 isDatasetVisible 检查比直接读 hidden 属性更可靠
+                            // 1. 切换显隐
                             if (ci.isDatasetVisible(index)) {
                                 ci.hide(index);
                                 legendItem.hidden = true;
@@ -1573,15 +1571,14 @@ function renderHistoryChart() {
                                 legendItem.hidden = false;
                             }
 
-                            // 2. 触发联动逻辑：检查 N+2/N+3 是否需要跟随主线隐藏或显示
-                            // 这里的 updateVariantVisibility 是你全局定义的那个函数
+                            // 2. 触发全局的变体联动逻辑
+                            // 确保 updateVariantVisibility 存在且被调用
                             if (typeof updateVariantVisibility === 'function') {
                                 updateVariantVisibility();
                             }
                         }
                     },
                     tooltip: {
-                        // 排序：主线在浮窗上方显示，变体在下方
                         itemSort: (a, b) => {
                             const A = a.dataset.isMain ? 0 : 1;
                             const B = b.dataset.isMain ? 0 : 1;
@@ -1595,11 +1592,18 @@ function renderHistoryChart() {
                 }
             }
         });
-        
-        // 双重保险：再次触发调整大小，确保 Canvas 像素比对齐
-        perfChart.resize();
 
-    }, 50); // 50ms 延时
+        // 【终极保险措施】：
+        // 在图表初始化完成后，再次强制执行 resize()。
+        // 这相当于用代码自动帮你按了一次 F12。
+        // 这样可以校准 Canvas 的点击热区与实际渲染像素的偏差。
+        setTimeout(() => {
+            if (perfChart) {
+                perfChart.resize();
+            }
+        }, 100);
+
+    }, 50); // 初始延迟 50ms 也是为了等待 CSS 布局稳定
 }
 
 async function initSystem() {
