@@ -1365,15 +1365,19 @@ async function loadHistoryData() {
         }
     });
 
-    // 6. 解析变体数据
+   // 6. 解析变体数据
     variantResults.forEach((json, index) => {
         const item = variantFiles[index];
-        historyData.datasets[item.dataKey] = mapJsonToData(json, historyData.dates);
-        // Debug Log: 检查是否成功加载
-        if (json) {
+        
+        // 【修复点 1】：先判断 json 及其关键属性是否存在，再进行处理
+        if (json && Array.isArray(json.每日评估数据)) {
+            historyData.datasets[item.dataKey] = mapJsonToData(json, historyData.dates);
+            // 【修复点 2】：安全地访问 length
             console.log(`Loaded ${item.file} -> ${item.dataKey}, points: ${json.每日评估数据.length}`);
         } else {
-            console.warn(`Empty data for ${item.file}`);
+            console.warn(`Data missing or invalid format for ${item.file}`);
+            // 【建议】：如果数据缺失，给一个空数组，防止图表渲染时报错
+            historyData.datasets[item.dataKey] = [];
         }
     });
 
