@@ -1438,16 +1438,19 @@ function mapJsonToData(json, sortedDates) {
 let showN2 = false;
 let showN3 = false;
 
+// ================= FIXED: renderHistoryChart =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
+    // 1. 先显示容器，触发布局计算
     chartContainer.style.display = 'block';
 
-    // --- A. 插入控制开关 ---
+    // --- A. 插入控制开关 (保持单例模式，防止重复插入) ---
     if (!document.getElementById('chartVariantControls')) {
         const controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
         controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa;";
         
+        // 注意：这里的 toggleVariantState 调用的是你在全局定义的 window.toggleVariantState
         controlsDiv.innerHTML = `
             <label style="cursor:pointer; display:flex; align-items:center;">
                 <input type="checkbox" id="toggleN2" onchange="toggleVariantState('n2')" style="margin-right:5px;"> 
@@ -1459,14 +1462,17 @@ function renderHistoryChart() {
             </label>
         `;
         const canvas = document.getElementById('performanceChart');
-        // 插入元素会改变布局高度
+        // 插入 DOM 元素会改变 Canvas 的父容器高度，导致坐标偏移
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
 
-    // 【核心修复】：使用 requestAnimationFrame 确保在 DOM 布局刷新后再绘制图表
-    // 这样可以保证 Canvas 获取到正确的鼠标点击坐标
-    requestAnimationFrame(() => {
+    // 【关键修复】：使用 setTimeout 延迟初始化
+    // 这给浏览器留出短暂时间（50ms）完成 CSS 布局重绘（Reflow），
+    // 确保 Chart.js 初始化时读取到的是 DOM 稳定后的正确坐标。
+    setTimeout(() => {
         const ctx = document.getElementById('performanceChart').getContext('2d');
+        
+        // 销毁旧实例，防止内存泄漏和重影
         if (perfChart) perfChart.destroy();
 
         // --- B. 数据集构建辅助函数 ---
@@ -1496,7 +1502,7 @@ function renderHistoryChart() {
                 pointRadius: 0,
                 tension: 0.3,
                 fill: false,
-                hidden: true, 
+                hidden: true, // 默认隐藏，由 updateVariantVisibility 控制
                 order: 10,
                 variantType: type,
                 groupKey: groupKey,
@@ -1506,11 +1512,13 @@ function renderHistoryChart() {
 
         // --- C. 构建 datasets ---
         const datasets = [
+            // 固定数据集：Guardians, User, S&P 500
             createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
             createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
             createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
         ];
 
+        // 动态数据集：四大神兽
         const beasts = [
             { key: 'suzaku', label: 'SUZAKU' },
             { key: 'sirius', label: 'SIRIUS' },
@@ -1520,8 +1528,11 @@ function renderHistoryChart() {
 
         beasts.forEach(b => {
             const color = GUARDIAN_COLORS[b.key];
+            // 1. 主线
             datasets.push(createDataset(b.label, color, b.key, b.key));
+            // 2. N+2 变体
             datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
+            // 3. N+3 变体
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
@@ -1535,28 +1546,42 @@ function renderHistoryChart() {
             options: {
                 responsive: true, 
                 maintainAspectRatio: false, 
-                // 确保交互模式精准
+                // 确保鼠标交互模式准确
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
                         labels: { 
                             color: '#ccc',
+                            // 过滤器：只在图例中显示“主线”，隐藏虚线变体
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
                                 return ds.isMain === true || ds.isMain === undefined; 
                             }
                         },
-                       // 【核心修改】修复点击错位问题
+                        // 【核心修复】：手动控制点击行为
                         onClick: function(e, legendItem, legend) {
-                            // 1. 调用 Chart.js 原生默认处理逻辑
-                            // 这会自动处理 order 排序带来的索引问题，并正确切换显隐
-                            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
-                
-                            // 2. 状态切换后，执行 N+2 / N+3 联动逻辑
-                            updateVariantVisibility();
+                            const index = legendItem.datasetIndex;
+                            const ci = legend.chart;
+
+                            // 1. 切换当前点击项的可见性
+                            // 使用 isDatasetVisible 检查比直接读 hidden 属性更可靠
+                            if (ci.isDatasetVisible(index)) {
+                                ci.hide(index);
+                                legendItem.hidden = true;
+                            } else {
+                                ci.show(index);
+                                legendItem.hidden = false;
+                            }
+
+                            // 2. 触发联动逻辑：检查 N+2/N+3 是否需要跟随主线隐藏或显示
+                            // 这里的 updateVariantVisibility 是你全局定义的那个函数
+                            if (typeof updateVariantVisibility === 'function') {
+                                updateVariantVisibility();
+                            }
                         }
                     },
                     tooltip: {
+                        // 排序：主线在浮窗上方显示，变体在下方
                         itemSort: (a, b) => {
                             const A = a.dataset.isMain ? 0 : 1;
                             const B = b.dataset.isMain ? 0 : 1;
@@ -1571,11 +1596,11 @@ function renderHistoryChart() {
             }
         });
         
-        // 双重保险：强制再重置一次尺寸，修复任何潜在的布局偏移
+        // 双重保险：再次触发调整大小，确保 Canvas 像素比对齐
         perfChart.resize();
-    });
-}
 
+    }, 50); // 50ms 延时
+}
 
 async function initSystem() {
     if (gameState.active) return;
