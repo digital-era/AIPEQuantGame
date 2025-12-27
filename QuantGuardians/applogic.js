@@ -1440,7 +1440,7 @@ let showN3 = false;
 
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
-// ================= 修复：索引错位问题 =================
+// ================= 综合修复：保持标签显示 + 修复索引错位 =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
@@ -1532,16 +1532,13 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 关键修复：构建索引映射表 ---
-        // 记录所有主线数据集的原始索引
-        const mainDatasetMap = new Map();
+        // --- 关键修复1：构建标签到原始索引的映射 ---
+        const labelToIndexMap = {};
         datasets.forEach((dataset, originalIndex) => {
             if (dataset.isMain === true) {
-                mainDatasetMap.set(dataset.label, originalIndex);
+                labelToIndexMap[dataset.label] = originalIndex;
             }
         });
-
-        console.log('Main dataset map:', Array.from(mainDatasetMap.entries()));
 
         // --- 初始化 Chart ---
         perfChart = new Chart(ctx, {
@@ -1556,65 +1553,46 @@ function renderHistoryChart() {
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
-                        display: true,
+                        display: true, // 确保图例显示
                         labels: { 
                             color: '#ccc',
                             font: { size: 12 },
-                            // 关键修复：使用自定义标签生成器，返回正确的原始索引
-                            generateLabels: function(chart) {
-                                // 获取主线数据集的标签
-                                const labels = [];
-                                
-                                // 遍历所有数据集，找出主线
-                                chart.data.datasets.forEach((dataset, originalIndex) => {
-                                    if (dataset.isMain === true) {
-                                        const meta = chart.getDatasetMeta(originalIndex);
-                                        labels.push({
-                                            text: dataset.label,
-                                            fillStyle: dataset.borderColor,
-                                            strokeStyle: dataset.borderColor,
-                                            lineWidth: dataset.borderWidth || 2,
-                                            // 关键：存储原始索引
-                                            datasetIndex: originalIndex,
-                                            hidden: meta ? meta.hidden : false
-                                        });
-                                    }
-                                });
-                                
-                                console.log('Generated legend labels with original indices:', 
-                                    labels.map(l => `${l.text} -> index:${l.datasetIndex}`));
-                                
-                                return labels;
+                            // 关键修复2：使用filter保持图标显示
+                            filter: function(item, chartData) {
+                                const ds = chartData.datasets[item.datasetIndex];
+                                return ds.isMain === true; // 只显示主线
                             }
                         },
-                        // 关键修复：使用正确的索引处理点击
+                        // 关键修复3：通过标签映射获取正确索引
                         onClick: function(e, legendItem, legend) {
                             e.stopPropagation();
                             
                             const chart = legend.chart;
-                            const originalIndex = legendItem.datasetIndex; // 这是我们设置的原始索引
+                            const clickedLabel = legendItem.text;
                             
-                            console.log('Legend clicked:', {
-                                label: legendItem.text,
-                                originalIndex: originalIndex,
-                                dataset: chart.data.datasets[originalIndex]
-                            });
+                            console.log('Clicked legend label:', clickedLabel);
                             
-                            // 验证索引
-                            if (originalIndex === undefined || originalIndex < 0 || 
-                                originalIndex >= chart.data.datasets.length) {
-                                console.error('Invalid original index:', originalIndex);
+                            // 方法A：使用预构建的映射表获取原始索引
+                            let targetOriginalIndex = labelToIndexMap[clickedLabel];
+                            
+                            // 方法B：如果映射表没找到，回退到遍历查找
+                            if (targetOriginalIndex === undefined) {
+                                chart.data.datasets.forEach((dataset, idx) => {
+                                    if (dataset.label === clickedLabel) {
+                                        targetOriginalIndex = idx;
+                                    }
+                                });
+                            }
+                            
+                            if (targetOriginalIndex === undefined || targetOriginalIndex < 0) {
+                                console.error('Could not find dataset for label:', clickedLabel);
                                 return;
                             }
                             
-                            const dataset = chart.data.datasets[originalIndex];
-                            if (!dataset) {
-                                console.error('Dataset not found at index:', originalIndex);
-                                return;
-                            }
+                            console.log('Found dataset at original index:', targetOriginalIndex);
                             
-                            // 获取当前可见状态
-                            const isVisible = !chart.getDatasetMeta(originalIndex).hidden;
+                            const dataset = chart.data.datasets[targetOriginalIndex];
+                            const isVisible = !chart.getDatasetMeta(targetOriginalIndex).hidden;
                             
                             // 切换整个组（主线 + 所有变体）
                             chart.data.datasets.forEach((ds, idx) => {
@@ -1666,6 +1644,9 @@ function renderHistoryChart() {
                 if (typeof window.updateVariantVisibility === 'function') {
                     window.updateVariantVisibility();
                 }
+                
+                // 调试：打印标签到索引的映射
+                console.log('Label to index mapping:', labelToIndexMap);
             }
         }, 100);
 
