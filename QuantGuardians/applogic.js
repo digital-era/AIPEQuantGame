@@ -1279,51 +1279,61 @@ async function syncToCloud() {
 async function loadHistoryData() {
     log("Loading Historical Data...", "#88f");
 
-    // 1. 定义基础文件
+    // 1. 定义基础文件 (Main Lines)
     const basicFiles = { ...HISTORY_FILES, ...EXTRA_HISTORY_FILES };
     
     // 2. 定义变体文件映射 (N+2 和 N+3)
-    // 根据你的描述，文件名是固定的，我们需要手动构建这些映射
-    // 对应关系: suzaku->大成, sirius->流入, genbu->低波, kirin->大智
     const variantFiles = [];
     const variants = ['N+2', 'N+3'];
     
-    // 辅助：根据 key 获取中文前缀
+    // 【关键修复】：辅助函数确保 GENBU 返回 '低波稳健' 而不是 '低波'
     const getPrefix = (key) => {
         if (key === 'suzaku') return '大成';
         if (key === 'sirius') return '流入';
-        if (key === 'genbu') return '低波稳健'; // 注意文件名是低波稳健
+        if (key === 'genbu') return '低波稳健'; // <--- 必须完全匹配文件名中的中文
         if (key === 'kirin') return '大智';
         return '';
     };
 
     // 构建待请求列表
-    // 格式: { key: 'suzaku_n2', file: '大成模型优化后评估_N+2.json' }
+    // 最终生成的文件名示例：'低波稳健模型优化后评估_N+2.json'
     variants.forEach(v => {
         ['suzaku', 'sirius', 'genbu', 'kirin'].forEach(key => {
             const prefix = getPrefix(key);
+            // 只有当 v 是 'N+2' 时后缀为 'n2'，用于内部 dataKey (如 genbu_n2)
             const suffix = v === 'N+2' ? 'n2' : 'n3';
+            
             if (prefix) {
                 variantFiles.push({
-                    dataKey: `${key}_${suffix}`,
-                    file: `${prefix}模型优化后评估_${v}.json`
+                    dataKey: `${key}_${suffix}`, // 这里的 key 必须对应 historyData.datasets 的索引
+                    file: `${prefix}模型优化后评估_${v}.json` // 这里必须对应实际 OSS/GitHub 文件名
                 });
             }
         });
     });
 
     // 3. 发起所有请求 (基础 + 变体)
-    // 基础请求
     const basicKeys = Object.keys(basicFiles);
     const basicPromises = basicKeys.map(key => {
         const url = getResourceUrl(basicFiles[key]);
-        return fetch(url).then(res => res.json()).catch(() => null);
+        return fetch(url).then(res => {
+            if (!res.ok) throw new Error(res.statusText);
+            return res.json();
+        }).catch(err => {
+            console.warn(`Failed to load base file for ${key}:`, err);
+            return null;
+        });
     });
 
-    // 变体请求
     const variantPromises = variantFiles.map(item => {
         const url = getResourceUrl(item.file);
-        return fetch(url).then(res => res.json()).catch(() => null);
+        return fetch(url).then(res => {
+            if (!res.ok) throw new Error(res.statusText);
+            return res.json();
+        }).catch(err => {
+            console.warn(`Failed to load variant file ${item.file}:`, err);
+            return null;
+        });
     });
 
     const [basicResults, variantResults] = await Promise.all([
@@ -1331,7 +1341,7 @@ async function loadHistoryData() {
         Promise.all(variantPromises)
     ]);
 
-    // 4. 处理日期 (收集所有可能出现的日期)
+    // 4. 处理日期 (收集所有可能出现的日期，确保 N+2/N+3 的日期也被包含)
     let allDatesSet = new Set();
     const collectDates = (json) => {
         if (json && json.每日评估数据) {
@@ -1357,8 +1367,14 @@ async function loadHistoryData() {
 
     // 6. 解析变体数据
     variantResults.forEach((json, index) => {
-        const key = variantFiles[index].dataKey;
-        historyData.datasets[key] = mapJsonToData(json, historyData.dates);
+        const item = variantFiles[index];
+        historyData.datasets[item.dataKey] = mapJsonToData(json, historyData.dates);
+        // Debug Log: 检查是否成功加载
+        if (json) {
+            console.log(`Loaded ${item.file} -> ${item.dataKey}, points: ${json.每日评估数据.length}`);
+        } else {
+            console.warn(`Empty data for ${item.file}`);
+        }
     });
 
     renderHistoryChart();
