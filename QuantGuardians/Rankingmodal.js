@@ -100,7 +100,7 @@
 		        div.innerHTML = `
 		            <div class="rank-info">
 		                <span class="rank-name">${item.name}</span>
-		                <span class="rank-icon">${item.icon}</span>
+		                <span class="rank-icon" style="font-size: 1.5em;">${item.icon}</span>
 		            </div>
 					         
 		            <!-- 【关键修改】给父容器加上 position: relative，作为定位基准 -->
