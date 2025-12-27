@@ -1294,9 +1294,9 @@ function renderHistoryChart() {
                 // 新增：S&P 500 (作为基准线，虚线)
                 createDataset('S&P 500', '#666666', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),                        
                 // 原有四大神兽
-                createDataset('GENBU', '#10B981', 'genbu', { hidden: false }), // 默认显示，可点击图例隐藏
-                createDataset('SUZAKU', '#EF4444', 'suzaku', { hidden: false }),
-                createDataset('SIRIUS', '#8B5CF6', 'sirius', { hidden: false }),
+                createDataset('SUZAKU', '#EF4444', 'suzaku', { hidden: false }), // 默认显示，可点击图例隐藏
+                createDataset('SIRIUS', '#8B5CF6', 'sirius', { hidden: false }),                
+                createDataset('GENBU', '#10B981', 'genbu', { hidden: false }), 
                 createDataset('KIRIN', '#3B82F6', 'kirin', { hidden: false })
             ]
         },
