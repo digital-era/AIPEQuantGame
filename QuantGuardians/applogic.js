@@ -1398,17 +1398,21 @@ function mapJsonToData(json, sortedDates) {
 let showN2 = false;
 let showN3 = false;
 
+// ================= MODIFIED: renderHistoryChart =================
+// 1. 定义全局变量存储 Checkbox 状态
+let showN2 = false;
+let showN3 = false;
+
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     chartContainer.style.display = 'block';
 
-    // --- A. 插入控制开关 (保持原样，增加状态同步) ---
+    // --- A. 插入控制开关 ---
     if (!document.getElementById('chartVariantControls')) {
         const controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
         controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa;";
         
-        // 注意：这里绑定的函数变成了 updateVariantVisibility
         controlsDiv.innerHTML = `
             <label style="cursor:pointer; display:flex; align-items:center;">
                 <input type="checkbox" id="toggleN2" onchange="toggleVariantState('n2')" style="margin-right:5px;"> 
@@ -1420,133 +1424,125 @@ function renderHistoryChart() {
             </label>
         `;
         const canvas = document.getElementById('performanceChart');
+        // 插入元素会改变布局高度
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
 
-    const ctx = document.getElementById('performanceChart').getContext('2d');
-    if (perfChart) perfChart.destroy();
+    // 【核心修复】：使用 requestAnimationFrame 确保在 DOM 布局刷新后再绘制图表
+    // 这样可以保证 Canvas 获取到正确的鼠标点击坐标
+    requestAnimationFrame(() => {
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        if (perfChart) perfChart.destroy();
 
-    // --- B. 数据集构建辅助函数 ---
+        // --- B. 数据集构建辅助函数 ---
+        const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
+            label: label, 
+            borderColor: color, 
+            backgroundColor: color + '1A',
+            data: historyData.datasets[dataKey] || [], 
+            tension: 0.3, 
+            pointRadius: 0, 
+            borderWidth: 2, 
+            spanGaps: true,
+            order: 1, 
+            isMain: true,
+            groupKey: groupKey, 
+            ...options
+        });
 
-    /**
-     * @param {string} groupKey - 用于关联主线和变体的唯一标识 (如 'suzaku')
-     */
-    const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
-        label: label, 
-        borderColor: color, 
-        backgroundColor: color + '1A',
-        data: historyData.datasets[dataKey] || [], 
-        tension: 0.3, 
-        pointRadius: 0, 
-        borderWidth: 2, 
-        spanGaps: true,
-        order: 1, 
-        // 自定义属性：标记这是主线
-        isMain: true,
-        groupKey: groupKey, 
-        ...options
-    });
-
-    const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
-        const isN2 = type === 'n2';
-        return {
-            label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
-            data: historyData.datasets[`${parentKey}_${type}`] || [],
-            borderColor: color,
-            borderWidth: 1.5,
-            borderDash: isN2 ? [6, 4] : [2, 3], 
-            pointRadius: 0,
-            tension: 0.3,
-            fill: false,
-            // 默认隐藏
-            hidden: true, 
-            order: 10,
-            // 自定义属性：标记类型和所属组
-            variantType: type,
-            groupKey: groupKey,
-            isMain: false
+        const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
+            const isN2 = type === 'n2';
+            return {
+                label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
+                data: historyData.datasets[`${parentKey}_${type}`] || [],
+                borderColor: color,
+                borderWidth: 1.5,
+                borderDash: isN2 ? [6, 4] : [2, 3], 
+                pointRadius: 0,
+                tension: 0.3,
+                fill: false,
+                hidden: true, 
+                order: 10,
+                variantType: type,
+                groupKey: groupKey,
+                isMain: false
+            };
         };
-    };
 
-    // --- C. 构建 datasets ---
-    const datasets = [
-        // Guardians, User, SP500 视为独立的组
-        createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
-        createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
-        createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
-    ];
+        // --- C. 构建 datasets ---
+        const datasets = [
+            createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
+            createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
+            createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
+        ];
 
-    const beasts = [
-        { key: 'suzaku', label: 'SUZAKU' },
-        { key: 'sirius', label: 'SIRIUS' },
-        { key: 'genbu',  label: 'GENBU' },
-        { key: 'kirin',  label: 'KIRIN' }
-    ];
+        const beasts = [
+            { key: 'suzaku', label: 'SUZAKU' },
+            { key: 'sirius', label: 'SIRIUS' },
+            { key: 'genbu',  label: 'GENBU' },
+            { key: 'kirin',  label: 'KIRIN' }
+        ];
 
-    beasts.forEach(b => {
-        const color = GUARDIAN_COLORS[b.key];
-        // 1. 本尊 (groupKey = b.key)
-        datasets.push(createDataset(b.label, color, b.key, b.key));
-        // 2. N+2 (同 groupKey)
-        datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
-        // 3. N+3 (同 groupKey)
-        datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
-    });
+        beasts.forEach(b => {
+            const color = GUARDIAN_COLORS[b.key];
+            datasets.push(createDataset(b.label, color, b.key, b.key));
+            datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
+            datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
+        });
 
-    // --- D. 初始化图表 (核心修改在 plugins.legend) ---
-    perfChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: historyData.dates,
-            datasets: datasets
-        },
-        options: {
-            responsive: true, 
-            maintainAspectRatio: false, 
-            interaction: { mode: 'index', intersect: false },
-            plugins: { 
-                legend: { 
-                    labels: { 
-                        color: '#ccc',
-                        // 过滤掉 N+2/N+3，不让它们出现在图例中，防止图例点击错位
-                        filter: function(item, chartData) {
-                            // 获取对应 dataset
-                            const ds = chartData.datasets[item.datasetIndex];
-                            // 只显示主线 (isMain) 或者没有定义 isMain 的(兼容旧逻辑)
-                            return ds.isMain === true || ds.isMain === undefined; 
+        // --- D. 初始化图表 ---
+        perfChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: historyData.dates,
+                datasets: datasets
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: false, 
+                // 确保交互模式精准
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                plugins: { 
+                    legend: { 
+                        labels: { 
+                            color: '#ccc',
+                            filter: function(item, chartData) {
+                                const ds = chartData.datasets[item.datasetIndex];
+                                return ds.isMain === true || ds.isMain === undefined; 
+                            }
+                        },
+                        onClick: function(e, legendItem, legend) {
+                            const index = legendItem.datasetIndex;
+                            const ci = legend.chart;
+                            
+                            // 1. 切换显隐
+                            if (ci.isDatasetVisible(index)) {
+                                ci.hide(index);
+                            } else {
+                                ci.show(index);
+                            }
+
+                            // 2. 联动更新 N+2/N+3
+                            updateVariantVisibility();
                         }
                     },
-                    // 【核心修复 1】自定义点击事件
-                    onClick: function(e, legendItem, legend) {
-                        const index = legendItem.datasetIndex;
-                        const ci = legend.chart;
-                        
-                        // 1. 切换被点击的主图例的显隐状态
-                        // Chart.js 默认行为是：如果当前可见，则设为隐藏；反之亦然
-                        if (ci.isDatasetVisible(index)) {
-                            ci.hide(index);
-                        } else {
-                            ci.show(index);
+                    tooltip: {
+                        itemSort: (a, b) => {
+                            const A = a.dataset.isMain ? 0 : 1;
+                            const B = b.dataset.isMain ? 0 : 1;
+                            return A - B;
                         }
-
-                        // 2. 触发关联更新：根据主图例的新状态，去更新 N+2/N+3
-                        updateVariantVisibility();
                     }
                 },
-                tooltip: {
-                    // Tooltip 排序保持：本尊在上，变体在下
-                    itemSort: (a, b) => {
-                        const A = a.dataset.isMain ? 0 : 1;
-                        const B = b.dataset.isMain ? 0 : 1;
-                        return A - B;
-                    }
+                scales: { 
+                    y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
+                    x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
                 }
-            },
-            scales: { 
-                y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
-                x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
             }
-        }
+        });
+        
+        // 双重保险：强制再重置一次尺寸，修复任何潜在的布局偏移
+        perfChart.resize();
     });
 }
 
