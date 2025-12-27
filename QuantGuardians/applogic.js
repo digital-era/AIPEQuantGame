@@ -84,22 +84,67 @@ function isMarketClosed() {
     return false;
 }
 
-// 4. 【新增】全局开关函数，控制Historical Perforance中N+2与N+3模型曲线
-window.toggleVariantLines = function(type) {
+
+
+// 【新增】全局开关函数，控制Historical Perforance中N+2与N+3模型曲线
+// 1. 用户点击 Checkbox 时调用
+window.toggleVariantState = function(type) {
+    if (type === 'n2') {
+        showN2 = document.getElementById('toggleN2').checked;
+    } else if (type === 'n3') {
+        showN3 = document.getElementById('toggleN3').checked;
+    }
+    // 状态变了，更新图表
+    updateVariantVisibility();
+};
+
+// 2. 核心联动函数：根据 (主线可见性 + Checkbox状态) 决定变体可见性
+function updateVariantVisibility() {
     if (!perfChart) return;
+
+    // 获取所有 datasets
+    const datasets = perfChart.data.datasets;
+
+    // 第一步：找到所有 "主线" 的可见性状态，存入 Map
+    // key: groupKey (如 'suzaku'), value: boolean (是否可见)
+    const visibilityMap = {};
     
-    const isChecked = document.getElementById(type === 'n2' ? 'toggleN2' : 'toggleN3').checked;
-    
-    perfChart.data.datasets.forEach(ds => {
-        if (ds.variantType === type) {
-            // 设置 Chart.js 的 hidden 属性
-            // 注意：Chart.js 中 hidden=true 是隐藏，hidden=false 是显示
-            ds.hidden = !isChecked;
+    datasets.forEach((ds, index) => {
+        if (ds.isMain) {
+            // 使用 chart 实例的方法检查可见性 (包含被图例隐藏的情况)
+            visibilityMap[ds.groupKey] = perfChart.isDatasetVisible(index);
         }
     });
-    
-    perfChart.update('none'); // 'none' 模式更新更流畅，不重播动画
-};
+
+    // 第二步：遍历所有变体 (N+2/N+3)，根据规则设置显隐
+    datasets.forEach((ds, index) => {
+        if (!ds.isMain && ds.variantType) {
+            const parentIsVisible = visibilityMap[ds.groupKey]; // 查找Parent在不在
+            
+            // 规则：
+            // 1. 如果是 N+2：必须 CheckboxN2 勾选 AND Parent可见
+            // 2. 如果是 N+3：必须 CheckboxN3 勾选 AND Parent可见
+            let shouldShow = false;
+
+            if (ds.variantType === 'n2') {
+                shouldShow = showN2 && parentIsVisible;
+            } else if (ds.variantType === 'n3') {
+                shouldShow = showN3 && parentIsVisible;
+            }
+
+            // 执行显示或隐藏
+            if (shouldShow) {
+                perfChart.show(index);
+            } else {
+                perfChart.hide(index);
+            }
+        }
+    });
+
+    // 刷新图表
+    perfChart.update('none'); 
+}
+
 // ======== 新增全局变量和辅助函数 END ========
 
 
@@ -1329,29 +1374,31 @@ function mapJsonToData(json, sortedDates) {
 }
 
 // ================= MODIFIED: renderHistoryChart =================
+/ 1. 定义全局变量存储 Checkbox 状态，避免每次去 DOM 读取
+let showN2 = false;
+let showN3 = false;
+
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     chartContainer.style.display = 'block';
 
-    // 1. 【新增 UI】在 Canvas 上方插入 N+2 / N+3 开关
-    // 检查是否已经存在控件，避免重复添加
+    // --- A. 插入控制开关 (保持原样，增加状态同步) ---
     if (!document.getElementById('chartVariantControls')) {
         const controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
         controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa;";
         
+        // 注意：这里绑定的函数变成了 updateVariantVisibility
         controlsDiv.innerHTML = `
             <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN2" onchange="toggleVariantLines('n2')" style="margin-right:5px;"> 
+                <input type="checkbox" id="toggleN2" onchange="toggleVariantState('n2')" style="margin-right:5px;"> 
                 <span style="border-bottom: 2px dashed #888">Show N+2 (Dashed)</span>
             </label>
             <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN3" onchange="toggleVariantLines('n3')" style="margin-right:5px;"> 
+                <input type="checkbox" id="toggleN3" onchange="toggleVariantState('n3')" style="margin-right:5px;"> 
                 <span style="border-bottom: 2px dotted #888">Show N+3 (Dotted)</span>
             </label>
         `;
-        
-        // 插入到 Canvas 之前
         const canvas = document.getElementById('performanceChart');
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
@@ -1359,50 +1406,56 @@ function renderHistoryChart() {
     const ctx = document.getElementById('performanceChart').getContext('2d');
     if (perfChart) perfChart.destroy();
 
-    // 2. 辅助函数：生成 Dataset
-    // createDataset: 主模型 (实线, 有背景)
-    const createDataset = (label, color, dataKey, options = {}) => ({
+    // --- B. 数据集构建辅助函数 ---
+
+    /**
+     * @param {string} groupKey - 用于关联主线和变体的唯一标识 (如 'suzaku')
+     */
+    const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
         label: label, 
         borderColor: color, 
-        backgroundColor: color + '1A', // 10% 透明度
+        backgroundColor: color + '1A',
         data: historyData.datasets[dataKey] || [], 
         tension: 0.3, 
         pointRadius: 0, 
         borderWidth: 2, 
         spanGaps: true,
-        order: 1, // 图层层级：越小越靠上
+        order: 1, 
+        // 自定义属性：标记这是主线
+        isMain: true,
+        groupKey: groupKey, 
         ...options
     });
 
-    // createVariantDataset: 变体模型 (虚线/点线, 无背景, 细线)
-    const createVariantDataset = (parentLabel, parentKey, type, color) => {
+    const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
         const isN2 = type === 'n2';
-        const suffix = isN2 ? ' (N+2)' : ' (N+3)';
         return {
-            label: parentLabel + suffix,
+            label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
             data: historyData.datasets[`${parentKey}_${type}`] || [],
             borderColor: color,
-            borderWidth: 1.5, // 比主线细
-            // N+2 用虚线 [6, 4], N+3 用点线 [2, 3]
+            borderWidth: 1.5,
             borderDash: isN2 ? [6, 4] : [2, 3], 
             pointRadius: 0,
             tension: 0.3,
             fill: false,
-            hidden: true, // 【关键】默认隐藏，必须通过 Checkbox 开启
-            order: 10,    // 放在主线下面
-            // 自定义属性，用于 toggle 识别
-            variantType: type 
+            // 默认隐藏
+            hidden: true, 
+            order: 10,
+            // 自定义属性：标记类型和所属组
+            variantType: type,
+            groupKey: groupKey,
+            isMain: false
         };
     };
 
-    // 3. 构建 Datasets
+    // --- C. 构建 datasets ---
     const datasets = [
-        createDataset('Guardians', '#FFD700', 'guardians', { borderWidth: 3, order: 0 }),
-        createDataset('User', '#00FFFF', 'user', { borderWidth: 2, order: 2 }),
-        createDataset('S&P 500', '#666666', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
+        // Guardians, User, SP500 视为独立的组
+        createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
+        createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
+        createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
     ];
 
-    // 四大神兽顺序
     const beasts = [
         { key: 'suzaku', label: 'SUZAKU' },
         { key: 'sirius', label: 'SIRIUS' },
@@ -1412,18 +1465,15 @@ function renderHistoryChart() {
 
     beasts.forEach(b => {
         const color = GUARDIAN_COLORS[b.key];
-        
-        // A. 本尊
-        datasets.push(createDataset(b.label, color, b.key));
-        
-        // B. N+2 (默认隐藏)
-        datasets.push(createVariantDataset(b.label, b.key, 'n2', color));
-        
-        // C. N+3 (默认隐藏)
-        datasets.push(createVariantDataset(b.label, b.key, 'n3', color));
+        // 1. 本尊 (groupKey = b.key)
+        datasets.push(createDataset(b.label, color, b.key, b.key));
+        // 2. N+2 (同 groupKey)
+        datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
+        // 3. N+3 (同 groupKey)
+        datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
     });
 
-    // 4. 初始化图表
+    // --- D. 初始化图表 (核心修改在 plugins.legend) ---
     perfChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -1438,20 +1488,37 @@ function renderHistoryChart() {
                 legend: { 
                     labels: { 
                         color: '#ccc',
-                        // 【可选】在图例中过滤掉 N+2/N+3，保持图例整洁，只能通过 Checkbox 控制
-                        filter: function(item) {
-                            return !item.text.includes('(N+');
+                        // 过滤掉 N+2/N+3，不让它们出现在图例中，防止图例点击错位
+                        filter: function(item, chartData) {
+                            // 获取对应 dataset
+                            const ds = chartData.datasets[item.datasetIndex];
+                            // 只显示主线 (isMain) 或者没有定义 isMain 的(兼容旧逻辑)
+                            return ds.isMain === true || ds.isMain === undefined; 
                         }
-                    } 
+                    },
+                    // 【核心修复 1】自定义点击事件
+                    onClick: function(e, legendItem, legend) {
+                        const index = legendItem.datasetIndex;
+                        const ci = legend.chart;
+                        
+                        // 1. 切换被点击的主图例的显隐状态
+                        // Chart.js 默认行为是：如果当前可见，则设为隐藏；反之亦然
+                        if (ci.isDatasetVisible(index)) {
+                            ci.hide(index);
+                        } else {
+                            ci.show(index);
+                        }
+
+                        // 2. 触发关联更新：根据主图例的新状态，去更新 N+2/N+3
+                        updateVariantVisibility();
+                    }
                 },
                 tooltip: {
-                    // Tooltip 排序：把 N+ 变体排在列表底部，或者排在对应本尊之后
+                    // Tooltip 排序保持：本尊在上，变体在下
                     itemSort: (a, b) => {
-                        const isAN = a.dataset.label.includes('(N+');
-                        const isBN = b.dataset.label.includes('(N+');
-                        if (isAN && !isBN) return 1;
-                        if (!isAN && isBN) return -1;
-                        return 0;
+                        const A = a.dataset.isMain ? 0 : 1;
+                        const B = b.dataset.isMain ? 0 : 1;
+                        return A - B;
                     }
                 }
             },
