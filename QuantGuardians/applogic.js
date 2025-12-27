@@ -704,6 +704,10 @@ async function fetchPrice(item) {
                 // 情况 A: API 返回对象且包含 latestPrice (你的当前情况)
                 if (closePriceJson.latestPrice !== undefined) {
                     closingPriceApiResult = parseFloat(closePriceJson.latestPrice);
+                    // 【优化点】提取官方涨跌幅 (API返回的是 4.68 这种直接数值，不是 0.0468)
+                    if (closePriceJson.changePercent !== undefined) {
+                        officialChangePercent = parseFloat(closePriceJson.changePercent);
+                    }
                 } 
                 // 情况 B: API 返回对象但字段名为 price (防御性编程)
                 else if (closePriceJson.price !== undefined) {
@@ -721,6 +725,8 @@ async function fetchPrice(item) {
         if (marketIsClosed && closingPriceApiResult !== null) {
             // 市场已关闭，且成功获取到官方收盘价
             item.currentPrice = closingPriceApiResult;
+            // 【优化点】保存官方涨跌幅到 item 对象
+            item.officialChangePercent = officialChangePercent; 
             
             // 历史数据优先使用分钟线，如果分钟线为空，则用收盘价绘制一条平线
             item.history = intradayData.length > 0 ? intradayData : [closingPriceApiResult, closingPriceApiResult];
@@ -734,6 +740,8 @@ async function fetchPrice(item) {
         } else if (intradayData.length > 0) {
             // 市场未关闭，或已关闭但未获取到官方收盘价，则使用分钟线数据
             item.currentPrice = intradayData[intradayData.length - 1]; // 最新价格
+            // 交易时间段，清除官方收盘涨跌幅，强制使用实时计算
+            item.officialChangePercent = null; 
             item.history = intradayData;
             
             // 如果 refPrice 未设置 (Excel 中没有)，则使用分钟线的第一个价格作为开盘价
@@ -741,6 +749,7 @@ async function fetchPrice(item) {
                 item.refPrice = intradayData[0];
             }
         } else {
+            item.officialChangePercent = null;
             // 既无分钟线数据，也无收盘价数据 (例如，今天尚未交易或 API 异常)
             // 此时 currentPrice 保持为 refPrice (来自 Excel 的昨日收盘)，如果 refPrice 也为空，则为 null
             if (item.refPrice !== null && item.refPrice !== undefined) {
@@ -764,6 +773,8 @@ async function fetchPrice(item) {
         }
     } catch (e) {
         console.error(`Error fetching price for ${item.code}:`, e);
+        // 错误处理中也要清除官方涨跌幅，防止显示过期数据
+        item.officialChangePercent = null; 
         // 出现网络或其他错误时，尝试回退到 refPrice，或保持现有价格
         if (item.refPrice !== null && item.refPrice !== undefined) {
             item.currentPrice = item.refPrice;
@@ -824,14 +835,32 @@ function createRow(key, item, idx, type) {
     let wHtml = "";
     let pHtml = "";
     
-    if (item.currentPrice && item.refPrice) {
-        const chg = (item.currentPrice - item.refPrice) / item.refPrice;
-        const cls = chg >= 0 ? "text-up" : "text-down";
+    // --- 修改开始：显示逻辑优化 ---
+    if (item.currentPrice) {
+        let chgPctDisplay = 0; // 用于显示的百分比数值 (例如 4.68)
+        let rawChgForColor = 0; // 用于判断颜色的数值
+
+        // 1. 如果有 API 返回的官方收盘涨跌幅，优先使用
+        if (item.officialChangePercent !== null && item.officialChangePercent !== undefined) {
+            chgPctDisplay = item.officialChangePercent;
+            rawChgForColor = chgPctDisplay; // 正数即涨，负数即跌
+        } 
+        // 2. 否则使用本地计算: (现价 - 基准价) / 基准价
+        else if (item.refPrice) {
+            const chgDecimal = (item.currentPrice - item.refPrice) / item.refPrice;
+            chgPctDisplay = chgDecimal * 100; // 转换为百分比，例如 0.0468 -> 4.68
+            rawChgForColor = chgDecimal;
+        }
+
+        const cls = rawChgForColor >= 0 ? "text-up" : "text-down";
+        
+        // 渲染 HTML
         pHtml = `<span class="h-price ${cls}">${item.currentPrice.toFixed(2)}</span>
-                 <span class="h-pct ${cls}">${(chg*100).toFixed(2)}%</span>`;
+                 <span class="h-pct ${cls}">${chgPctDisplay.toFixed(2)}%</span>`;
     } else {
         pHtml = `<span class="h-price">${item.currentPrice ? item.currentPrice.toFixed(2) : '--'}</span>`;
     }
+    // --- 修改结束 ---
 
     if (type === 'strategy') {
         wHtml = `<span class="h-weight">[${item.weight.toFixed(2)}%]</span>`;
