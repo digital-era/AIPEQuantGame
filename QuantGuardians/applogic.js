@@ -960,13 +960,31 @@ function createRow(key, item, idx, type) {
     `;
     
     setTimeout(() => {
-if(item.history && item.history.length > 1) {
-            // 【修复】：如果 refPrice 为空、0 或无效，使用历史数据的第一个点作为基准，避免图表被压扁
-            const safeRefPrice = (item.refPrice && item.refPrice > 0) ? item.refPrice : item.history[0];
-            
-            drawSpark(`chart-${key}-${type}-${idx}`, item.history, safeRefPrice, (item.currentPrice >= safeRefPrice ? '#EF4444' : '#10B981'));
-        }
-    }, 0);
+        if(item.history && item.history.length > 1) {
+                // 1. 计算画图用的基准价 (沿用之前的逻辑，反算或兜底)
+                // 这一步是为了防止微图变成一条直线，必须保证 safeRefPrice 是“昨收”
+                let safeRefPrice = item.refPrice;
+                if (item.officialChangePercent !== null && item.officialChangePercent !== undefined && item.currentPrice) {
+                     safeRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
+                } else {
+                     safeRefPrice = (item.refPrice && item.refPrice > 0) ? item.refPrice : item.history[0];
+                }
+        
+                // 2. 【核心修复】决定线条颜色
+                let lineColor = '#EF4444'; // 默认红色
+                
+                // 优先根据官方涨跌幅判断颜色
+                if (item.officialChangePercent !== null && item.officialChangePercent !== undefined) {
+                    // 如果涨跌幅 < 0 则绿，否则红 (>=0)
+                    lineColor = item.officialChangePercent < 0 ? '#10B981' : '#EF4444';
+                } else {
+                    // 兜底：如果没有官方涨跌幅，才比较现价和基准价
+                    lineColor = item.currentPrice < safeRefPrice ? '#10B981' : '#EF4444';
+                }
+                
+                drawSpark(`chart-${key}-${type}-${idx}`, item.history, safeRefPrice, lineColor);
+            }
+        }, 0);
     return div;
 }
 
