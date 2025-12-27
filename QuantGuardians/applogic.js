@@ -1398,11 +1398,6 @@ function mapJsonToData(json, sortedDates) {
 let showN2 = false;
 let showN3 = false;
 
-// ================= MODIFIED: renderHistoryChart =================
-// 1. 定义全局变量存储 Checkbox 状态
-let showN2 = false;
-let showN3 = false;
-
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     chartContainer.style.display = 'block';
