@@ -1544,46 +1544,55 @@ function renderHistoryChart() {
                 maintainAspectRatio: false, 
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
+                    // 替换legend的onClick部分
                     legend: { 
                         labels: { 
                             color: '#ccc',
-                            // 过滤器：图例只显示主线
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
                                 return ds.isMain === true || ds.isMain === undefined; 
                             }
                         },
-                        // 【修复关键】：不使用 index，使用 label 匹配
                         onClick: function(e, legendItem, legend) {
                             const chart = legend.chart;
-                            const clickedLabel = legendItem.text; // 获取点击的名称，如 "GENBU"
-
-                            // 1. 遍历寻找名称匹配的数据集索引
-                            // 这完全绕过了 order 排序导致的索引错位问题
-                            let targetIndex = -1;
+                            const index = legendItem.datasetIndex;
+                            const dataset = chart.data.datasets[index];
+                            const groupKey = dataset.groupKey; // 使用groupKey来识别相关数据集
+                            
+                            if (!groupKey) {
+                                // 如果没有groupKey，使用默认行为
+                                chart.setDatasetVisibility(index, !chart.isDatasetVisible(index));
+                                chart.update();
+                                return;
+                            }
+                            
+                            // 查找所有同组的数据集（主线、N+2、N+3）
+                            const groupIndices = [];
                             chart.data.datasets.forEach((ds, idx) => {
-                                if (ds.label === clickedLabel) {
-                                    targetIndex = idx;
+                                if (ds.groupKey === groupKey) {
+                                    groupIndices.push(idx);
                                 }
                             });
-
-                            if (targetIndex === -1) return; // 未找到，安全退出
-
-                            // 2. 切换显隐
-                            if (chart.isDatasetVisible(targetIndex)) {
-                                chart.hide(targetIndex);
-                                legendItem.hidden = true;
-                            } else {
-                                chart.show(targetIndex);
-                                legendItem.hidden = false;
-                            }
-
-                            // 3. 触发 N+2/N+3 联动更新
+                            
+                            // 如果主线可见，隐藏整个组；如果主线隐藏，显示整个组
+                            const isMainVisible = chart.isDatasetVisible(index);
+                            
+                            groupIndices.forEach(idx => {
+                                if (isMainVisible) {
+                                    chart.hide(idx);
+                                } else {
+                                    chart.show(idx);
+                                }
+                            });
+                            
+                            // 触发N+2/N+3复选框更新
                             if (typeof updateVariantVisibility === 'function') {
                                 updateVariantVisibility();
                             }
+                            
+                            chart.update();
                         }
-                    },
+                    }
                     tooltip: {
                         itemSort: (a, b) => {
                             const A = a.dataset.isMain ? 0 : 1;
