@@ -1592,7 +1592,7 @@ function renderHistoryChart() {
                             
                             chart.update();
                         }
-                    }
+                    },  // <--- 这里添加逗号
                     tooltip: {
                         itemSort: (a, b) => {
                             const A = a.dataset.isMain ? 0 : 1;
