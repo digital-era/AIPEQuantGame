@@ -1546,18 +1546,13 @@ function renderHistoryChart() {
                                 return ds.isMain === true || ds.isMain === undefined; 
                             }
                         },
+                       // 【核心修改】修复点击错位问题
                         onClick: function(e, legendItem, legend) {
-                            const index = legendItem.datasetIndex;
-                            const ci = legend.chart;
-                            
-                            // 1. 切换显隐
-                            if (ci.isDatasetVisible(index)) {
-                                ci.hide(index);
-                            } else {
-                                ci.show(index);
-                            }
-
-                            // 2. 联动更新 N+2/N+3
+                            // 1. 调用 Chart.js 原生默认处理逻辑
+                            // 这会自动处理 order 排序带来的索引问题，并正确切换显隐
+                            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+                
+                            // 2. 状态切换后，执行 N+2 / N+3 联动逻辑
                             updateVariantVisibility();
                         }
                     },
