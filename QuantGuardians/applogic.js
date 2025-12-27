@@ -1440,6 +1440,7 @@ let showN3 = false;
 
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
+// ================= 修复：索引错位问题 =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
@@ -1531,14 +1532,16 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 关键：预计算主线数据集索引 ---
-        // 在图表创建前，我们就知道哪些是主线数据集
-        const mainDatasetIndices = [];
-        datasets.forEach((dataset, index) => {
+        // --- 关键修复：构建索引映射表 ---
+        // 记录所有主线数据集的原始索引
+        const mainDatasetMap = new Map();
+        datasets.forEach((dataset, originalIndex) => {
             if (dataset.isMain === true) {
-                mainDatasetIndices.push(index);
+                mainDatasetMap.set(dataset.label, originalIndex);
             }
         });
+
+        console.log('Main dataset map:', Array.from(mainDatasetMap.entries()));
 
         // --- 初始化 Chart ---
         perfChart = new Chart(ctx, {
@@ -1553,59 +1556,67 @@ function renderHistoryChart() {
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
-                        display: true, // 确保图例显示
+                        display: true,
                         labels: { 
                             color: '#ccc',
-                            // 方法1：使用filter和正确的索引映射
-                            filter: function(item, chartData) {
-                                const ds = chartData.datasets[item.datasetIndex];
-                                // 只显示主线
-                                return ds.isMain === true;
-                            },
-                            // 方法2：生成自定义标签（修复版本）
+                            font: { size: 12 },
+                            // 关键修复：使用自定义标签生成器，返回正确的原始索引
                             generateLabels: function(chart) {
-                                // 调用Chart.js默认的生成器
-                                const defaultLabels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                // 获取主线数据集的标签
+                                const labels = [];
                                 
-                                // 过滤，只保留主线
-                                const mainLabels = defaultLabels.filter(item => {
-                                    const ds = chart.data.datasets[item.datasetIndex];
-                                    return ds.isMain === true;
+                                // 遍历所有数据集，找出主线
+                                chart.data.datasets.forEach((dataset, originalIndex) => {
+                                    if (dataset.isMain === true) {
+                                        const meta = chart.getDatasetMeta(originalIndex);
+                                        labels.push({
+                                            text: dataset.label,
+                                            fillStyle: dataset.borderColor,
+                                            strokeStyle: dataset.borderColor,
+                                            lineWidth: dataset.borderWidth || 2,
+                                            // 关键：存储原始索引
+                                            datasetIndex: originalIndex,
+                                            hidden: meta ? meta.hidden : false
+                                        });
+                                    }
                                 });
                                 
-                                return mainLabels;
-                            },
-                            // 确保文本颜色可见
-                            font: {
-                                size: 12,
-                                family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-                            },
-                            usePointStyle: true,
-                            pointStyle: 'line'
+                                console.log('Generated legend labels with original indices:', 
+                                    labels.map(l => `${l.text} -> index:${l.datasetIndex}`));
+                                
+                                return labels;
+                            }
                         },
-                        // 修复点击事件：使用简单可靠的逻辑
+                        // 关键修复：使用正确的索引处理点击
                         onClick: function(e, legendItem, legend) {
+                            e.stopPropagation();
+                            
                             const chart = legend.chart;
-                            const index = legendItem.datasetIndex;
+                            const originalIndex = legendItem.datasetIndex; // 这是我们设置的原始索引
                             
-                            console.log('Legend clicked - index:', index, 'label:', legendItem.text);
+                            console.log('Legend clicked:', {
+                                label: legendItem.text,
+                                originalIndex: originalIndex,
+                                dataset: chart.data.datasets[originalIndex]
+                            });
                             
-                            // 验证索引有效性
-                            if (index === undefined || index < 0 || index >= chart.data.datasets.length) {
-                                console.error('Invalid dataset index:', index);
+                            // 验证索引
+                            if (originalIndex === undefined || originalIndex < 0 || 
+                                originalIndex >= chart.data.datasets.length) {
+                                console.error('Invalid original index:', originalIndex);
                                 return;
                             }
                             
-                            const dataset = chart.data.datasets[index];
-                            if (!dataset || !dataset.groupKey) {
-                                console.error('Dataset not found or missing groupKey');
+                            const dataset = chart.data.datasets[originalIndex];
+                            if (!dataset) {
+                                console.error('Dataset not found at index:', originalIndex);
                                 return;
                             }
                             
-                            // 获取当前可见性状态
-                            const isVisible = chart.isDatasetVisible(index);
+                            // 获取当前可见状态
+                            const isVisible = !chart.getDatasetMeta(originalIndex).hidden;
                             
-                            // 切换整个组（主线 + 变体）
+                            // 切换整个组（主线 + 所有变体）
                             chart.data.datasets.forEach((ds, idx) => {
                                 if (ds.groupKey === dataset.groupKey) {
                                     chart.setDatasetVisibility(idx, !isVisible);
@@ -1613,14 +1624,14 @@ function renderHistoryChart() {
                             });
                             
                             // 更新图例项状态
-                            legendItem.hidden = !isVisible;
+                            legendItem.hidden = isVisible;
                             
                             // 更新图表
                             chart.update();
                             
-                            // 更新复选框
-                            if (typeof updateVariantVisibility === 'function') {
-                                setTimeout(updateVariantVisibility, 50);
+                            // 更新复选框状态
+                            if (typeof window.updateVariantVisibility === 'function') {
+                                setTimeout(window.updateVariantVisibility, 50);
                             }
                         }
                     },
@@ -1629,43 +1640,12 @@ function renderHistoryChart() {
                             const A = a.dataset.isMain ? 0 : 1;
                             const B = b.dataset.isMain ? 0 : 1;
                             return A - B;
-                        },
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(2) + '%';
-                                }
-                                return label;
-                            }
                         }
                     }
                 },
                 scales: { 
-                    y: { 
-                        ticks: { 
-                            color: '#666',
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }, 
-                        grid: { color: '#333' } 
-                    }, 
-                    x: { 
-                        ticks: { 
-                            color: '#666', 
-                            maxTicksLimit: 8 
-                        }, 
-                        grid: { color: '#333' } 
-                    } 
-                },
-                // 添加动画配置
-                animation: {
-                    duration: 750,
-                    easing: 'easeOutQuart'
+                    y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
+                    x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
                 }
             }
         });
@@ -1673,7 +1653,7 @@ function renderHistoryChart() {
         // 强制调整大小和更新
         setTimeout(() => {
             if (perfChart) {
-                // 强制重新计算布局
+                // 强制布局计算
                 void chartContainer.offsetHeight;
                 
                 // 调整大小
@@ -1683,16 +1663,9 @@ function renderHistoryChart() {
                 perfChart.update();
                 
                 // 更新复选框状态
-                if (typeof updateVariantVisibility === 'function') {
-                    updateVariantVisibility();
+                if (typeof window.updateVariantVisibility === 'function') {
+                    window.updateVariantVisibility();
                 }
-                
-                // 调试：检查图例状态
-                console.log('Chart initialized. Legend items:', 
-                    perfChart.options.plugins.legend.labels.generateLabels(perfChart).map(l => 
-                        `${l.text} (index: ${l.datasetIndex})`
-                    )
-                );
             }
         }, 100);
 
