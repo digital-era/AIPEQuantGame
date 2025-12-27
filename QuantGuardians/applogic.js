@@ -1440,7 +1440,6 @@ let showN3 = false;
 
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
-// ================= 综合修复：保持标签显示 + 修复索引错位 =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
@@ -1532,13 +1531,15 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 关键修复1：构建标签到原始索引的映射 ---
+        // --- 构建标签到索引的映射 ---
         const labelToIndexMap = {};
         datasets.forEach((dataset, originalIndex) => {
             if (dataset.isMain === true) {
                 labelToIndexMap[dataset.label] = originalIndex;
             }
         });
+
+        console.log('Label to index mapping:', labelToIndexMap);
 
         // --- 初始化 Chart ---
         perfChart = new Chart(ctx, {
@@ -1553,19 +1554,22 @@ function renderHistoryChart() {
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
-                        display: true, // 确保图例显示
+                        display: true,
                         labels: { 
                             color: '#ccc',
                             font: { size: 12 },
-                            // 关键修复2：使用filter保持图标显示
+                            // 使用filter保持图标显示
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
-                                return ds.isMain === true; // 只显示主线
+                                return ds.isMain === true;
                             }
                         },
-                        // 关键修复3：通过标签映射获取正确索引
+                        // 修复点击事件：移除 e.stopPropagation()
                         onClick: function(e, legendItem, legend) {
-                            e.stopPropagation();
+                            // 关键修复：移除 e.stopPropagation() 或者检查 e 是否存在
+                            // if (e && e.stopPropagation && typeof e.stopPropagation === 'function') {
+                            //     e.stopPropagation();
+                            // }
                             
                             const chart = legend.chart;
                             const clickedLabel = legendItem.text;
@@ -1592,19 +1596,23 @@ function renderHistoryChart() {
                             console.log('Found dataset at original index:', targetOriginalIndex);
                             
                             const dataset = chart.data.datasets[targetOriginalIndex];
-                            const isVisible = !chart.getDatasetMeta(targetOriginalIndex).hidden;
+                            const meta = chart.getDatasetMeta(targetOriginalIndex);
+                            const isCurrentlyVisible = !meta.hidden;
                             
                             // 切换整个组（主线 + 所有变体）
                             chart.data.datasets.forEach((ds, idx) => {
                                 if (ds.groupKey === dataset.groupKey) {
-                                    chart.setDatasetVisibility(idx, !isVisible);
+                                    if (isCurrentlyVisible) {
+                                        chart.hide(idx);
+                                    } else {
+                                        chart.show(idx);
+                                    }
                                 }
                             });
                             
                             // 更新图例项状态
-                            legendItem.hidden = isVisible;
+                            legendItem.hidden = isCurrentlyVisible;
                             
-                            // 更新图表
                             chart.update();
                             
                             // 更新复选框状态
@@ -1644,9 +1652,6 @@ function renderHistoryChart() {
                 if (typeof window.updateVariantVisibility === 'function') {
                     window.updateVariantVisibility();
                 }
-                
-                // 调试：打印标签到索引的映射
-                console.log('Label to index mapping:', labelToIndexMap);
             }
         }, 100);
 
