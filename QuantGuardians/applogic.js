@@ -83,6 +83,23 @@ function isMarketClosed() {
 
     return false;
 }
+
+/ 4. 【新增】全局开关函数，控制Historical Perforance中N+2与N+3模型曲线
+window.toggleVariantLines = function(type) {
+    if (!perfChart) return;
+    
+    const isChecked = document.getElementById(type === 'n2' ? 'toggleN2' : 'toggleN3').checked;
+    
+    perfChart.data.datasets.forEach(ds => {
+        if (ds.variantType === type) {
+            // 设置 Chart.js 的 hidden 属性
+            // 注意：Chart.js 中 hidden=true 是隐藏，hidden=false 是显示
+            ds.hidden = !isChecked;
+        }
+    });
+    
+    perfChart.update('none'); // 'none' 模式更新更流畅，不重播动画
+};
 // ======== 新增全局变量和辅助函数 END ========
 
 
@@ -1213,97 +1230,231 @@ async function syncToCloud() {
     }
 }
 
+// ================= MODIFIED: loadHistoryData =================
 async function loadHistoryData() {
     log("Loading Historical Data...", "#88f");
-    // 1. 合并原有四大神兽文件 + 新增的 Guardians/User 文件
-    const allFiles = { ...HISTORY_FILES, ...EXTRA_HISTORY_FILES };
-    const keys = Object.keys(allFiles);
-    
-    const requests = keys.map(key => {
-      // --- 修改开始: 调用通用代理函数 ---
-      const url = getResourceUrl(allFiles[key]);
-      //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${allFiles[key]}?t=${Date.now()}`;
-      // --- 修改结束 --- 				
-         return fetch(url).then(res => res.json()).catch(e => null);
-    });
-    const results = await Promise.all(requests);
-    
-    let allDatesSet = new Set();
-    results.forEach(json => { 
-        if(json && json.每日评估数据) {
-            json.每日评估数据.forEach(item => allDatesSet.add(item.日期)); 
-        }
-    });
-    
-    historyData.dates = Array.from(allDatesSet).sort();
-    
-    results.forEach((json, index) => {
-        const key = keys[index];
-        if (json && json.每日评估数据) {
-            const returnMap = new Map();
-            
-            // 1. 处理每日评估数据 (仅处理累计收益率)
-            json.每日评估数据.forEach(d => {
-                returnMap.set(d.日期, d.累计收益率 * 100);
-            });
-            
-            // 2. 从 JSON 外层获取固定的标普500收益率
-            let sp500FixedValue = null;
-            if (json["标普500收益率"] !== undefined) {
-                sp500FixedValue = json["标普500收益率"] * 100;
-            }
 
-            // 3. 保存主要曲线数据 (策略收益率)
-            historyData.datasets[key] = historyData.dates.map(date => returnMap.has(date) ? returnMap.get(date) : null);
-            
-            // 4. 如果是 guardians 文件，额外生成 sp500 数据
-            // 逻辑：创建一个与日期数组等长的数组，每个元素都是那个固定的 sp500FixedValue
-            if (key === 'guardians') {
-                historyData.datasets['sp500'] = historyData.dates.map(() => sp500FixedValue);
+    // 1. 定义基础文件
+    const basicFiles = { ...HISTORY_FILES, ...EXTRA_HISTORY_FILES };
+    
+    // 2. 定义变体文件映射 (N+2 和 N+3)
+    // 根据你的描述，文件名是固定的，我们需要手动构建这些映射
+    // 对应关系: suzaku->大成, sirius->流入, genbu->低波, kirin->大智
+    const variantFiles = [];
+    const variants = ['N+2', 'N+3'];
+    
+    // 辅助：根据 key 获取中文前缀
+    const getPrefix = (key) => {
+        if (key === 'suzaku') return '大成';
+        if (key === 'sirius') return '流入';
+        if (key === 'genbu') return '低波稳健'; // 注意文件名是低波稳健
+        if (key === 'kirin') return '大智';
+        return '';
+    };
+
+    // 构建待请求列表
+    // 格式: { key: 'suzaku_n2', file: '大成模型优化后评估_N+2.json' }
+    variants.forEach(v => {
+        ['suzaku', 'sirius', 'genbu', 'kirin'].forEach(key => {
+            const prefix = getPrefix(key);
+            const suffix = v === 'N+2' ? 'n2' : 'n3';
+            if (prefix) {
+                variantFiles.push({
+                    dataKey: `${key}_${suffix}`,
+                    file: `${prefix}模型优化后评估_${v}.json`
+                });
             }
-        } else {
-            historyData.datasets[key] = [];
-            if (key === 'guardians') historyData.datasets['sp500'] = [];
+        });
+    });
+
+    // 3. 发起所有请求 (基础 + 变体)
+    // 基础请求
+    const basicKeys = Object.keys(basicFiles);
+    const basicPromises = basicKeys.map(key => {
+        const url = getResourceUrl(basicFiles[key]);
+        return fetch(url).then(res => res.json()).catch(() => null);
+    });
+
+    // 变体请求
+    const variantPromises = variantFiles.map(item => {
+        const url = getResourceUrl(item.file);
+        return fetch(url).then(res => res.json()).catch(() => null);
+    });
+
+    const [basicResults, variantResults] = await Promise.all([
+        Promise.all(basicPromises),
+        Promise.all(variantPromises)
+    ]);
+
+    // 4. 处理日期 (收集所有可能出现的日期)
+    let allDatesSet = new Set();
+    const collectDates = (json) => {
+        if (json && json.每日评估数据) {
+            json.每日评估数据.forEach(item => allDatesSet.add(item.日期));
+        }
+    };
+    basicResults.forEach(collectDates);
+    variantResults.forEach(collectDates);
+
+    historyData.dates = Array.from(allDatesSet).sort();
+
+    // 5. 解析基础数据
+    basicResults.forEach((json, index) => {
+        const key = basicKeys[index];
+        historyData.datasets[key] = mapJsonToData(json, historyData.dates);
+        
+        // 特殊处理 Guardians 里的标普500
+        if (key === 'guardians' && json) {
+            let sp500Val = json["标普500收益率"] !== undefined ? json["标普500收益率"] * 100 : 0;
+            historyData.datasets['sp500'] = historyData.dates.map(() => sp500Val);
         }
     });
-    
+
+    // 6. 解析变体数据
+    variantResults.forEach((json, index) => {
+        const key = variantFiles[index].dataKey;
+        historyData.datasets[key] = mapJsonToData(json, historyData.dates);
+    });
+
     renderHistoryChart();
 }
 
+// 辅助函数：将JSON数据映射到对齐的日期数组
+function mapJsonToData(json, sortedDates) {
+    if (!json || !json.每日评估数据) return [];
+    const map = new Map();
+    json.每日评估数据.forEach(d => map.set(d.日期, d.累计收益率 * 100));
+    // 如果某天没有数据，图表库会自动处理 null (断开或跨越)
+    return sortedDates.map(date => map.has(date) ? map.get(date) : null);
+}
+
+// ================= MODIFIED: renderHistoryChart =================
 function renderHistoryChart() {
-    document.getElementById('settlementPanel').style.display = 'block';
-    
+    const chartContainer = document.getElementById('settlementPanel');
+    chartContainer.style.display = 'block';
+
+    // 1. 【新增 UI】在 Canvas 上方插入 N+2 / N+3 开关
+    // 检查是否已经存在控件，避免重复添加
+    if (!document.getElementById('chartVariantControls')) {
+        const controlsDiv = document.createElement('div');
+        controlsDiv.id = 'chartVariantControls';
+        controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa;";
+        
+        controlsDiv.innerHTML = `
+            <label style="cursor:pointer; display:flex; align-items:center;">
+                <input type="checkbox" id="toggleN2" onchange="toggleVariantLines('n2')" style="margin-right:5px;"> 
+                <span style="border-bottom: 2px dashed #888">Show N+2 (Dashed)</span>
+            </label>
+            <label style="cursor:pointer; display:flex; align-items:center;">
+                <input type="checkbox" id="toggleN3" onchange="toggleVariantLines('n3')" style="margin-right:5px;"> 
+                <span style="border-bottom: 2px dotted #888">Show N+3 (Dotted)</span>
+            </label>
+        `;
+        
+        // 插入到 Canvas 之前
+        const canvas = document.getElementById('performanceChart');
+        canvas.parentNode.insertBefore(controlsDiv, canvas);
+    }
+
     const ctx = document.getElementById('performanceChart').getContext('2d');
     if (perfChart) perfChart.destroy();
-    
-    const createDataset = (label, color, dataKey, extraOptions = {}) => ({
-        label: label, borderColor: color, backgroundColor: color + '1A',
-        data: historyData.datasets[dataKey] || [], tension: 0.3, pointRadius: 0, borderWidth: 2, spanGaps: true,
-        ...extraOptions
+
+    // 2. 辅助函数：生成 Dataset
+    // createDataset: 主模型 (实线, 有背景)
+    const createDataset = (label, color, dataKey, options = {}) => ({
+        label: label, 
+        borderColor: color, 
+        backgroundColor: color + '1A', // 10% 透明度
+        data: historyData.datasets[dataKey] || [], 
+        tension: 0.3, 
+        pointRadius: 0, 
+        borderWidth: 2, 
+        spanGaps: true,
+        order: 1, // 图层层级：越小越靠上
+        ...options
     });
-    
+
+    // createVariantDataset: 变体模型 (虚线/点线, 无背景, 细线)
+    const createVariantDataset = (parentLabel, parentKey, type, color) => {
+        const isN2 = type === 'n2';
+        const suffix = isN2 ? ' (N+2)' : ' (N+3)';
+        return {
+            label: parentLabel + suffix,
+            data: historyData.datasets[`${parentKey}_${type}`] || [],
+            borderColor: color,
+            borderWidth: 1.5, // 比主线细
+            // N+2 用虚线 [6, 4], N+3 用点线 [2, 3]
+            borderDash: isN2 ? [6, 4] : [2, 3], 
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false,
+            hidden: true, // 【关键】默认隐藏，必须通过 Checkbox 开启
+            order: 10,    // 放在主线下面
+            // 自定义属性，用于 toggle 识别
+            variantType: type 
+        };
+    };
+
+    // 3. 构建 Datasets
+    const datasets = [
+        createDataset('Guardians', '#FFD700', 'guardians', { borderWidth: 3, order: 0 }),
+        createDataset('User', '#00FFFF', 'user', { borderWidth: 2, order: 2 }),
+        createDataset('S&P 500', '#666666', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
+    ];
+
+    // 四大神兽顺序
+    const beasts = [
+        { key: 'suzaku', label: 'SUZAKU' },
+        { key: 'sirius', label: 'SIRIUS' },
+        { key: 'genbu',  label: 'GENBU' },
+        { key: 'kirin',  label: 'KIRIN' }
+    ];
+
+    beasts.forEach(b => {
+        const color = GUARDIAN_COLORS[b.key];
+        
+        // A. 本尊
+        datasets.push(createDataset(b.label, color, b.key));
+        
+        // B. N+2 (默认隐藏)
+        datasets.push(createVariantDataset(b.label, b.key, 'n2', color));
+        
+        // C. N+3 (默认隐藏)
+        datasets.push(createVariantDataset(b.label, b.key, 'n3', color));
+    });
+
+    // 4. 初始化图表
     perfChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: historyData.dates,
-            datasets: [
-                // 新增：Guardians (总护卫队)
-                createDataset('Guardians', '#FFD700', 'guardians', { borderWidth: 3, order: 1 }),
-                // 新增：User (用户)
-                createDataset('User', '#00FFFF', 'user', { borderWidth: 2, order: 2 }),
-                // 新增：S&P 500 (作为基准线，虚线)
-                createDataset('S&P 500', '#666666', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),                        
-                // 原有四大神兽
-                createDataset('SUZAKU', '#EF4444', 'suzaku', { hidden: false }), // 默认显示，可点击图例隐藏
-                createDataset('SIRIUS', '#8B5CF6', 'sirius', { hidden: false }),                
-                createDataset('GENBU', '#10B981', 'genbu', { hidden: false }), 
-                createDataset('KIRIN', '#3B82F6', 'kirin', { hidden: false })
-            ]
+            datasets: datasets
         },
         options: {
-            responsive: true, maintainAspectRatio: false, 
+            responsive: true, 
+            maintainAspectRatio: false, 
             interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { labels: { color: '#ccc' } } },
+            plugins: { 
+                legend: { 
+                    labels: { 
+                        color: '#ccc',
+                        // 【可选】在图例中过滤掉 N+2/N+3，保持图例整洁，只能通过 Checkbox 控制
+                        filter: function(item) {
+                            return !item.text.includes('(N+');
+                        }
+                    } 
+                },
+                tooltip: {
+                    // Tooltip 排序：把 N+ 变体排在列表底部，或者排在对应本尊之后
+                    itemSort: (a, b) => {
+                        const isAN = a.dataset.label.includes('(N+');
+                        const isBN = b.dataset.label.includes('(N+');
+                        if (isAN && !isBN) return 1;
+                        if (!isAN && isBN) return -1;
+                        return 0;
+                    }
+                }
+            },
             scales: { 
                 y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
                 x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
@@ -1311,6 +1462,7 @@ function renderHistoryChart() {
         }
     });
 }
+
 
 async function initSystem() {
     if (gameState.active) return;
