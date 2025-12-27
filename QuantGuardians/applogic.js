@@ -1566,42 +1566,25 @@ function renderHistoryChart() {
                         },
                         // 修复点击事件：移除 e.stopPropagation()
                         onClick: function(e, legendItem, legend) {
-                            // 关键修复：移除 e.stopPropagation() 或者检查 e 是否存在
-                            // if (e && e.stopPropagation && typeof e.stopPropagation === 'function') {
-                            //     e.stopPropagation();
-                            // }
-                            
                             const chart = legend.chart;
-                            const clickedLabel = legendItem.text;
                             
-                            console.log('Clicked legend label:', clickedLabel);
+                            // 获取点击图例的元素
+                            const clickedDatasetIndex = legendItem.datasetIndex;
+                            const dataset = chart.data.datasets[clickedDatasetIndex];
                             
-                            // 方法A：使用预构建的映射表获取原始索引
-                            let targetOriginalIndex = labelToIndexMap[clickedLabel];
-                            
-                            // 方法B：如果映射表没找到，回退到遍历查找
-                            if (targetOriginalIndex === undefined) {
-                                chart.data.datasets.forEach((dataset, idx) => {
-                                    if (dataset.label === clickedLabel) {
-                                        targetOriginalIndex = idx;
-                                    }
-                                });
-                            }
-                            
-                            if (targetOriginalIndex === undefined || targetOriginalIndex < 0) {
-                                console.error('Could not find dataset for label:', clickedLabel);
+                            // 如果点击的不是图标（而是标签文本），忽略
+                            if (!legendItem.datasetIndex && legendItem.datasetIndex !== 0) {
                                 return;
                             }
                             
-                            console.log('Found dataset at original index:', targetOriginalIndex);
-                            
-                            const dataset = chart.data.datasets[targetOriginalIndex];
-                            const meta = chart.getDatasetMeta(targetOriginalIndex);
+                            // 获取当前图例的显示状态
+                            const meta = chart.getDatasetMeta(clickedDatasetIndex);
                             const isCurrentlyVisible = !meta.hidden;
-                            
+                        
                             // 切换整个组（主线 + 所有变体）
                             chart.data.datasets.forEach((ds, idx) => {
                                 if (ds.groupKey === dataset.groupKey) {
+                                    // 更新显示/隐藏状态
                                     if (isCurrentlyVisible) {
                                         chart.hide(idx);
                                     } else {
@@ -1609,18 +1592,23 @@ function renderHistoryChart() {
                                     }
                                 }
                             });
-                            
-                            // 更新图例项状态
+                        
+                            // 更新图例项的显示状态
                             legendItem.hidden = isCurrentlyVisible;
-                            
+                        
+                            // 强制更新图表
                             chart.update();
-                            
-                            // 更新复选框状态
+                        
+                            // 更新复选框状态（确保与图表同步）
                             if (typeof window.updateVariantVisibility === 'function') {
                                 setTimeout(window.updateVariantVisibility, 50);
                             }
+                        
+                            // 防止事件冒泡
+                            if (e.stopPropagation && typeof e.stopPropagation === 'function') {
+                                e.stopPropagation();
+                            }
                         }
-                    },
                     tooltip: {
                         itemSort: (a, b) => {
                             const A = a.dataset.isMain ? 0 : 1;
