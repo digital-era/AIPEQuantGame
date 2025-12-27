@@ -57,6 +57,35 @@ let perfChart = null;
 
 let historyData = { dates: [], datasets: {} };
 
+// ======== 新增全局变量和辅助函数 START ========
+let priceUpdateInterval = null; // 用于存储 setInterval 的 ID，以便在市场关闭时清除
+let hasClosedPrices = false;    // 标识收盘价格是否已获取并锁定
+
+/**
+ * 检查当前市场是否已休市 (16:30 后，或周末)
+ * @returns {boolean} 如果市场已休市则返回 true
+ */
+function isMarketClosed() {
+    const now = new Date();
+    const day = now.getDay(); // 0 for Sunday, 6 for Saturday
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // 假设周末市场关闭 (周六=6, 周日=0)
+    if (day === 0 || day === 6) {
+        return true;
+    }
+
+    // 市场在 16:30 后关闭
+    if (hours > 16 || (hours === 16 && minutes >= 30)) {
+        return true;
+    }
+
+    return false;
+}
+// ======== 新增全局变量和辅助函数 END ========
+
+
 // ================= UTILS =================
 function log(msg, color="#0f0") {
     const box = document.getElementById('systemLog');
@@ -611,44 +640,92 @@ async function updateMarketData() {
     log("Sync Price Data Finish", "#aaa"); 
 }
 
+/**
+ * 获取股票价格及历史数据
+ * @param {object} item - 包含股票代码、名称、历史价格等的对象
+ */
 async function fetchPrice(item) {
     if (!item.code) return;
-    try {
-        const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;                
-        const url = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
-        const res = await fetch(url);
-        const data = await res.json();
+    const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;
+    const marketIsClosed = isMarketClosed();
 
-        if (data && data.length > 0) {
-            item.currentPrice = parseFloat(data[data.length-1].price);
-            item.history = data.map(d => d.price);
-            
-            // --- 核心逻辑：只有在 Excel 没提供价格的情况下，才用分时图的第一笔当开盘价 ---
-            if (item.refPrice === undefined || item.refPrice === null) {
-                item.refPrice = parseFloat(data[0].price);
-            }
-  
-  // ============================================================
-            // 【修复代码 START】：如果是 ADHOC 标的，数据回来后立即强制刷新列表
-            // ============================================================
-            if (item.isAdhoc) {
-                for (let key in gameState.guardians) {
-                    // 查找这个标的属于哪个守护者
-                    if (gameState.guardians[key].strategy.includes(item)) {
-                        renderLists(key); // 重新渲染该守护者的列表，让价格和微图显示出来
-                        break;
-                    }
-                }
-            }
-        } else {
-            // 如果 API 没回数据（无交易），现价即为昨收，涨跌幅显示 0%
-            if (item.refPrice !== null) {
-                item.currentPrice = item.refPrice;
+    try {
+        let intradayData = []; // 分钟级历史数据
+        let closingPriceApiResult = null; // 收盘价格 API 的结果
+
+        // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制
+        const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
+        const intradayRes = await fetch(intradayUrl);
+        const intradayJson = await intradayRes.json();
+        if (intradayJson && intradayJson.length > 0) {
+            intradayData = intradayJson.map(d => parseFloat(d.price));
+        }
+
+        // 步骤 2: 如果市场已关闭，额外获取官方收盘价格
+        if (marketIsClosed) {
+            const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
+            const closePriceRes = await fetch(closePriceUrl);
+            const closePriceJson = await closePriceRes.json();
+            if (closePriceJson && closePriceJson.length > 0) {
+                closingPriceApiResult = parseFloat(closePriceJson[closePriceJson.length - 1].price);
             }
         }
-    } catch(e) {
-        // 网络异常时保持 Excel 初始价格
-        if (item.refPrice !== null) item.currentPrice = item.refPrice;
+        
+        // 步骤 3: 根据市场状态和获取到的数据，确定最终的 currentPrice, refPrice 和 history
+        if (marketIsClosed && closingPriceApiResult !== null) {
+            // 市场已关闭，且成功获取到官方收盘价
+            item.currentPrice = closingPriceApiResult;
+            
+            // 历史数据优先使用分钟线，如果分钟线为空，则用收盘价绘制一条平线
+            item.history = intradayData.length > 0 ? intradayData : [closingPriceApiResult, closingPriceApiResult];
+
+            // refPrice (昨日收盘价/今日开盘价) 不应被今日收盘价覆盖。
+            // 只有当 refPrice 尚未设置 (即 Excel 中没有，也未从分钟线获取到开盘价) 时，才将其设置为收盘价
+            if (item.refPrice === undefined || item.refPrice === null) {
+                item.refPrice = closingPriceApiResult; 
+            }
+
+        } else if (intradayData.length > 0) {
+            // 市场未关闭，或已关闭但未获取到官方收盘价，则使用分钟线数据
+            item.currentPrice = intradayData[intradayData.length - 1]; // 最新价格
+            item.history = intradayData;
+            
+            // 如果 refPrice 未设置 (Excel 中没有)，则使用分钟线的第一个价格作为开盘价
+            if (item.refPrice === undefined || item.refPrice === null) {
+                item.refPrice = intradayData[0];
+            }
+        } else {
+            // 既无分钟线数据，也无收盘价数据 (例如，今天尚未交易或 API 异常)
+            // 此时 currentPrice 保持为 refPrice (来自 Excel 的昨日收盘)，如果 refPrice 也为空，则为 null
+            if (item.refPrice !== null && item.refPrice !== undefined) {
+                item.currentPrice = item.refPrice;
+                // 如果没有交易数据，则用 refPrice 绘制一条平线
+                item.history = [item.refPrice, item.refPrice];
+            } else {
+                item.currentPrice = null;
+                item.history = []; // 没有数据，历史曲线为空
+            }
+        }
+
+        // 如果是 ADHOC 标的，数据回来后立即强制刷新列表 (原逻辑)
+        if (item.isAdhoc) {
+            for (let key in gameState.guardians) {
+                if (gameState.guardians[key].strategy.includes(item)) {
+                    renderLists(key);
+                    break;
+                }
+            }
+        }
+    } catch (e) {
+        console.error(`Error fetching price for ${item.code}:`, e);
+        // 出现网络或其他错误时，尝试回退到 refPrice，或保持现有价格
+        if (item.refPrice !== null && item.refPrice !== undefined) {
+            item.currentPrice = item.refPrice;
+            item.history = item.history || [item.refPrice, item.refPrice]; // 保持现有历史或用 refPrice 绘制平线
+        } else {
+            item.currentPrice = null;
+            item.history = item.history || []; // 保持现有历史或为空
+        }
     }
 }
 
