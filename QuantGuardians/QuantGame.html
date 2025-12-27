@@ -405,55 +405,6 @@
     </div>
 
     <div class="container">
-        <!-- GENBU -->
-        <div class="guardian-card g-genbu" id="card-genbu">
-            <div class="card-header"><div class="avatar">🐢</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
-            <div class="main-stat-box">
-                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
-                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
-                <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
-            </div>
-            
-            <div class="list-header">STRATEGY SUGGESTIONS</div>
-            <div class="holdings-list" id="list-genbu"></div>
-            
-            <div class="commander-section">
-                <!-- BUY -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="buy-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'buy')">
-                        <input type="number" class="cmd-input input-weight" id="buy-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'buy')">
-                        <button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button>
-                    </div>
-                </div>
-                <!-- SELL -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="sell-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'sell')">
-                        <input type="number" class="cmd-input input-weight" id="sell-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'sell')">
-                        <button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button>
-                    </div>
-                </div>     
-                <!-- ADHOC GENBU-->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
-                    <div class="cmd-controls adhoc-results-container">
-                        <input type="text" class="cmd-input input-price" id="adhoc-search-genbu" placeholder="Name/Code">
-                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-genbu" placeholder="%" step="0.1">
-                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('genbu')">ADHOC</button>
-                        <div id="suggestions-genbu" class="suggestions-list-container"></div>
-                    </div>
-                </div>
-                
-                <div class="cmd-msg" id="msg-genbu"></div>
-            </div>
-
-            <div class="list-header">PORTFOLIO HOLDINGS</div>
-            <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
-        </div>
-
         <!-- SUZAKU -->
         <div class="guardian-card g-suzaku" id="card-suzaku">
             <div class="card-header"><div class="avatar">🐦‍🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
@@ -541,6 +492,55 @@
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS</div>
             <div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
+        </div>
+
+		<!-- GENBU -->
+        <div class="guardian-card g-genbu" id="card-genbu">
+            <div class="card-header"><div class="avatar">🐢</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
+            <div class="main-stat-box">
+                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
+                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
+                <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
+            </div>
+            
+            <div class="list-header">STRATEGY SUGGESTIONS</div>
+            <div class="holdings-list" id="list-genbu"></div>
+            
+            <div class="commander-section">
+                <!-- BUY -->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div>
+                    <div class="cmd-controls">
+                        <input type="number" class="cmd-input input-price" id="buy-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'buy')">
+                        <input type="number" class="cmd-input input-weight" id="buy-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'buy')">
+                        <button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button>
+                    </div>
+                </div>
+                <!-- SELL -->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div>
+                    <div class="cmd-controls">
+                        <input type="number" class="cmd-input input-price" id="sell-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'sell')">
+                        <input type="number" class="cmd-input input-weight" id="sell-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'sell')">
+                        <button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button>
+                    </div>
+                </div>     
+                <!-- ADHOC GENBU-->
+                <div class="cmd-row">
+                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                    <div class="cmd-controls adhoc-results-container">
+                        <input type="text" class="cmd-input input-price" id="adhoc-search-genbu" placeholder="Name/Code">
+                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-genbu" placeholder="%" step="0.1">
+                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('genbu')">ADHOC</button>
+                        <div id="suggestions-genbu" class="suggestions-list-container"></div>
+                    </div>
+                </div>
+                
+                <div class="cmd-msg" id="msg-genbu"></div>
+            </div>
+
+            <div class="list-header">PORTFOLIO HOLDINGS</div>
+            <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
         </div>
 
         <!-- KIRIN -->
