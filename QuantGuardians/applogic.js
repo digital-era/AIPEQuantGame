@@ -1439,21 +1439,14 @@ let showN2 = false;
 let showN3 = false;
 
 // ================= FIXED: renderHistoryChart =================
-// ================= 修复后的 renderHistoryChart =================
+// ================= 修复：使用ResizeObserver确保DOM稳定 =================
 function renderHistoryChart() {
-    console.log('renderHistoryChart called');
-    
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
     
-    if (!chartContainer || !canvas) {
-        console.error('Chart container or canvas not found');
-        return;
-    }
-    
     // 1. 显示容器
     chartContainer.style.display = 'block';
-
+    
     // 2. 插入控制开关
     if (!document.getElementById('chartVariantControls')) {
         const controlsDiv = document.createElement('div');
@@ -1478,193 +1471,225 @@ function renderHistoryChart() {
         perfChart = null;
     }
 
-    // 4. 等待DOM稳定
-    setTimeout(() => {
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-            console.error('Canvas context not available');
-            return;
+    // 4. 关键：使用ResizeObserver监听容器变化
+    let resizeObserver = null;
+    let initTimeout = null;
+    
+    // 清理函数
+    const cleanup = () => {
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
         }
+        if (initTimeout) {
+            clearTimeout(initTimeout);
+            initTimeout = null;
+        }
+    };
+    
+    // 监听容器尺寸变化
+    resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+            // 容器尺寸稳定后初始化图表
+            if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+                if (initTimeout) clearTimeout(initTimeout);
+                initTimeout = setTimeout(initChart, 50);
+            }
+        }
+    });
+    
+    resizeObserver.observe(chartContainer);
+    
+    // 5. 同时设置一个安全超时，防止ResizeObserver在某些浏览器中不触发
+    setTimeout(() => {
+        if (!perfChart) {
+            initChart();
+        }
+        cleanup();
+    }, 300); // 300ms安全超时
+    
+    // 实际的图表初始化函数
+    function initChart() {
+        // 确保之前的定时器和监听器已清理
+        cleanup();
+        
+        // 强制浏览器进行一次布局计算
+        void chartContainer.offsetHeight;
+        
+        // 使用requestAnimationFrame确保在下一帧渲染
+        requestAnimationFrame(() => {
+            // 再次检查，确保DOM稳定
+            setTimeout(() => {
+                if (perfChart) return; // 防止重复初始化
+                
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+                
+                // --- 数据集构建逻辑（保持不变）---
+                const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
+                    label: label, 
+                    borderColor: color, 
+                    backgroundColor: color + '1A',
+                    data: historyData.datasets[dataKey] || [], 
+                    tension: 0.3, 
+                    pointRadius: 0, 
+                    borderWidth: 2, 
+                    spanGaps: true,
+                    order: 1, 
+                    isMain: true,
+                    groupKey: groupKey, 
+                    ...options
+                });
 
-        // 数据集构建函数
-        const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
-            label: label, 
-            borderColor: color, 
-            backgroundColor: color + '1A',
-            data: historyData.datasets[dataKey] || [], 
-            tension: 0.3, 
-            pointRadius: 0, 
-            borderWidth: 2, 
-            spanGaps: true,
-            order: 1, 
-            isMain: true,
-            groupKey: groupKey, 
-            ...options
-        });
+                const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
+                    const isN2 = type === 'n2';
+                    return {
+                        label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
+                        data: historyData.datasets[`${parentKey}_${type}`] || [],
+                        borderColor: color,
+                        borderWidth: 1.5,
+                        borderDash: isN2 ? [6, 4] : [2, 3], 
+                        pointRadius: 0,
+                        tension: 0.3,
+                        fill: false,
+                        hidden: true, 
+                        order: 10,
+                        variantType: type,
+                        groupKey: groupKey,
+                        isMain: false
+                    };
+                };
 
-        const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
-            const isN2 = type === 'n2';
-            return {
-                label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
-                data: historyData.datasets[`${parentKey}_${type}`] || [],
-                borderColor: color,
-                borderWidth: 1.5,
-                borderDash: isN2 ? [6, 4] : [2, 3], 
-                pointRadius: 0,
-                tension: 0.3,
-                fill: false,
-                hidden: true, 
-                order: 10,
-                variantType: type,
-                groupKey: groupKey,
-                isMain: false
-            };
-        };
+                const datasets = [
+                    createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
+                    createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
+                    createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
+                ];
 
-        // 构建数据集
-        const datasets = [
-            createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
-            createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
-            createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
-        ];
+                const beasts = [
+                    { key: 'suzaku', label: 'SUZAKU' },
+                    { key: 'sirius', label: 'SIRIUS' },
+                    { key: 'genbu',  label: 'GENBU' },
+                    { key: 'kirin',  label: 'KIRIN' }
+                ];
 
-        // 神兽数据集
-        const beasts = [
-            { key: 'suzaku', label: 'SUZAKU' },
-            { key: 'sirius', label: 'SIRIUS' },
-            { key: 'genbu',  label: 'GENBU' },
-            { key: 'kirin',  label: 'KIRIN' }
-        ];
+                beasts.forEach(b => {
+                    const color = GUARDIAN_COLORS[b.key];
+                    datasets.push(createDataset(b.label, color, b.key, b.key));
+                    datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
+                    datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
+                });
 
-        beasts.forEach(b => {
-            const color = GUARDIAN_COLORS[b.key];
-            datasets.push(createDataset(b.label, color, b.key, b.key));
-            datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
-            datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
-        });
-
-        // 创建图表
-        perfChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: historyData.dates,
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'nearest',
-                    axis: 'x',
-                    intersect: false
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#ccc',
-                            filter: function(item, chartData) {
-                                const ds = chartData.datasets[item.datasetIndex];
-                                return ds.isMain === true;
-                            },
-                            // 关键修复：使用自定义标签生成器
-                            generateLabels: function(chart) {
-                                const original = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-                                return original.filter(item => {
-                                    const ds = chart.data.datasets[item.datasetIndex];
-                                    return ds.isMain === true;
-                                });
-                            }
-                        },
-                        onClick: function(e, legendItem, legend) {
-                            const chart = legend.chart;
-                            const clickedLabel = legendItem.text;
-                            
-                            console.log('Clicked legend:', clickedLabel);
-                            
-                            // 查找所有匹配的索引
-                            const matchingIndices = [];
-                            chart.data.datasets.forEach((ds, idx) => {
-                                if (ds.label === clickedLabel || 
-                                    ds.groupKey === clickedLabel.toLowerCase() ||
-                                    ds.label.startsWith(clickedLabel)) {
-                                    matchingIndices.push(idx);
-                                }
-                            });
-                            
-                            // 如果没找到精确匹配，尝试通过groupKey查找
-                            if (matchingIndices.length === 0) {
-                                // 获取groupKey（去掉空格和小写）
-                                const groupKey = clickedLabel.toLowerCase().replace(/\s+/g, '');
-                                chart.data.datasets.forEach((ds, idx) => {
-                                    if (ds.groupKey === groupKey) {
-                                        matchingIndices.push(idx);
+                // --- 初始化 Chart（关键：使用正确的legend点击逻辑）---
+                perfChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: historyData.dates,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                        plugins: { 
+                            legend: { 
+                                labels: { 
+                                    color: '#ccc',
+                                    filter: function(item, chartData) {
+                                        const ds = chartData.datasets[item.datasetIndex];
+                                        return ds.isMain === true || ds.isMain === undefined; 
+                                    },
+                                    // 关键：确保索引正确映射
+                                    generateLabels: function(chart) {
+                                        // 获取所有主线数据集
+                                        const mainDatasets = [];
+                                        chart.data.datasets.forEach((dataset, index) => {
+                                            if (dataset.isMain === true || dataset.isMain === undefined) {
+                                                mainDatasets.push({
+                                                    text: dataset.label,
+                                                    fillStyle: dataset.borderColor,
+                                                    strokeStyle: dataset.borderColor,
+                                                    lineWidth: 2,
+                                                    datasetIndex: index,
+                                                    hidden: chart.getDatasetMeta(index).hidden
+                                                });
+                                            }
+                                        });
+                                        return mainDatasets;
                                     }
-                                });
-                            }
-                            
-                            console.log('Matching indices:', matchingIndices);
-                            
-                            if (matchingIndices.length === 0) {
-                                console.warn('No matching datasets found for:', clickedLabel);
-                                return;
-                            }
-                            
-                            // 切换所有匹配数据集的可见性
-                            const firstIndex = matchingIndices[0];
-                            const isVisible = chart.isDatasetVisible(firstIndex);
-                            
-                            matchingIndices.forEach(idx => {
-                                if (isVisible) {
-                                    chart.hide(idx);
-                                } else {
-                                    chart.show(idx);
+                                },
+                                onClick: function(e, legendItem, legend) {
+                                    // 阻止默认行为，完全自己控制
+                                    e.stopPropagation();
+                                    
+                                    const chart = legend.chart;
+                                    const clickedIndex = legendItem.datasetIndex;
+                                    
+                                    if (clickedIndex === undefined || clickedIndex < 0) {
+                                        console.error('Invalid dataset index');
+                                        return;
+                                    }
+                                    
+                                    // 获取点击的数据集
+                                    const clickedDataset = chart.data.datasets[clickedIndex];
+                                    if (!clickedDataset) {
+                                        console.error('Dataset not found at index:', clickedIndex);
+                                        return;
+                                    }
+                                    
+                                    // 切换可见性
+                                    const isVisible = chart.isDatasetVisible(clickedIndex);
+                                    
+                                    // 切换主线及其所有变体
+                                    chart.data.datasets.forEach((dataset, index) => {
+                                        if (dataset.groupKey === clickedDataset.groupKey) {
+                                            chart.setDatasetVisibility(index, isVisible);
+                                        }
+                                    });
+                                    
+                                    chart.update();
+                                    
+                                    // 更新复选框状态
+                                    if (typeof updateVariantVisibility === 'function') {
+                                        setTimeout(updateVariantVisibility, 0);
+                                    }
                                 }
-                            });
-                            
-                            // 更新图例显示
-                            legendItem.hidden = isVisible;
-                            
-                            // 更新复选框状态
-                            if (typeof updateVariantVisibility === 'function') {
-                                setTimeout(updateVariantVisibility, 50);
+                            },
+                            tooltip: {
+                                itemSort: (a, b) => {
+                                    const A = a.dataset.isMain ? 0 : 1;
+                                    const B = b.dataset.isMain ? 0 : 1;
+                                    return A - B;
+                                }
                             }
-                            
-                            chart.update();
-                        }
-                    },
-                    tooltip: {
-                        itemSort: (a, b) => {
-                            const A = a.dataset.isMain ? 0 : 1;
-                            const B = b.dataset.isMain ? 0 : 1;
-                            return A - B;
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        ticks: { color: '#666' },
-                        grid: { color: '#333' }
-                    },
-                    x: {
-                        ticks: { 
-                            color: '#666',
-                            maxTicksLimit: 8
                         },
-                        grid: { color: '#333' }
+                        scales: { 
+                            y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
+                            x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
+                        }
                     }
-                }
-            }
+                });
+
+                // 强制重新渲染
+                setTimeout(() => {
+                    if (perfChart) {
+                        perfChart.resize();
+                        // 再次强制布局计算
+                        void chartContainer.offsetHeight;
+                        // 再次更新
+                        requestAnimationFrame(() => {
+                            perfChart.update('none');
+                        });
+                        
+                        // 更新复选框状态
+                        if (typeof updateVariantVisibility === 'function') {
+                            updateVariantVisibility();
+                        }
+                    }
+                }, 100);
+            }, 10);
         });
-
-        // 延迟调整大小
-        setTimeout(() => {
-            if (perfChart) {
-                perfChart.resize();
-                updateVariantVisibility();
-            }
-        }, 100);
-
-    }, 50);
+    }
 }
 
 async function initSystem() {
