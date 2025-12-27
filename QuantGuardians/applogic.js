@@ -699,9 +699,22 @@ async function fetchPrice(item) {
             const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
             const closePriceRes = await fetch(closePriceUrl);
             const closePriceJson = await closePriceRes.json();
-            if (closePriceJson && closePriceJson.length > 0) {
-                closingPriceApiResult = parseFloat(closePriceJson[closePriceJson.length - 1].price);
+            // =========== 修改开始 ===========
+            if (closePriceJson) {
+                // 情况 A: API 返回对象且包含 latestPrice (你的当前情况)
+                if (closePriceJson.latestPrice !== undefined) {
+                    closingPriceApiResult = parseFloat(closePriceJson.latestPrice);
+                } 
+                // 情况 B: API 返回对象但字段名为 price (防御性编程)
+                else if (closePriceJson.price !== undefined) {
+                    closingPriceApiResult = parseFloat(closePriceJson.price);
+                }
+                // 情况 C: API 返回数组 (兼容旧逻辑)
+                else if (Array.isArray(closePriceJson) && closePriceJson.length > 0) {
+                    closingPriceApiResult = parseFloat(closePriceJson[closePriceJson.length - 1].price);
+                }
             }
+            // =========== 修改结束 ===========
         }
         
         // 步骤 3: 根据市场状态和获取到的数据，确定最终的 currentPrice, refPrice 和 history
