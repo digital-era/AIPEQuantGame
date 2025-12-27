@@ -362,10 +362,7 @@ async function loadStrategies() {
         // --- 修改结束 ---
         try {
             // 【修改处】：增加 { cache: 'no-store' } 配置
-            const res = await fetch(url, { 
-                cache: 'no-store',
-                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            });
+            const res = await fetch(url, { cache: 'no-store' });
             const json = await res.json();            
             const data = json.结果 || json;
             // 后续代码保持不变
@@ -395,10 +392,7 @@ async function loadSweetPoints() {
     // --- 修改结束 ---            
     try {
         // 【修改处】：增加 { cache: 'no-store' }
-        const res = await fetch(url, { 
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
-        });
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error("SweetPoint fetch failed");
         //后续代码保持不变
         
