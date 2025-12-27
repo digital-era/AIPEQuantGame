@@ -361,9 +361,14 @@ async function loadStrategies() {
         //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GUARDIAN_CONFIG[key].file}?t=${Date.now()}`;				
         // --- 修改结束 ---
         try {
-            const res = await fetch(url);
-            const json = await res.json();
+            // 【修改处】：增加 { cache: 'no-store' } 配置
+            const res = await fetch(url, { 
+                cache: 'no-store',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            });
+            const json = await res.json();            
             const data = json.结果 || json;
+            // 后续代码保持不变
             gameState.guardians[key].power = parseFloat(data.风控因子信息.综合建议仓位因子);
             gameState.guardians[key].strategy = data.最优投资组合配置.配置详情.map(p => ({
                 name: p.名称, 
@@ -389,9 +394,13 @@ async function loadSweetPoints() {
     //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
     // --- 修改结束 ---            
     try {
-        const res = await fetch(url);
+        // 【修改处】：增加 { cache: 'no-store' }
+        const res = await fetch(url, { 
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } 
+        });
         if (!res.ok) throw new Error("SweetPoint fetch failed");
-        const json = await res.json();
+        //后续代码保持不变
         
         // 创建代码集合用于快速匹配
         const sweetCodes = new Set(json.map(item => item.代码));
@@ -750,7 +759,8 @@ async function fetchPrice(item) {
 
         // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制
         const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
-        const intradayRes = await fetch(intradayUrl);
+        // 【建议修改】：加上 cache: 'no-store'
+        const intradayRes = await fetch(intradayUrl, { cache: 'no-store' }); 
         const intradayJson = await intradayRes.json();
         if (intradayJson && intradayJson.length > 0) {
             intradayData = intradayJson.map(d => parseFloat(d.price));
@@ -759,7 +769,8 @@ async function fetchPrice(item) {
         // 步骤 2: 如果市场已关闭，额外获取官方收盘价格
         if (marketIsClosed) {
             const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
-            const closePriceRes = await fetch(closePriceUrl);
+             // 【建议修改】：加上 cache: 'no-store'
+            const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });
             const closePriceJson = await closePriceRes.json();
             // =========== 修改开始 ===========
             if (closePriceJson) {
@@ -1316,7 +1327,8 @@ async function loadHistoryData() {
     const basicKeys = Object.keys(basicFiles);
     const basicPromises = basicKeys.map(key => {
         const url = getResourceUrl(basicFiles[key]);
-        return fetch(url).then(res => {
+        // 【修改处】：增加 { cache: 'no-store' }
+        return fetch(url, { cache: 'no-store' }).then(res => {
             if (!res.ok) throw new Error(res.statusText);
             return res.json();
         }).catch(err => {
@@ -1327,7 +1339,8 @@ async function loadHistoryData() {
 
     const variantPromises = variantFiles.map(item => {
         const url = getResourceUrl(item.file);
-        return fetch(url).then(res => {
+        // 【修改处】：增加 { cache: 'no-store' }
+        return fetch(url, { cache: 'no-store' }).then(res => {
             if (!res.ok) throw new Error(res.statusText);
             return res.json();
         }).catch(err => {
