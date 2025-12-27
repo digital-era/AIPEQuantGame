@@ -33,7 +33,7 @@
 		    // 定义颜色和图标
 		    const entities = [
 		        { key: 'genbu',   name: 'GENBU',    icon: '🐢', color: GUARDIAN_COLORS.genbu },
-		        { key: 'suzaku',  name: 'SUZAKU',   icon: '🔥', color: GUARDIAN_COLORS.suzaku },
+		        { key: 'suzaku',  name: 'SUZAKU',   icon: '🐦‍🔥', color: GUARDIAN_COLORS.suzaku },
 		        { key: 'sirius',  name: 'SIRIUS',   icon: '🐺', color: GUARDIAN_COLORS.sirius },
 		        { key: 'kirin',   name: 'KIRIN',    icon: '🦄', color: GUARDIAN_COLORS.kirin },
 		        { key: 'user',    name: 'USER',     icon: '👤', color: '#00FFFF' }, // 用户
