@@ -226,7 +226,23 @@ function onSparkClick(event, key, type, idx) {
 function openDetailChart(item, color) {
     if (!item.history || item.history.length === 0) return;
     
-    const refPrice = item.refPrice || item.history[0]; // 基准价（开盘价）
+    // ================== 核心修改开始 ==================
+    // 默认使用 Excel/策略中的基准价
+    let calcRefPrice = item.refPrice;
+
+    // 特殊处理：如果存在官方涨跌幅（说明已收盘或API数据有效），
+    // 无论 Excel 中的 refPrice 是否被更新为今日收盘价，我们都利用涨跌幅反推“真正的昨日收盘价”
+    // 公式：昨日收盘价 = 当前价格 / (1 + 涨跌幅%)
+    if (item.officialChangePercent !== null && item.officialChangePercent !== undefined && item.currentPrice) {
+        calcRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
+    }
+    
+    // 兜底：如果算出来是 NaN 或者 0（新股），就用历史第一笔数据
+    if (!calcRefPrice) {
+        calcRefPrice = item.history[0];
+    }
+    // ================== 核心修改结束 ==================
+
     const pctEl = document.getElementById('modalPct');
     
     document.getElementById('modalTitle').innerText = item.name;
@@ -249,7 +265,7 @@ function openDetailChart(item, color) {
             datasets: [
                 {
                     label: 'Price',
-                    data: [], // 动态生长数据
+                    data: [], 
                     borderColor: color,
                     borderWidth: 3,
                     pointRadius: 0,
@@ -272,7 +288,8 @@ function openDetailChart(item, color) {
                     callbacks: {
                         label: function(context) {
                             const val = context.parsed.y;
-                            const chg = ((val - refPrice) / refPrice * 100).toFixed(2);
+                            // 使用反算出来的 calcRefPrice 进行计算
+                            const chg = ((val - calcRefPrice) / calcRefPrice * 100).toFixed(2);
                             return ` Price: ${val.toFixed(2)} (${chg > 0 ? '+' : ''}${chg}%)`;
                         }
                     }
@@ -285,7 +302,6 @@ function openDetailChart(item, color) {
                     grid: { color: '#222' },
                     ticks: { color: '#888' }
                 },
-                // 修改处：右侧轴隐藏刻度数值
                 y1: {
                     position: 'right',
                     grid: { display: false },
@@ -305,21 +321,20 @@ function openDetailChart(item, color) {
         const currentSlice = fullHistory.slice(0, step);
         const lastPrice = currentSlice[currentSlice.length - 1];
 
-        // 更新大图数据
         detailChart.data.datasets[0].data = currentSlice;
         detailChart.update('none');
 
-        // 更新顶部 HUD 的百分比和颜色
         if (lastPrice) {
-            const currentChg = ((lastPrice - refPrice) / refPrice * 100).toFixed(2);
+            // 使用反算出来的 calcRefPrice 计算顶部的动态百分比
+            const currentChg = ((lastPrice - calcRefPrice) / calcRefPrice * 100).toFixed(2);
             pctEl.innerText = (currentChg > 0 ? '+' : '') + currentChg + '%';
-            pctEl.style.color = lastPrice >= refPrice ? '#EF4444' : '#10B981';
+            // 颜色逻辑：涨跌对比基准
+            pctEl.style.color = lastPrice >= calcRefPrice ? '#EF4444' : '#10B981';
         } else {
             pctEl.innerText = '0.00%';
         }
     }, 30);
 }
-
 // ================= LOGIC =================
 
 async function initOSS() {
