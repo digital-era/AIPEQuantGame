@@ -1443,17 +1443,17 @@ function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
     
-    // 1. 先将容器显示出来，触发浏览器的布局计算
+    // 1. 显示容器，触发浏览器布局
     chartContainer.style.display = 'block';
 
-    // 2. 插入控制开关 (Checkboxes)
-    // 这一步会改变 DOM 高度，如果此时 Chart 已经初始化，会导致坐标错位。
+    // 2. 插入控制开关 (防止重复插入)
+    // 这一步会增加 DOM 高度，必须在绘图前处理好
     if (!document.getElementById('chartVariantControls')) {
         const controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
-        // 设定固定高度，减少布局抖动
         controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa; height:25px;";
         
+        // 注意：这里调用的是 window.toggleVariantState，需确保之前定义的全局函数存在
         controlsDiv.innerHTML = `
             <label style="cursor:pointer; display:flex; align-items:center;">
                 <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
@@ -1467,19 +1467,17 @@ function renderHistoryChart() {
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
 
-    // 3. 彻底销毁旧实例，防止事件监听器残留
+    // 3. 销毁旧图表实例（重要：清除旧的事件监听）
     if (perfChart) {
         perfChart.destroy();
         perfChart = null;
     }
 
-    // 4. 【核心修复机制】
-    // 使用 setTimeout 延时，确保上述 DOM 插入操作引发的“高度变化”已经完全结束。
-    // 如果没有这个延时，Chart.js 会在 Canvas 还没被推下来之前计算坐标，导致点击位置偏上。
+    // 4. 延迟初始化：等待 DOM 布局稳定（50ms）
     setTimeout(() => {
         const ctx = canvas.getContext('2d');
 
-        // --- 数据集构建 (逻辑保持不变) ---
+        // --- 数据集构建逻辑 ---
         const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
             label: label, 
             borderColor: color, 
@@ -1534,7 +1532,7 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 初始化图表 ---
+        // --- 初始化 Chart ---
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1544,35 +1542,43 @@ function renderHistoryChart() {
             options: {
                 responsive: true, 
                 maintainAspectRatio: false, 
-                // 确保交互模式为最近的 X 轴点，且不要求必须点在线上
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
                         labels: { 
                             color: '#ccc',
-                            // 过滤器：只显示主线
+                            // 过滤器：图例只显示主线
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
                                 return ds.isMain === true || ds.isMain === undefined; 
                             }
                         },
-                        // 【点击逻辑修复】：
-                        // 不依赖 Chart.js 自动计算的 item，直接操作 Dataset
+                        // 【修复关键】：不使用 index，使用 label 匹配
                         onClick: function(e, legendItem, legend) {
-                            const index = legendItem.datasetIndex;
-                            const ci = legend.chart;
+                            const chart = legend.chart;
+                            const clickedLabel = legendItem.text; // 获取点击的名称，如 "GENBU"
 
-                            // 1. 切换显隐
-                            if (ci.isDatasetVisible(index)) {
-                                ci.hide(index);
+                            // 1. 遍历寻找名称匹配的数据集索引
+                            // 这完全绕过了 order 排序导致的索引错位问题
+                            let targetIndex = -1;
+                            chart.data.datasets.forEach((ds, idx) => {
+                                if (ds.label === clickedLabel) {
+                                    targetIndex = idx;
+                                }
+                            });
+
+                            if (targetIndex === -1) return; // 未找到，安全退出
+
+                            // 2. 切换显隐
+                            if (chart.isDatasetVisible(targetIndex)) {
+                                chart.hide(targetIndex);
                                 legendItem.hidden = true;
                             } else {
-                                ci.show(index);
+                                chart.show(targetIndex);
                                 legendItem.hidden = false;
                             }
 
-                            // 2. 触发全局的变体联动逻辑
-                            // 确保 updateVariantVisibility 存在且被调用
+                            // 3. 触发 N+2/N+3 联动更新
                             if (typeof updateVariantVisibility === 'function') {
                                 updateVariantVisibility();
                             }
@@ -1593,17 +1599,16 @@ function renderHistoryChart() {
             }
         });
 
-        // 【终极保险措施】：
-        // 在图表初始化完成后，再次强制执行 resize()。
-        // 这相当于用代码自动帮你按了一次 F12。
-        // 这样可以校准 Canvas 的点击热区与实际渲染像素的偏差。
+        // 【修复关键】：强制 Resize
+        // 在图表生成 100ms 后，强制模拟一次 F12 Resize 事件
+        // 确保坐标系与最终 CSS 布局完全对齐
         setTimeout(() => {
             if (perfChart) {
                 perfChart.resize();
             }
         }, 100);
 
-    }, 50); // 初始延迟 50ms 也是为了等待 CSS 布局稳定
+    }, 50);
 }
 
 async function initSystem() {
