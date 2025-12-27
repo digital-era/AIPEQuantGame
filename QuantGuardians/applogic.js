@@ -14,9 +14,9 @@ const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProx
 const SWEET_POINT_FILE = 'SweetPoint_New.json';
 
 const GUARDIAN_CONFIG = {
-    genbu:  { simpleName: "低波", flowName: "低波OR", file: '低波稳健模型_New.json' },
     suzaku: { simpleName: "大成", flowName: "大成OR", file: '大成模型_New.json' },
-    sirius: { simpleName: "流入", flowName: "流入OR", file: '流入模型_New.json' },
+    sirius: { simpleName: "流入", flowName: "流入OR", file: '流入模型_New.json' },    
+    genbu:  { simpleName: "低波", flowName: "低波OR", file: '低波稳健模型_New.json' },
     kirin:  { simpleName: "大智", flowName: "大智OR", file: '大智模型_New.json' }
 };
 
@@ -45,9 +45,9 @@ let playbackTimer = null;
 let gameState = {
     active: false,
     guardians: {
-        genbu: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
         suzaku: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
-        sirius: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
+        sirius: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },        
+        genbu: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
         kirin: { strategy: [], portfolio: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 }
     }
 };
@@ -294,7 +294,7 @@ async function initOSS() {
 async function loadStrategies() {
     log("Loading Strategy Models...", "cyan");
     const promises = Object.keys(GUARDIAN_CONFIG).map(async (key) => {
- // --- 修改开始: 调用通用代理函数 ---
+    // --- 修改开始: 调用通用代理函数 ---
     const url = getResourceUrl(GUARDIAN_CONFIG[key].file);
         //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${GUARDIAN_CONFIG[key].file}?t=${Date.now()}`;				
         // --- 修改结束 ---
@@ -322,10 +322,10 @@ async function loadStrategies() {
 // 3. 加载并标记 Sweet Points 的核心逻辑函数
 async function loadSweetPoints() {
     log("Scanning Sweet Points...", "#d8bfd8");
-// --- 修改开始: 调用通用代理函数 ---
-const url = getResourceUrl(SWEET_POINT_FILE);
-//const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
-// --- 修改结束 ---            
+    // --- 修改开始: 调用通用代理函数 ---
+    const url = getResourceUrl(SWEET_POINT_FILE);
+    //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
+    // --- 修改结束 ---            
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error("SweetPoint fetch failed");
@@ -1178,9 +1178,9 @@ async function loadHistoryData() {
     const keys = Object.keys(allFiles);
     
     const requests = keys.map(key => {
-        // --- 修改开始: 调用通用代理函数 ---
+      // --- 修改开始: 调用通用代理函数 ---
       const url = getResourceUrl(allFiles[key]);
-//const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${allFiles[key]}?t=${Date.now()}`;
+      //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${allFiles[key]}?t=${Date.now()}`;
       // --- 修改结束 --- 				
          return fetch(url).then(res => res.json()).catch(e => null);
     });
