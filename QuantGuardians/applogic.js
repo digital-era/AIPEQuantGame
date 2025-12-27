@@ -84,7 +84,7 @@ function isMarketClosed() {
     return false;
 }
 
-/ 4. 【新增】全局开关函数，控制Historical Perforance中N+2与N+3模型曲线
+// 4. 【新增】全局开关函数，控制Historical Perforance中N+2与N+3模型曲线
 window.toggleVariantLines = function(type) {
     if (!perfChart) return;
     
