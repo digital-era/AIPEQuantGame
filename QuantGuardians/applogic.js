@@ -1609,6 +1609,7 @@ function renderHistoryChart() {
                                 e.stopPropagation();
                             }
                         }
+                    },       
                     tooltip: {
                         itemSort: (a, b) => {
                             const A = a.dataset.isMain ? 0 : 1;
