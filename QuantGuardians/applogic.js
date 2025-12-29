@@ -516,8 +516,7 @@ async function loadCloudPortfolio() {
                             sourceItem = g.adhocObservations.find(s => s.code === code);
                         }
 
-                        const yesterdayClose = sourceItem ? sourceItem.refPrice : null;
-                                          // 3. 获取昨日收盘价（参考价）
+                        // 3. 获取昨日收盘价（参考价）
                         let yesterdayClose = sourceItem ? sourceItem.refPrice : null;
 
                         // 【修改点】: 如果 sourceItem 为空（或者找到了但没有价格），尝试从 Excel 的“收盘价格”读取
