@@ -881,7 +881,7 @@ function renderLists(key) {
 
     const adhoclistEl = document.getElementById(`adhoc-list-${key}`);
     adhoclistEl.innerHTML = '';
-    g.strategy.forEach((s, i) => {
+    g.adhocObservations.forEach((s, i) => {
         const el = createRow(key, s, i, 'adhocObservations');
         el.onclick = () => selectadhocObservationsItem(key, i);
         if(g.selectedBuy === i) el.classList.add('selected');
@@ -1292,7 +1292,7 @@ async function syncToCloud() {
         for (let key in GUARDIAN_CONFIG) {
             const cfg = GUARDIAN_CONFIG[key];
             const g = gameState.guardians[key];
-            const adhocItems = g.strategy.filter(s => s.isAdhoc === true);
+            const adhocItems = g.adhocObservations; // 不再从 strategy 中 filter
             
             adhocItems.forEach(item => {
                 adhocData.push({
