@@ -1,0 +1,239 @@
+
+这里是修复后的代码方案。主要解决了两个核心逻辑漏洞：
+微图为空的原因：updateMarketData 函数中漏掉了对 adhocObservations 数组中股票的价格获取，导致这些对象没有 history 数据，画不出图。
+Portfolio不显示Adhoc股票的原因：executeOrder（买入）函数中，逻辑写死为只从 g.strategy 数组获取被选中的股票。当用户点击 Adhoc 区域的股票时，虽然高亮了，但买入时系统错误地去 Strategy 数组的对应索引找股票（或者找不到），导致买入逻辑错误。
+请按以下步骤替换或修改对应的函数：
+修改点 1：gameState 增加状态标记
+虽然 JS 是动态的，但为了逻辑清晰，我们需要知道用户当前选中的是“策略列表”还是“Adhoc列表”。
+无需显式声明，直接在后续函数中操作 selectedSource 属性即可。
+修改点 2：修复 updateMarketData (解决微图没画的问题)
+在该函数中增加对 adhocObservations 的遍历请求。
+code
+JavaScript
+// 替换原有的 updateMarketData 函数
+async function updateMarketData(forceFetch = false) {
+    if (hasClosedPrices && !forceFetch) {
+        log("Market closed. Skipping price data fetch.", "#666");
+        for (let k in gameState.guardians) {
+            const g = gameState.guardians[k];
+            let portRtn = calculateUserRtn(k);
+            const userRtnElem = document.getElementById(`user-rtn-${k}`);
+            userRtnElem.innerText = portRtn.toFixed(2) + "%";
+            userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
+            renderLists(k); 
+        }
+        return; 
+    }
+
+    log("Sync Price Data", "#aaa"); 
+    let allPricesFetchedSuccessfully = true; 
+
+    for (let k in gameState.guardians) {
+        const g = gameState.guardians[k];
+        let currentAssets = 0;
+        
+        // 1. Update Strategy Prices
+        let systemRtn = 0; 
+        for (let s of g.strategy) {
+            await fetchPrice(s); 
+            if (s.currentPrice === null) allPricesFetchedSuccessfully = false; 
+
+            if (s.currentPrice && s.refPrice) {
+                 if (s.isAdhoc !== true) { 
+                     const chg = (s.currentPrice - s.refPrice) / s.refPrice;
+                     systemRtn += chg * (s.weight / 100);
+                 }
+            }
+        }
+
+        // 【新增】Update ADHOC Prices (修复问题1：Adhoc区域微图为空)
+        // 必须获取价格，adhoc对象才有history数据用于画图
+        for (let s of g.adhocObservations) {
+            await fetchPrice(s);
+            // adhoc 股票通常不计入 systemRtn 模型收益，所以这里不累加 systemRtn
+        }
+
+        // --- 更新数值和颜色 ---
+        const sysRtnElem = document.getElementById(`rtn-${k}`);
+        const cardElem = document.getElementById(`card-${k}`);
+        
+        if (sysRtnElem) {
+            sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
+            sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
+        }
+
+        if (systemRtn > 0) {
+            cardElem.classList.add('active'); 
+        } else {
+            cardElem.classList.remove('active'); 
+        }              
+       
+        // 2. Update Portfolio Prices & Value
+        for (let p of g.portfolio) {
+            if (p.isCash) {
+                currentAssets += 100000 * (p.weight / 100); 
+            } else {
+                await fetchPrice(p); 
+                if (p.currentPrice === null) allPricesFetchedSuccessfully = false; 
+                currentAssets += 100000 * (p.weight / 100); 
+            }
+        }
+        
+        if (g.initialAssets === 0 && currentAssets > 0) {
+            g.initialAssets = 100000;
+        }
+
+        let portRtn = calculateUserRtn(k);         
+        const userRtnElem = document.getElementById(`user-rtn-${k}`);
+        userRtnElem.innerText = portRtn.toFixed(2) + "%";
+        userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
+        
+        renderLists(k);
+    }
+    
+    log("Sync Price Data Finish", "#aaa"); 
+
+    if (isMarketClosed() && allPricesFetchedSuccessfully && !hasClosedPrices) {
+        hasClosedPrices = true; 
+        if (priceUpdateInterval) {
+            clearInterval(priceUpdateInterval); 
+            priceUpdateInterval = null; 
+        }
+        log("Market closed. Prices locked.", "yellow");
+    }
+}
+修改点 3：增加来源标记 (为修复问题2做准备)
+修改两个点击选择函数，标记当前选中项是来自 strategy 还是 adhoc。
+code
+JavaScript
+// 替换 selectStrategyItem
+function selectStrategyItem(key, idx) {
+    gameState.guardians[key].selectedBuy = idx;
+    gameState.guardians[key].selectedSource = 'strategy'; // 【新增】标记来源
+    const item = gameState.guardians[key].strategy[idx];
+    const price = item.currentPrice || item.refPrice;
+    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; 
+    document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
+    renderLists(key);
+    calcQty(key, 'buy');
+}
+
+// 替换 selectadhocObservationsItem
+function selectadhocObservationsItem(key, idx) {
+    gameState.guardians[key].selectedBuy = idx;
+    gameState.guardians[key].selectedSource = 'adhoc'; // 【新增】标记来源
+    const item = gameState.guardians[key].adhocObservations[idx];
+    const price = item.currentPrice || item.refPrice;
+    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; 
+    document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
+    renderLists(key);
+    calcQty(key, 'buy');
+}
+修改点 4：修复 executeOrder (解决Portfolio不显示Adhoc股票的问题)
+根据 selectedSource 决定从哪个数组中提取股票信息。
+code
+JavaScript
+// 替换 executeOrder
+function executeOrder(key, type) {
+    const g = gameState.guardians[key];
+    const msgEl = document.getElementById(`msg-${key}`);
+    const price = parseFloat(document.getElementById(`${type}-price-${key}`).value);
+    const weight = parseFloat(document.getElementById(`${type}-weight-${key}`).value);
+    
+    if (!price || !weight) return;
+
+    if (type === 'buy') {
+        if (g.selectedBuy === null) return;
+        
+        // 【核心修复】根据来源获取正确的 Item
+        let item;
+        if (g.selectedSource === 'adhoc') {
+            item = g.adhocObservations[g.selectedBuy];
+        } else {
+            // 默认为 strategy，兼容旧逻辑
+            item = g.strategy[g.selectedBuy];
+        }
+
+        // 防御性检查
+        if (!item) {
+             msgEl.innerText = `ERR: Item not found`; msgEl.style.color="red"; return;
+        }
+
+        const increment = weight * g.power;
+        const currentSum = g.portfolio.reduce((s, p) => p.isCash ? s : s + p.weight, 0);
+        if (currentSum + increment > 100.1) { 
+            msgEl.innerText = `ERR: Limit Exceeded (Max 100%)`; msgEl.style.color="red"; return;
+        }
+        let existing = g.portfolio.find(p => p.code === item.code);
+        if (existing) {
+            existing.weight += increment;
+            existing.currentPrice = price; 
+        } else {
+            // Adhoc 股票买入后将进入 Portfolio
+            g.portfolio.unshift({ 
+                code: item.code, name: item.name, weight: increment,
+                currentPrice: price, refPrice: item.refPrice, history: item.history
+            });
+        }
+        recordFlow(key, 'Buy', item.code, item.name, weight, price);
+        msgEl.innerText = `BOUGHT ${item.name}`;
+
+    } else if (type === 'sell') {
+        if (g.selectedSell === null) return;
+        const item = g.portfolio[g.selectedSell];
+        if (weight > item.weight + 0.01) {
+            msgEl.innerText = `ERR: Insufficient Holdings`; msgEl.style.color="red"; return;
+        }
+        item.weight -= weight;
+        if (item.weight < 0.01) {
+            g.portfolio.splice(g.selectedSell, 1);
+            g.selectedSell = null;
+        }
+        recordFlow(key, 'Sell', item.code, item.name, weight, price);
+        msgEl.innerText = `SOLD ${item.name}`;
+    }
+
+    msgEl.style.color = "#FFD700";
+    updateCash(key);
+    
+    const portRtn = calculateUserRtn(key);
+    const userRtnElem = document.getElementById(`user-rtn-${key}`);
+    userRtnElem.innerText = portRtn.toFixed(2) + "%";
+    renderLists(key);
+}
+修改点 5：修复 loadCloudPortfolio (确保刷新后Adhoc股票依然能正确关联数据)
+当用户购买了 Adhoc 股票并刷新页面后，从云端读取持仓时，需要去 Adhoc 列表中查找 refPrice，否则基准价会丢失。
+code
+JavaScript
+// 替换 loadCloudPortfolio 中间部分的 holdingsMap 处理逻辑
+async function loadCloudPortfolio() {
+    // ... 前面代码保持不变 ...
+    // (在 try 块内部，读取到 raw 数据后)
+
+                // ... (略去 raw 数据解析部分) ...
+
+                Object.values(holdingsMap).forEach(row => {
+                    if (parseFloat(row['配置比例 (%)']) > 0) {
+                        const code = String(row['股票代码'] || '');
+                        
+                        // 【核心修复】不仅在 strategy 中找，也要在 adhocObservations 中找
+                        // 这样刷新页面后，买入的 Adhoc 股票也能获取到正确的昨日收盘价(refPrice)
+                        let sourceItem = g.strategy.find(s => s.code === code);
+                        if (!sourceItem) {
+                            sourceItem = g.adhocObservations.find(s => s.code === code);
+                        }
+
+                        const yesterdayClose = sourceItem ? sourceItem.refPrice : null;
+                
+                        g.portfolio.push({
+                            code: code,
+                            name: row['股票名称'],
+                            weight: parseFloat(row['配置比例 (%)']), 
+                            currentPrice: null, 
+                            refPrice: yesterdayClose,
+                            history: []
+                        });
+                    }
+                });
+    // ... 后面代码保持不变 ...
+}
