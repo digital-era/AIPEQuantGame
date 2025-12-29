@@ -508,9 +508,15 @@ async function loadCloudPortfolio() {
                     if (parseFloat(row['配置比例 (%)']) > 0) {
                         // 使用原始股票代码，保持Excel中的格式
                         const code = String(row['股票代码'] || '');
-                        
-                        const strategyItem = g.strategy.find(s => s.code === code);
-                        const yesterdayClose = strategyItem ? strategyItem.refPrice : null;
+
+                        // 【核心修复】不仅在 strategy 中找，也要在 adhocObservations 中找
+                        // 这样刷新页面后，买入的 Adhoc 股票也能获取到正确的昨日收盘价(refPrice)
+                        let sourceItem = g.strategy.find(s => s.code === code);
+                        if (!sourceItem) {
+                            sourceItem = g.adhocObservations.find(s => s.code === code);
+                        }
+
+                        const yesterdayClose = sourceItem ? sourceItem.refPrice : null;
                 
                         g.portfolio.push({
                             code: code,
@@ -664,10 +670,8 @@ function updateCash(key) {
  * @param {boolean} forceFetch - 强制获取价格，即使 hasClosedPrices 为 true。用于系统初始化。
  */
 async function updateMarketData(forceFetch = false) {
-    // 如果市场已关闭且已获取收盘价，且不是强制获取，则跳过价格数据请求
     if (hasClosedPrices && !forceFetch) {
         log("Market closed. Skipping price data fetch.", "#666");
-        // 即使不获取新价格，仍需要重新计算和渲染，因为用户可能进行了交易
         for (let k in gameState.guardians) {
             const g = gameState.guardians[k];
             let portRtn = calculateUserRtn(k);
@@ -676,23 +680,22 @@ async function updateMarketData(forceFetch = false) {
             userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
             renderLists(k); 
         }
-        return; // 退出函数
+        return; 
     }
 
     log("Sync Price Data", "#aaa"); 
-    let allPricesFetchedSuccessfully = true; // 跟踪是否所有价格都成功获取
+    let allPricesFetchedSuccessfully = true; 
 
     for (let k in gameState.guardians) {
         const g = gameState.guardians[k];
         let currentAssets = 0;
         
-        // 1. Update Strategy Prices and Calc System Rtn
+        // 1. Update Strategy Prices
         let systemRtn = 0; 
         for (let s of g.strategy) {
-            await fetchPrice(s); // fetchPrice 内部会处理市场关闭逻辑
-            if (s.currentPrice === null) allPricesFetchedSuccessfully = false; // 任何一个价格未获取成功，就标记为失败
+            await fetchPrice(s); 
+            if (s.currentPrice === null) allPricesFetchedSuccessfully = false; 
 
-            // 【核心修改】：只有当标的存在价格，且不是 ADHOC 临时标的时，才计算入 System Rtn
             if (s.currentPrice && s.refPrice) {
                  if (s.isAdhoc !== true) { 
                      const chg = (s.currentPrice - s.refPrice) / s.refPrice;
@@ -701,7 +704,14 @@ async function updateMarketData(forceFetch = false) {
             }
         }
 
-        // --- 2. 更新数值和颜色 ---
+        // 【新增】Update ADHOC Prices (修复问题1：Adhoc区域微图为空)
+        // 必须获取价格，adhoc对象才有history数据用于画图
+        for (let s of g.adhocObservations) {
+            await fetchPrice(s);
+            // adhoc 股票通常不计入 systemRtn 模型收益，所以这里不累加 systemRtn
+        }
+
+        // --- 更新数值和颜色 ---
         const sysRtnElem = document.getElementById(`rtn-${k}`);
         const cardElem = document.getElementById(`card-${k}`);
         
@@ -710,20 +720,19 @@ async function updateMarketData(forceFetch = false) {
             sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
         }
 
-        // --- 3. 根据系统收益率正负切换边框发光状态 ---
         if (systemRtn > 0) {
-            cardElem.classList.add('active'); // 收益为正，激活发光
+            cardElem.classList.add('active'); 
         } else {
-            cardElem.classList.remove('active'); // 收益为负或零，移除发光
+            cardElem.classList.remove('active'); 
         }              
        
-        // 2. Update Portfolio Prices & Value (用户持仓部分不受影响，买入即计算)
+        // 2. Update Portfolio Prices & Value
         for (let p of g.portfolio) {
             if (p.isCash) {
                 currentAssets += 100000 * (p.weight / 100); 
             } else {
-                await fetchPrice(p); // fetchPrice 内部会处理市场关闭逻辑
-                if (p.currentPrice === null) allPricesFetchedSuccessfully = false; // 任何一个价格未获取成功，就标记为失败
+                await fetchPrice(p); 
+                if (p.currentPrice === null) allPricesFetchedSuccessfully = false; 
                 currentAssets += 100000 * (p.weight / 100); 
             }
         }
@@ -739,20 +748,18 @@ async function updateMarketData(forceFetch = false) {
         
         renderLists(k);
     }
-    // 2. 在循环结束后打印完成提示
+    
     log("Sync Price Data Finish", "#aaa"); 
 
-    // 在所有价格获取并显示成功后，检查市场是否已关闭
     if (isMarketClosed() && allPricesFetchedSuccessfully && !hasClosedPrices) {
-        hasClosedPrices = true; // 设置收盘标识
+        hasClosedPrices = true; 
         if (priceUpdateInterval) {
-            clearInterval(priceUpdateInterval); // 清除定时器，停止价格轮询
-            priceUpdateInterval = null; // 重置 interval ID
+            clearInterval(priceUpdateInterval); 
+            priceUpdateInterval = null; 
         }
-        log("Market closed. Prices locked to official closing prices. Price requests stopped.", "yellow");
+        log("Market closed. Prices locked.", "yellow");
     }
 }
-
 /**
  * 获取股票价格及历史数据
  * @param {object} item - 包含股票代码、名称、历史价格等的对象
@@ -1017,9 +1024,10 @@ function drawSpark(id, data, base, color) {
 
 function selectStrategyItem(key, idx) {
     gameState.guardians[key].selectedBuy = idx;
+    gameState.guardians[key].selectedSource = 'strategy'; // 【新增】标记来源
     const item = gameState.guardians[key].strategy[idx];
     const price = item.currentPrice || item.refPrice;
-    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
+    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; 
     document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
     renderLists(key);
     calcQty(key, 'buy');
@@ -1027,9 +1035,10 @@ function selectStrategyItem(key, idx) {
 
 function selectadhocObservationsItem(key, idx) {
     gameState.guardians[key].selectedBuy = idx;
+    gameState.guardians[key].selectedSource = 'adhoc'; // 【新增】标记来源
     const item = gameState.guardians[key].adhocObservations[idx];
     const price = item.currentPrice || item.refPrice;
-    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
+    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; 
     document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
     renderLists(key);
     calcQty(key, 'buy');
@@ -1074,7 +1083,21 @@ function executeOrder(key, type) {
 
     if (type === 'buy') {
         if (g.selectedBuy === null) return;
-        const item = g.strategy[g.selectedBuy];
+        
+        // 【核心修复】根据来源获取正确的 Item
+        let item;
+        if (g.selectedSource === 'adhoc') {
+            item = g.adhocObservations[g.selectedBuy];
+        } else {
+            // 默认为 strategy，兼容旧逻辑
+            item = g.strategy[g.selectedBuy];
+        }
+
+        // 防御性检查
+        if (!item) {
+             msgEl.innerText = `ERR: Item not found`; msgEl.style.color="red"; return;
+        }
+
         const increment = weight * g.power;
         const currentSum = g.portfolio.reduce((s, p) => p.isCash ? s : s + p.weight, 0);
         if (currentSum + increment > 100.1) { 
@@ -1085,6 +1108,7 @@ function executeOrder(key, type) {
             existing.weight += increment;
             existing.currentPrice = price; 
         } else {
+            // Adhoc 股票买入后将进入 Portfolio
             g.portfolio.unshift({ 
                 code: item.code, name: item.name, weight: increment,
                 currentPrice: price, refPrice: item.refPrice, history: item.history
@@ -1110,7 +1134,7 @@ function executeOrder(key, type) {
 
     msgEl.style.color = "#FFD700";
     updateCash(key);
-    // 【新增】：操作完后立即刷新一次收益率显示
+    
     const portRtn = calculateUserRtn(key);
     const userRtnElem = document.getElementById(`user-rtn-${key}`);
     userRtnElem.innerText = portRtn.toFixed(2) + "%";
