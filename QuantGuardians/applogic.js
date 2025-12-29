@@ -517,6 +517,21 @@ async function loadCloudPortfolio() {
                         }
 
                         const yesterdayClose = sourceItem ? sourceItem.refPrice : null;
+                                          // 3. 获取昨日收盘价（参考价）
+                        let yesterdayClose = sourceItem ? sourceItem.refPrice : null;
+
+                        // 【修改点】: 如果 sourceItem 为空（或者找到了但没有价格），尝试从 Excel 的“收盘价格”读取
+                        if (!sourceItem || yesterdayClose === null || yesterdayClose === undefined) {
+                            const excelClosePrice = row['收盘价格']; // 获取Excel该行数据
+                            if (excelClosePrice !== undefined && excelClosePrice !== '') {
+                                const parsedPrice = parseFloat(excelClosePrice);
+                                if (!isNaN(parsedPrice)) {
+                                    yesterdayClose = parsedPrice;
+                                    // 可选：如果是新出现的股票，这里也可以打印个日志方便调试
+                                    // console.log(`使用Excel收盘价作为参考: ${code} - ${parsedPrice}`);
+                                }
+                            }
+                        }
                 
                         g.portfolio.push({
                             code: code,
