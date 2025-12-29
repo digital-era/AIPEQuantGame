@@ -879,6 +879,16 @@ function renderLists(key) {
         listEl.appendChild(el);
     });
 
+    const adhoclistEl = document.getElementById(`adhoc-list-${key}`);
+    adhoclistEl.innerHTML = '';
+    g.strategy.forEach((s, i) => {
+        const el = createRow(key, s, i, 'adhocObservations');
+        el.onclick = () => selectadhocObservationsItem(key, i);
+        if(g.selectedBuy === i) el.classList.add('selected');
+        adhoclistEl.appendChild(el);
+    });
+
+
     const portEl = document.getElementById(`portfolio-${key}`);
     portEl.innerHTML = '';
     g.portfolio.forEach((p, i) => {
@@ -908,7 +918,7 @@ function createRow(key, item, idx, type) {
     if(item.isSweet) iconPrefix += "🍬"; 
     if(iconPrefix !== "") iconPrefix += " ";
     // --- 修改点：如果是 strategy 且是 adhoc 类型，增加减号 ---
-    let deleteHtml = (type === 'strategy' && item.isAdhoc) ? 
+    let deleteHtml = (type === 'adhocObservations' && item.isAdhoc) ? 
         `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>` : '';
 
     let nameHtml = `<div class="h-name-wrapper"><span class="h-name">${iconPrefix}${item.name}</span>${deleteHtml}</div>`;
@@ -1008,6 +1018,16 @@ function drawSpark(id, data, base, color) {
 function selectStrategyItem(key, idx) {
     gameState.guardians[key].selectedBuy = idx;
     const item = gameState.guardians[key].strategy[idx];
+    const price = item.currentPrice || item.refPrice;
+    document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
+    document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
+    renderLists(key);
+    calcQty(key, 'buy');
+}
+
+function selectadhocObservationsItem(key, idx) {
+    gameState.guardians[key].selectedBuy = idx;
+    const item = gameState.guardians[key].adhocObservations[idx];
     const price = item.currentPrice || item.refPrice;
     document.getElementById(`buy-price-${key}`).value = price ? price.toFixed(2) : ""; // 修改点
     document.getElementById(`buy-weight-${key}`).value = item.weight.toFixed(2);
