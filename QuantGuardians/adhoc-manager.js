@@ -133,7 +133,7 @@ function addNewAdhoc(key) {
     }
 
     // 4. 检查是否重复添加
-    const isDuplicate = gameState.guardians[key].strategy.some(s => s.code === stock.code);
+    const isDuplicate = gameState.guardians[key].adhocObservations.some(s => s.code === stock.code);
     if (isDuplicate) {
         msgEl.innerText = "ERR: 该标的已在 Suggestions 中";
         return;
@@ -151,7 +151,7 @@ function addNewAdhoc(key) {
         isSweet: false
     };
 
-    gameState.guardians[key].strategy.push(newItem);
+    gameState.guardians[key].adhocObservations.push(newItem);
 
     // 6. UI 更新确认
     msgEl.innerText = `ADHOC SUCCESS: ${stock.name} ADDED`;
@@ -176,7 +176,7 @@ function removeAdhocItem(event, key, idx) {
     event.stopPropagation(); // 保持这一行：防止触发行选中逻辑
     
     // 直接执行删除，不再通过 if(confirm(...)) 询问
-    gameState.guardians[key].strategy.splice(idx, 1);
+    gameState.guardians[key].adhocObservations.splice(idx, 1);
     
     // 重新渲染列表
     renderLists(key);
