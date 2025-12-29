@@ -62,6 +62,9 @@
         .list-header { font-size: 0.6em; color: #888; margin-top: 5px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; }
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 200px; margin-bottom: 10px; }
         .portfolio-list { height: 200px; border: 1px solid #444; background: #000; }
+        
+        /* 针对 Adhoc 列表的特殊高度调整 (可选) */
+        .adhoc-list { height: 150px; border-style: dotted; border-color: #555; }
 
         /* --- 列表项 --- */
         .holding-item { 
@@ -415,6 +418,12 @@
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
             <div class="holdings-list" id="list-suzaku"></div>
+            
+            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
+            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+            <div class="holdings-list adhoc-list" id="adhoc-list-suzaku"></div>
+            <!-- END NEW SECTION -->
+
             <div class="commander-section">
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-suzaku"></span></div>
@@ -459,6 +468,12 @@
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
             <div class="holdings-list" id="list-sirius"></div>
+
+            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
+            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+            <div class="holdings-list adhoc-list" id="adhoc-list-sirius"></div>
+            <!-- END NEW SECTION -->
+
             <div class="commander-section">
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-sirius"></span></div>
@@ -506,6 +521,11 @@
             <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
             <div class="holdings-list" id="list-genbu"></div>
             
+            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
+            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+            <div class="holdings-list adhoc-list" id="adhoc-list-genbu"></div>
+            <!-- END NEW SECTION -->
+
             <div class="commander-section">
                 <!-- BUY -->
                 <div class="cmd-row">
@@ -553,6 +573,12 @@
             </div>
             <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
             <div class="holdings-list" id="list-kirin"></div>
+
+            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
+            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+            <div class="holdings-list adhoc-list" id="adhoc-list-kirin"></div>
+            <!-- END NEW SECTION -->
+
             <div class="commander-section">
                 <div class="cmd-row">
                     <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-kirin"></span></div>
