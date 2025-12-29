@@ -1137,11 +1137,11 @@ async function loadAdhocFromCloud() {
                 
                 if (key) {
                     const g = gameState.guardians[key];
-                    if (!g.strategy.some(s => s.code === String(row["股票代码"]))) {
+                    if (!g.adhocObservations.some(s => s.code === String(row["股票代码"]))) {
                         // --- 修改：读取收盘价格作为基准价 ---
                         const excelClosePrice = row["收盘价格"] ? parseFloat(row["收盘价格"]) : null;
                         
-                        g.strategy.push({
+                        g.adhocObservations.push({
                             name: row["股票名称"],
                             code: String(row["股票代码"]),
                             weight: parseFloat(row["建议比例 (%)"]),
