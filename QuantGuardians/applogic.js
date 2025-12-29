@@ -45,10 +45,10 @@ let playbackTimer = null;
 let gameState = {
     active: false,
     guardians: {
-        suzaku: { strategy: [], portfolio: [], adhocHoldings: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
-        sirius: { strategy: [], portfolio: [], adhocHoldings: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },        
-        genbu: { strategy: [], portfolio: [], adhocHoldings: [],  power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
-        kirin: { strategy: [], portfolio: [], adhocHoldings: [],  power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 }
+        suzaku: { strategy: [], portfolio: [], adhocObservations: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
+        sirius: { strategy: [], portfolio: [], adhocObservations: [], power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },        
+        genbu: { strategy: [], portfolio: [], adhocObservations: [],  power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 },
+        kirin: { strategy: [], portfolio: [], adhocObservations: [],  power: 0, selectedBuy: null, selectedSell: null, initialAssets: 0 }
     }
 };
 let memoryFlows = []; 
