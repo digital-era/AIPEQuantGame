@@ -90,21 +90,20 @@ function setupAllAdhocAutoCompletes() {
 }
 
 // 执行添加 ADHOC 标的
-// 执行添加 ADHOC 标的
-function addNewAdhoc(key) {
+async function addNewAdhoc(key) {
     const searchInput = document.getElementById(`adhoc-search-${key}`);
     const weightInput = document.getElementById(`adhoc-weight-${key}`);
     const msgEl = document.getElementById(`msg-${key}`);
-    
+   
     // 优先从 dataset 获取点击下拉列表时存入的 code
     const selectedCode = searchInput.dataset.selectedCode;
     const searchTerm = searchInput.value.trim();
     const weight = parseFloat(weightInput.value);
-
+   
     // 1. 初始化消息框状态
-    msgEl.style.color = "#ffff00"; 
+    msgEl.style.color = "#ffff00";
     msgEl.innerText = "";
-
+   
     // 2. 输入合法性检查
     if (!searchTerm) {
         msgEl.innerText = "ERR: 请输入股票名称或代码";
@@ -114,56 +113,85 @@ function addNewAdhoc(key) {
         msgEl.innerText = "ERR: 权重必须大于 0";
         return;
     }
-
-    // 3. 查找股票 (改进查找逻辑)
+   
+    // 3. 查找股票
     let stock = null;
     if (typeof allStocks !== 'undefined') {
         if (selectedCode) {
-            // 如果有 dataset (说明是从下拉列表选的)，精确匹配 code
             stock = allStocks.find(s => s.code === selectedCode);
         } else {
-            // 如果用户是手动输入的（没有触发点击下拉），尝试匹配原名或代码
             stock = allStocks.find(s => s.name === searchTerm || s.code === searchTerm);
         }
     }
-
     if (!stock) {
         msgEl.innerText = "ERR: 未找到该股票，请检查输入";
         return;
     }
-
+   
     // 4. 检查是否重复添加
     const isDuplicate = gameState.guardians[key].adhocObservations.some(s => s.code === stock.code);
     if (isDuplicate) {
-        msgEl.innerText = "ERR: 该标的已在 Suggestions 中";
+        msgEl.innerText = "ERR: 该标的已在 ADDHOC OBSERVATIONS (USER) 中";
         return;
     }
-
-    // 5. 构造完整对象并存入 state
+   
+    // 5. 尝试获取实时最新价格作为基准价（核心修改点）
+    let basePrice = null;
+    try {
+        const finalCode = stock.code.length === 5 ? 'HK' + stock.code : stock.code;
+        const priceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`;
+        const res = await fetch(priceUrl, { cache: 'no-store' });
+        const data = await res.json();
+        
+        // 兼容不同的 API 返回字段
+        basePrice = parseFloat(
+            data.latestPrice || 
+            data.price || 
+            data.current || 
+            0
+        );
+        
+        if (basePrice <= 0 || isNaN(basePrice)) {
+            basePrice = null;
+        }
+    } catch (err) {
+        console.warn(`Failed to fetch realtime price for ${stock.code}:`, err);
+    }
+   
+    // 6. 如果 API 获取失败，使用一个合理兜底值（避免 refPrice 为 0）
+    if (basePrice === null || basePrice <= 0) {
+        basePrice = 0;  // 可根据业务调整，或提示用户手动输入
+        console.warn(`Using fallback base price 0 for new ADHOC: ${stock.code}`);
+    }
+   
+    // 7. 构造完整对象（refPrice 不再是 0）
     const newItem = {
         name: stock.name,
         code: stock.code,
         weight: weight,
         isAdhoc: true,
         history: [],
-        refPrice: 0,
+        refPrice: basePrice,           // ★ 关键修改：使用实时获取或兜底的价格
         currentPrice: null,
-        isSweet: false
+        isSweet: false,
+        joinPrice: basePrice,          // 可选：记录加入时的价格，便于后续对比/显示
+        joinTime: new Date().toISOString()
     };
-
+   
     gameState.guardians[key].adhocObservations.push(newItem);
-
-    // 6. UI 更新确认
-    msgEl.innerText = `ADHOC SUCCESS: ${stock.name} ADDED`;
-    
-    // 清空输入框和 dataset
+   
+    // 8. UI 更新确认
+    msgEl.innerText = `ADHOC SUCCESS: ${stock.name} ADDED (基准价: ${basePrice.toFixed(2)})`;
+    msgEl.style.color = "#0f0";
+   
+    // 9. 清空输入框和 dataset
     searchInput.value = "";
-    delete searchInput.dataset.selectedCode; // 记得清除缓存，防止下次误选
+    delete searchInput.dataset.selectedCode;
     delete searchInput.dataset.selectedName;
     weightInput.value = "";
-
-    // 7. 渲染
-    renderLists(key); 
+   
+    // 10. 立即获取最新价格并刷新界面
+    renderLists(key);
     if (typeof fetchPrice === 'function') {
         fetchPrice(newItem).then(() => {
             renderLists(key);
