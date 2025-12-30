@@ -154,6 +154,10 @@ async function addNewAdhoc(key) {
         if (basePrice <= 0 || isNaN(basePrice)) {
             basePrice = null;
         }
+        
+        if (data.changePercent !== undefined) {
+            addhocofficialChangePercent = parseFloat(data.changePercent);
+        }
     } catch (err) {
         console.warn(`Failed to fetch realtime price for ${stock.code}:`, err);
     }
@@ -163,6 +167,16 @@ async function addNewAdhoc(key) {
         basePrice = 0;  // 可根据业务调整，或提示用户手动输入
         console.warn(`Using fallback base price 0 for new ADHOC: ${stock.code}`);
     }
+
+     // 特殊处理：如果存在官方涨跌幅（说明已收盘或API数据有效），
+    // 无论 Excel 中的 refPrice 是否被更新为今日收盘价，我们都利用涨跌幅反推“真正的昨日收盘价”
+    // 公式：昨日收盘价 = 当前价格 / (1 + 涨跌幅%)
+    if (addhocofficialChangePercent !== null && basePrice > 0 ) {
+        addhocRefPrice = basePrice / (1 + addhocofficialChangePercent / 100);
+    }
+    else {
+        addhocRefPrice = 0;
+    }
    
     // 7. 构造完整对象（refPrice 不再是 0）
     const newItem = {
@@ -171,7 +185,7 @@ async function addNewAdhoc(key) {
         weight: weight,
         isAdhoc: true,
         history: [],
-        refPrice: basePrice,           // ★ 关键修改：使用实时获取或兜底的价格
+        refPrice: addhocRefPrice,           // ★ 关键修改：使用实时获取或兜底的价格
         currentPrice: null,
         isSweet: false,
         joinPrice: basePrice,          // 可选：记录加入时的价格，便于后续对比/显示
