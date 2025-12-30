@@ -62,12 +62,26 @@ let priceUpdateInterval = null; // 用于存储 setInterval 的 ID，以便在�
 let hasClosedPrices = false;    // 标识收盘价格是否已获取并锁定
 
 /**
+ * 获取当前时刻对应的中国时间对象
+ * 原理：将当前UTC时间转换为中国时区的字符串，再重新解析为 Date 对象
+ * 结果：返回的 Date 对象虽然底层是本地时区，但其 getHours/getDate 等数值与中国时间一致
+ */
+function getChinaDate() {
+    const now = new Date();
+    // 使用 Intl API 强制转换为上海时间字符串
+    const chinaTimeStr = now.toLocaleString("en-US", {timeZone: "Asia/Shanghai"});
+    return new Date(chinaTimeStr);
+}
+
+/**
  * 检查当前市场是否已休市 (16:30 后，或周末)
  * @returns {boolean} 如果市场已休市则返回 true
  */
 function isMarketClosed() {
-    const now = new Date();
-    const day = now.getDay(); // 0 for Sunday, 6 for Saturday
+    // 【修改点】获取中国时间对象
+    const now = getChinaDate(); 
+    
+    const day = now.getDay(); // 如果英国是周五晚23点，中国是周六早7点，这里会正确返回 6 (周六)
     const hours = now.getHours();
     const minutes = now.getMinutes();
 
@@ -76,11 +90,11 @@ function isMarketClosed() {
         return true;
     }
 
-    // 市场在 16:30 后关闭
-    if (hours > 16 || (hours === 16 && minutes >= 30)) {
+    // 市场在9:15前  16:15 后关闭
+    if ((hours > 16 || (hours === 16 && minutes > 30)) || (hours < 9 || (hours === 9 && minutes < 30))) {
         return true;
     }
-
+    
     return false;
 }
 
@@ -151,7 +165,11 @@ function updateVariantVisibility() {
 // ================= UTILS =================
 function log(msg, color="#0f0") {
     const box = document.getElementById('systemLog');
-    const time = new Date().toLocaleTimeString('en-US', {hour12:false});
+    // 直接指定时区输出字符串
+    const time = new Date().toLocaleTimeString('en-US', {
+        hour12: false, 
+        timeZone: 'Asia/Shanghai' // 【修改点】强制显示中国时间
+    });
     const div = document.createElement('div');
     div.className = 'log-line';
     div.innerHTML = `<span style="color:#666">[${time}]</span> <span style="color:${color}">${msg}</span>`;
@@ -159,13 +177,17 @@ function log(msg, color="#0f0") {
 }
 
 function getOpTime(clamp = false) {
-    const now = new Date();
+    // 【修改点】获取中国时间对象
+    const now = getChinaDate(); 
+    
     const y = now.getFullYear();
     const m = String(now.getMonth()+1).padStart(2,'0');
     const d = String(now.getDate()).padStart(2,'0');
     let h = now.getHours();
     let min = now.getMinutes();
+    
     if (clamp) {
+        // 这里的 16:30 也是指中国时间的 16:30
         if (h > 16 || (h === 16 && min > 30)) { h = 16; min = 30; }
     }
     return `${y}${m}${d}${String(h).padStart(2,'0')}${String(min).padStart(2,'0')}`;
