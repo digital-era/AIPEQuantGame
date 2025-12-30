@@ -223,3 +223,31 @@ function removeAdhocItem(event, key, idx) {
     // 重新渲染列表
     renderLists(key);
 }
+
+// --- 音乐控制逻辑 ---
+function toggleMusic() {
+    const music = document.getElementById('bgMusic');
+    const btn = document.getElementById('musicBtn');
+    
+    // 如果音乐暂停中，则播放
+    if (music.paused) {
+        music.play().then(() => {
+            btn.innerHTML = '⏹️'; // 切换为停止/暂停图标
+            btn.title = "Stop Music";
+            // 可选：添加一点高亮效果表示正在播放
+            btn.style.color = "#10B981"; // 绿色高亮
+            btn.style.borderColor = "#10B981";
+        }).catch(error => {
+            console.error("播放失败 (可能是浏览器自动播放策略限制):", error);
+            alert("无法播放音乐，请确保已与页面交互或检查音频路径。");
+        });
+    } else {
+        // 如果正在播放，则暂停
+        music.pause();
+        btn.innerHTML = '▶️'; // 切换回播放图标
+        btn.title = "Play Music";
+        // 恢复默认样式
+        btn.style.color = ""; 
+        btn.style.borderColor = "";
+    }
+}
