@@ -231,17 +231,33 @@ function closeModal() {
 
 // [新增] 触发微图点击的处理函数
 function onSparkClick(event, key, type, idx) {
-    event.stopPropagation(); // 阻止冒泡，避免触发选行
+    event.stopPropagation();
+
     let item;
-    if (type === 'strategy') {
-        item = gameState.guardians[key].strategy[idx];
-    } else {
-        item = gameState.guardians[key].portfolio[idx];
+    const guardian = gameState.guardians[key];
+
+    switch(type) {
+        case 'strategy':
+            item = guardian.strategy[idx];
+            break;
+        case 'portfolio':
+            item = guardian.portfolio[idx];
+            break;
+        case 'adhocObservations':               // ← 新增这个分支
+            item = guardian.adhocObservations[idx];
+            break;
+        default:
+            console.warn('Unknown sparkline type:', type);
+            return;
     }
-    if (item) {
-        const color = GUARDIAN_COLORS[key] || '#fff';
-        openDetailChart(item, color);
+
+    if (!item || !item.history || item.history.length === 0) {
+        console.warn('No valid item or history for spark click', {key, type, idx});
+        return;
     }
+
+    const color = GUARDIAN_COLORS[key] || '#fff';
+    openDetailChart(item, color);
 }
 
 // [新增] 替换原来的 openDetailChart 函数（核心逻辑带涨跌幅量化）
