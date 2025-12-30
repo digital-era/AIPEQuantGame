@@ -372,20 +372,35 @@
 		}
 		
 		/* --- 2. 仅针对电脑端 (屏幕宽度大于 1024px) 开启缩放 --- */
-	    @media (min-width: 1024px) {
-	        body {
-	            /* 只有电脑上才会缩放 */
-	            zoom: 0.9;
-	            /* 补偿缩放后的高度 */
-	            min-height: 111.11vh; 
-	        }
-	
-	        .modal-overlay {
-	            /* 补偿缩放后的遮罩尺寸 */
-	            width: 111.11%; 
-	            height: 111.11%;
-	        }
-	    }
+		@media (min-width: 1024px) {
+		    body {
+		        /* 【修改点 1】移除 zoom，因为它会破坏 Canvas 坐标系 */
+		        /* zoom: 0.9; */
+		        
+		        /* 【修改点 2】使用 transform 进行标准缩放 */
+		        transform: scale(0.9);
+		        
+		        /* 【修改点 3】设定缩放原点为左上角，否则默认从中心缩放会导致页面位置跑偏 */
+		        transform-origin: 0 0;
+		        
+		        /* 【修改点 4】宽度补偿：因为缩放变小了，容器宽度设为 100% / 0.9 ≈ 111.11% 才能填满屏幕 */
+		        width: 111.11%;
+		        
+		        /* 高度补偿保持不变 */
+		        min-height: 111.11vh; 
+		        
+		        /* 防止横向滚动条 */
+		        overflow-x: hidden; 
+		    }
+		
+		    /* 遮罩层通常在 body 内部，如果 body 已经 transform 了，
+		       遮罩层设为 100% 即可填满被放大的 body 区域。
+		       如果之前设了 111.11%，建议改回 100%，或者根据实际情况微调 */
+		    .modal-overlay {
+		        width: 100%; 
+		        height: 100%;
+		    }
+		}
     </style>
 </head>
 <body>
