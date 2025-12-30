@@ -26,7 +26,27 @@
             --user-gold: #FFD700;
         }
         * { box-sizing: border-box; }
-        body { background-color: var(--bg-color); color: var(--text-main); font-family: 'Roboto Mono', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        
+        /* Body 基础样式保持，但不再负责 Flex 布局，Flex 移交给 main-scaler */
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: 'Roboto Mono', monospace; 
+            margin: 0; 
+            padding: 0; /* padding 移交给内部容器 */
+            min-height: 100vh; 
+        }
+
+        /* 新增：包裹层默认样式，继承原本 body 的 flex 布局特性 */
+        .main-scaler {
+            padding: 20px;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh;
+            width: 100%;
+        }
+
         h1, .pixel-font { font-family: 'Press Start 2P', cursive; text-transform: uppercase; }
         
         /* --- Header --- */
@@ -52,7 +72,6 @@
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
         .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
-        /* 增加 text-up/text-down 样式支持 */
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
@@ -62,8 +81,6 @@
         .list-header { font-size: 0.6em; color: #888; margin-top: 5px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 1px; }
         .holdings-list { flex-grow: 1; overflow-y: auto; border: 1px dashed #333; background: rgba(0,0,0,0.2); padding: 5px; height: 200px; margin-bottom: 10px; }
         .portfolio-list { height: 200px; border: 1px solid #444; background: #000; }
-        
-        /* 针对 Adhoc 列表的特殊高度调整 (可选) */
         .adhoc-list { height: 150px; border-style: dotted; border-color: #555; }
 
         /* --- 列表项 --- */
@@ -94,11 +111,7 @@
 
         /* --- Commander Section --- */
         .commander-section { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
-        /*.cmd-row { margin-bottom: 8px; }*/
-        /* --- 统一纵向间距 --- */
-        .cmd-row { 
-            margin-bottom: 10px;  /* 固定的行间距，确保 Buy/Sell/ADHOC 距离一致 */
-        }
+        .cmd-row { margin-bottom: 10px; }
         .cmd-top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
         .cmd-label { font-size: 0.6em; color: var(--glow-color); font-weight: bold; }
         .cmd-label-sell { color: var(--glow-color); }
@@ -106,72 +119,27 @@
         
         .cmd-controls { display: flex; gap: 4px; width: 100%; align-items: center; }
         .cmd-input { background: #000; border: 1px solid #555; color: #fff; font-family: 'Roboto Mono'; padding: 4px; font-size: 0.7em; height: 26px; }
-        /*.input-price { flex: 1; min-width: 0; }*/
-        /* --- 价格/名称输入框自动伸缩 --- */
-        .input-price { 
-            flex: 1;              /* 占据剩余的所有空间 */
-            min-width: 0;         /* 关键：防止在 Flex 布局中撑破容器 */
-        }
-        /*.input-weight { width: 60px; flex: 0 0 60px; color: var(--user-gold); text-align: center; }*/
-        /* --- 比例输入框长度固定 --- */
-        .input-weight { 
-            width: 60px; 
-            flex: 0 0 60px;       /* 禁止缩放，保持 60px */
-            color: var(--user-gold); 
-            text-align: center; 
-        }
-        /*.cmd-btn { cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; padding: 0 8px; height: 26px; white-space: nowrap; flex: 0 0 auto; border: 1px solid #555; background: #222; color: #fff;}*/
-        /* --- 统一按钮长度，并增加移动端稳定性 --- */
+        .input-price { flex: 1; min-width: 0; }
+        .input-weight { width: 60px; flex: 0 0 60px; color: var(--user-gold); text-align: center; }
         .cmd-btn { 
-            cursor: pointer; 
-            font-family: 'Press Start 2P'; 
-            font-size: 0.5em; 
-            /* 关键修改：锁定宽度，防止因字符多少而伸缩 */
-            width: 85px !important;          
-            flex: 0 0 85px !important;       
-            min-width: 85px !important;
-            height: 26px; 
-            white-space: nowrap; 
-            border: 1px solid #555; 
-            background: #222; 
-            color: #fff;
-            padding: 0;           /* 清除内边距，确保文字居中 */
-            text-align: center;
-            box-sizing: border-box; /* 确保边框计算在宽度内 */
+            cursor: pointer; font-family: 'Press Start 2P'; font-size: 0.5em; 
+            width: 85px !important; flex: 0 0 85px !important; min-width: 85px !important;
+            height: 26px; white-space: nowrap; border: 1px solid #555; background: #222; color: #fff;
+            padding: 0; text-align: center; box-sizing: border-box; 
         }
         .cmd-btn.buy-btn { border-color: var(--glow-color); color: var(--glow-color); }
         .cmd-btn.sell-btn { border-color: var(--glow-color); color: var(--glow-color); }
         .cmd-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #444; color: #666; }
-
-        /*.cmd-msg { height: 15px; font-size: 0.6em; margin-top: 2px; color: #ffff00; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;}*/
-        /* --- 消息提示框：不干扰布局 --- */
-        .cmd-msg { 
-            height: 15px; 
-            font-size: 0.6em; 
-            margin-top: -5px;     /* 稍微往上靠，不占位 */
-            margin-bottom: 10px;  /* 留出下方间距 */
-            color: #ffff00; 
-            text-align: left;
-        }
+        .cmd-msg { height: 15px; font-size: 0.6em; margin-top: -5px; margin-bottom: 10px; color: #ffff00; text-align: left;}
 
         /* --- System Controls --- */
-        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; /* 初始隐藏，JS控制显示 */ }
+        .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; }
         .chart-wrapper { position: relative; height: 300px; width: 100%; }
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
-         .start-btn { 
-            background: #000; 
-            color: #0f0; 
-            border: 2px solid #0f0; 
-            padding: 15px 40px; 
-            font-family: 'Press Start 2P'; 
-            font-size: 1.2em; 
-            cursor: pointer; 
-            box-shadow: 0 0 10px #0f0; 
-            margin-bottom: 10px; 
-            
-            /* --- 新增/修改以下三行 --- */
-            max-width: 100%;       /* 限制最大宽度不超过父容器 */
-            overflow: hidden;      /* 超出部分隐藏（防御性）*/
+        .start-btn { 
+            background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; 
+            font-family: 'Press Start 2P'; font-size: 1.2em; cursor: pointer; 
+            box-shadow: 0 0 10px #0f0; margin-bottom: 10px; max-width: 100%; overflow: hidden;
         }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
@@ -189,18 +157,19 @@
         @media (max-width: 768px) {
             .header { position: static; padding-top: 10px; }
             .oss-btn { position: relative; right: auto; top: auto; margin-top: 15px; width: auto; }
+            .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
         }
         
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; }
 
-        /* --- [新增] 动态曲线 Modal 样式 --- */
+        /* --- 模态框通用 --- */
         .modal-overlay {
-            display: none; /* 默认隐藏 */
-            position: fixed;
+            display: none;
+            position: fixed; /* 必须是 fixed */
             top: 0; left: 0;
-            width: 100%; height: 100%;
+            width: 100%; height: 100%; /* 默认状态 */
             background: rgba(0,0,0,0.85);
             z-index: 9999;
             justify-content: center;
@@ -208,438 +177,328 @@
             backdrop-filter: blur(2px);
         }
         .modal-content {
-            background: #111;
-            border: 2px solid #fff; /* JS会动态修改颜色 */
-            padding: 20px;
-            width: 90%;
-            max-width: 900px;
-            height: 60vh;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
+            background: #111; border: 2px solid #fff; padding: 20px;
+            width: 90%; max-width: 900px; height: 60vh;
+            border-radius: 8px; display: flex; flex-direction: column;
             box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
-        .close-btn {
-            background: #333;
-            border: 1px solid #555;
-            color: #fff;
-            padding: 8px 16px;
-            cursor: pointer;
-            font-family: 'Roboto Mono';
-            font-weight: bold;
-        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .close-btn { background: #333; border: 1px solid #555; color: #fff; padding: 8px 16px; cursor: pointer; font-family: 'Roboto Mono'; font-weight: bold; }
         .close-btn:hover { background: #444; }
-        .detail-chart-wrapper {
-            flex-grow: 1;
-            position: relative;
-            width: 100%;
-        }
+        .detail-chart-wrapper { flex-grow: 1; position: relative; width: 100%; }
 
-        /* --- ADHOC 搜索建议样式 --- */
-        .adhoc-results-container {
-            position: relative;            
-            /* 不要在这里加 width: 100%，因为它已经在 cmd-controls 里的 flex 流中了 */
+        /* --- ADHOC 搜索建议 --- */
+        .adhoc-results-container { position: relative; }
+        .suggestions-list-container {
+            position: absolute; top: calc(100% + 2px); left: 0; width: 100%; z-index: 1000;
+            background: #111; border: 1px solid #555; border-radius: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8); max-height: 200px; overflow-y: auto; display: block;
         }
-       .suggestions-list-container {
-            position: absolute;
-            top: calc(100% + 2px);        /* 稍微拉开一点距离，避免紧贴 */
-            left: 0;
-            width: 100%;                  /* 跟随输入框宽度 */
-            z-index: 1000;                /* 提高层级，避免被其他元素遮挡 */
-            background: #111;
-            border: 1px solid #555;
-            border-radius: 4px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
-            max-height: 200px;
-            overflow-y: auto;
-            display: block;               /* 确保可见 */
-        }
-        
-        .suggestions-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-        
-        .suggestions-list li {
-            padding: 8px 12px;
-            font-size: 0.7em;
-            cursor: pointer;
-            border-bottom: 1px solid #222;
-            color: #e0e0e0;
-        }
-        
-        .suggestions-list li:hover {
-            background: #333;
-            color: var(--user-gold);
-        }
-                
-        /* --- 删除按钮样式 --- */
-        .delete-btn {
-            color: #ffff00;
-            cursor: pointer;
-            margin-left: 5px;
-            font-size: 1.2em;
-            font-weight: bold;
-            line-height: 1;
-            vertical-align: middle;
-            display: inline-block;
-            transition: transform 0.2s;
-        }
-        .delete-btn:hover {
-            transform: scale(1.3);
-            color: #FFD700;
-        }
-        .h-name-wrapper {
-            display: flex;
-            align-items: center;
-        }
+        .suggestions-list { list-style: none; margin: 0; padding: 0; }
+        .suggestions-list li { padding: 8px 12px; font-size: 0.7em; cursor: pointer; border-bottom: 1px solid #222; color: #e0e0e0; }
+        .suggestions-list li:hover { background: #333; color: var(--user-gold); }
+        .delete-btn { color: #ffff00; cursor: pointer; margin-left: 5px; font-size: 1.2em; font-weight: bold; line-height: 1; vertical-align: middle; display: inline-block; transition: transform 0.2s; }
+        .delete-btn:hover { transform: scale(1.3); color: #FFD700; }
+        .h-name-wrapper { display: flex; align-items: center; }
 
-		/* --- Header Controls Group (右上角按钮组) --- */
-		.header-controls {
-		    position: absolute; right: 0; top: 20px;
-		    display: flex; gap: 8px; align-items: center;
-		}
-		/* 图标按钮通用样式 */
+		/* --- Header Controls Group --- */
+		.header-controls { position: absolute; right: 0; top: 20px; display: flex; gap: 8px; align-items: center; }
 		.icon-btn {
-		    background: #222; border: 1px solid #555; color: #aaa;
-		    width: 38px; height: 38px;
-		    display: flex; justify-content: center; align-items: center;
-		    cursor: pointer; border-radius: 4px; transition: all 0.2s;
-		    font-size: 1.2em; /* 图标大小 */
+		    background: #222; border: 1px solid #555; color: #aaa; width: 38px; height: 38px;
+		    display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 4px; transition: all 0.2s; font-size: 1.2em;
 		}
-		.icon-btn:hover {
-		    background: #333; color: #fff; border-color: #fff;
-		    transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.3);
-		}		
+		.icon-btn:hover { background: #333; color: #fff; border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.3); }		
 	
-		/* --- Settings Modal 样式 --- */
-		.setting-row {
-		    display: flex; align-items: center; justify-content: space-between;
-		    padding: 15px; border-bottom: 1px solid #333; font-family: 'Roboto Mono';
-		}
+		/* --- Settings Modal --- */
+		.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #333; font-family: 'Roboto Mono'; }
 		.switch-label { color: #e0e0e0; font-size: 1em; }
 		
-		/* --- Ranking Modal 样式 (生动展示) --- */
-		.rank-list {
-		    padding: 10px; overflow-y: auto; height: 100%;
-		}
-		.rank-item {
-		    display: flex; align-items: center; margin-bottom: 15px;
-		    opacity: 0; animation: slideIn 0.6s forwards;
-		}
-		.rank-info {
-		    width: 100px; text-align: right; padding-right: 10px;
-		    display: flex; flex-direction: column; align-items: flex-end;
-		}
+		/* --- Ranking Modal --- */
+		.rank-list { padding: 10px; overflow-y: auto; height: 100%; }
+		.rank-item { display: flex; align-items: center; margin-bottom: 15px; opacity: 0; animation: slideIn 0.6s forwards; }
+		.rank-info { width: 100px; text-align: right; padding-right: 10px; display: flex; flex-direction: column; align-items: flex-end; }
 		.rank-name { font-size: 0.8em; font-weight: bold; color: #fff; }
 		.rank-icon { font-size: 1.2em; margin-top: 2px; }
-		.rank-bar-area {
-		    flex-grow: 1; position: relative; height: 26px;
-		    background: rgba(255,255,255,0.05); border-radius: 4px;
-		    display: flex; align-items: center;
-		}
+		.rank-bar-area { flex-grow: 1; position: relative; height: 26px; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; }
 		.rank-bar {
-		    height: 100%; border-radius: 4px; width: 0%; /* 初始宽度0，JS控制动画 */
-		    transition: width 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
-		    position: relative;
-		    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+		    height: 100%; border-radius: 4px; width: 0%; transition: width 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+		    position: relative; box-shadow: 0 0 10px rgba(0,0,0,0.5);
 		}
-		.rank-val {
-		    position: absolute; right: 10px; color: #fff; font-weight: bold;
-		    font-size: 0.9em; text-shadow: 1px 1px 2px #000;
-		    z-index: 2;
-		}
-		.rank-trophy {
-		    position: absolute; right: -40px; font-size: 1.5em;
-		    filter: drop-shadow(0 0 5px gold);
-		    animation: bounce 1s infinite alternate;
-		}
+		.rank-val { position: absolute; right: 10px; color: #fff; font-weight: bold; font-size: 0.9em; text-shadow: 1px 1px 2px #000; z-index: 2; }
+		.rank-trophy { position: absolute; right: -40px; font-size: 1.5em; filter: drop-shadow(0 0 5px gold); animation: bounce 1s infinite alternate; }
 		@keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 		@keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-5px); } }
-		
-		/* 移动端适配调整 */
-		@media (max-width: 768px) {
-		    .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
-		}
 		
 		/* --- 2. 仅针对电脑端 (屏幕宽度大于 1024px) 开启缩放 --- */
 		@media (min-width: 1024px) {
 		    body {
-		        /* 【修改点 1】移除 zoom，因为它会破坏 Canvas 坐标系 */
-		        /* zoom: 0.9; */
-		        
-		        /* 【修改点 2】使用 transform 进行标准缩放 */
+		        /* 【修改点 1】body 不再缩放，保持默认，作为 Viewport 容器 */
+		        transform: none;
+		        width: 100%;
+		        height: 100vh;
+		        overflow-x: hidden;
+		        overflow-y: auto;
+		    }
+
+            /* 【修改点 2】新增：对包裹内容的容器进行缩放 */
+            .main-scaler {
+		        /* 使用 transform 进行标准缩放 */
 		        transform: scale(0.9);
 		        
-		        /* 【修改点 3】设定缩放原点为左上角，否则默认从中心缩放会导致页面位置跑偏 */
+		        /* 设定缩放原点为左上角 */
 		        transform-origin: 0 0;
 		        
-		        /* 【修改点 4】宽度补偿：因为缩放变小了，容器宽度设为 100% / 0.9 ≈ 111.11% 才能填满屏幕 */
+		        /* 宽度补偿：容器宽度设为 100% / 0.9 ≈ 111.11% 才能填满屏幕 */
 		        width: 111.11%;
 		        
-		        /* 高度补偿保持不变 */
+		        /* 高度补偿 */
 		        min-height: 111.11vh; 
-		        
-		        /* 防止横向滚动条 */
-		        overflow-x: hidden; 
-		    }
+            }
 		
-		    /* 遮罩层通常在 body 内部，如果 body 已经 transform 了，
-		       遮罩层设为 100% 即可填满被放大的 body 区域。
-		       如果之前设了 111.11%，建议改回 100%，或者根据实际情况微调 */
+		    /* 【修改点 3】模态框样式修复 */
+            /* 现在的 .modal-overlay 是 body 的直接子元素，且 body 没有 transform */
+            /* 所以 fixed 定位会正确相对于浏览器窗口 */
 		    .modal-overlay {
-		        width: 100%; 
-		        height: 100%;
+		        width: 100vw; 
+		        height: 100vh;
+                left: 0;
+                top: 0;
 		    }
 		}
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Quant Guardians</h1>
-        <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Intelligent Quant Battle System v1.0</div>
-		<!-- 新增的按钮组容器 -->
-	    <div class="header-controls">
-	        <!-- 1. 设置图标按钮 (最左) -->
-	        <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
-	        
-	        <!-- 2. 排序图标按钮 -->
-	        <button class="icon-btn" onclick="openRanking()" title="Battle Ranking">🏆</button>
-	        
-	        <!-- 3. 原有的 SYNC CLOUD 按钮 -->
-	        <button class="oss-btn" onclick="syncToCloud()">
-	            <span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD
-	        </button>
-	    </div>
-    </div>
-
-    <div class="container">
-        <!-- SUZAKU -->
-        <div class="guardian-card g-suzaku" id="card-suzaku">
-            <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
-            <div class="main-stat-box">
-                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div>
-                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div>
-                <div class="sub-stat">Power: <span id="power-suzaku">0%</span></div>
-            </div>
-            <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
-            <div class="holdings-list" id="list-suzaku"></div>
-            
-            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
-            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
-            <div class="holdings-list adhoc-list" id="adhoc-list-suzaku"></div>
-            <!-- END NEW SECTION -->
-
-            <div class="commander-section">
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-suzaku"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="buy-price-suzaku" placeholder="Price" oninput="calcQty('suzaku', 'buy')">
-                        <input type="number" class="cmd-input input-weight" id="buy-weight-suzaku" placeholder="%" oninput="calcQty('suzaku', 'buy')">
-                        <button class="cmd-btn buy-btn" id="btn-buy-suzaku" onclick="executeOrder('suzaku', 'buy')">CONFIRM</button>
-                    </div>
-                </div>
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-suzaku"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="sell-price-suzaku" placeholder="Price" oninput="calcQty('suzaku', 'sell')">
-                        <input type="number" class="cmd-input input-weight" id="sell-weight-suzaku" placeholder="%" oninput="calcQty('suzaku', 'sell')">
-                        <button class="cmd-btn sell-btn" id="btn-sell-suzaku" onclick="executeOrder('suzaku', 'sell')">CONFIRM</button>
-                    </div>
-                </div>
-                <!-- ADHOC SUZAKU -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
-                    <div class="cmd-controls adhoc-results-container">
-                        <input type="text" class="cmd-input input-price" id="adhoc-search-suzaku" placeholder="Name/Code">
-                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-suzaku" placeholder="%" step="0.1">
-                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('suzaku')">ADHOC</button>
-                        <div id="suggestions-suzaku" class="suggestions-list-container"></div>
-                    </div>
-                </div>
+    <!-- 【NEW】新增包裹层，包含原来的主要页面内容 -->
+    <div class="main-scaler">
+        
+        <div class="header">
+            <h1>Quant Guardians</h1>
+            <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Intelligent Quant Battle System v1.0</div>
+            <!-- 新增的按钮组容器 -->
+            <div class="header-controls">
+                <!-- 1. 设置图标按钮 (最左) -->
+                <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
                 
-                <div class="cmd-msg" id="msg-suzaku"></div>
+                <!-- 2. 排序图标按钮 -->
+                <button class="icon-btn" onclick="openRanking()" title="Battle Ranking">🏆</button>
+                
+                <!-- 3. 原有的 SYNC CLOUD 按钮 -->
+                <button class="oss-btn" onclick="syncToCloud()">
+                    <span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD
+                </button>
             </div>
-            <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
-            <div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
         </div>
 
-        <!-- SIRIUS -->
-        <div class="guardian-card g-sirius" id="card-sirius">
-            <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
-            <div class="main-stat-box">
-                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div>
-                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div>
-                <div class="sub-stat">Power: <span id="power-sirius">0%</span></div>
-            </div>
-            <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
-            <div class="holdings-list" id="list-sirius"></div>
-
-            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
-            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
-            <div class="holdings-list adhoc-list" id="adhoc-list-sirius"></div>
-            <!-- END NEW SECTION -->
-
-            <div class="commander-section">
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-sirius"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="buy-price-sirius" placeholder="Price" oninput="calcQty('sirius', 'buy')">
-                        <input type="number" class="cmd-input input-weight" id="buy-weight-sirius" placeholder="%" oninput="calcQty('sirius', 'buy')">
-                        <button class="cmd-btn buy-btn" id="btn-buy-sirius" onclick="executeOrder('sirius', 'buy')">CONFIRM</button>
-                    </div>
+        <div class="container">
+            <!-- SUZAKU -->
+            <div class="guardian-card g-suzaku" id="card-suzaku">
+                <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
+                <div class="main-stat-box">
+                    <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div>
+                    <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div>
+                    <div class="sub-stat">Power: <span id="power-suzaku">0%</span></div>
                 </div>
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-sirius"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="sell-price-sirius" placeholder="Price" oninput="calcQty('sirius', 'sell')">
-                        <input type="number" class="cmd-input input-weight" id="sell-weight-sirius" placeholder="%" oninput="calcQty('sirius', 'sell')">
-                        <button class="cmd-btn sell-btn" id="btn-sell-sirius" onclick="executeOrder('sirius', 'sell')">CONFIRM</button>
-                    </div>
-                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
+                <div class="holdings-list" id="list-suzaku"></div>
                 
-                 <!-- ADHOC SIRIUS -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
-                    <div class="cmd-controls adhoc-results-container">
-                        <input type="text" class="cmd-input input-price" id="adhoc-search-sirius" placeholder="Name/Code">
-                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-sirius" placeholder="%" step="0.1">
-                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('sirius')">ADHOC</button>
-                        <div id="suggestions-sirius" class="suggestions-list-container"></div>
+                <!-- ADHOC -->
+                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+                <div class="holdings-list adhoc-list" id="adhoc-list-suzaku"></div>
+
+                <div class="commander-section">
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-suzaku"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="buy-price-suzaku" placeholder="Price" oninput="calcQty('suzaku', 'buy')">
+                            <input type="number" class="cmd-input input-weight" id="buy-weight-suzaku" placeholder="%" oninput="calcQty('suzaku', 'buy')">
+                            <button class="cmd-btn buy-btn" id="btn-buy-suzaku" onclick="executeOrder('suzaku', 'buy')">CONFIRM</button>
+                        </div>
                     </div>
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-suzaku"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="sell-price-suzaku" placeholder="Price" oninput="calcQty('suzaku', 'sell')">
+                            <input type="number" class="cmd-input input-weight" id="sell-weight-suzaku" placeholder="%" oninput="calcQty('suzaku', 'sell')">
+                            <button class="cmd-btn sell-btn" id="btn-sell-suzaku" onclick="executeOrder('suzaku', 'sell')">CONFIRM</button>
+                        </div>
+                    </div>
+                    <!-- ADHOC CMD -->
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                        <div class="cmd-controls adhoc-results-container">
+                            <input type="text" class="cmd-input input-price" id="adhoc-search-suzaku" placeholder="Name/Code">
+                            <input type="number" class="cmd-input input-weight" id="adhoc-weight-suzaku" placeholder="%" step="0.1">
+                            <button class="cmd-btn buy-btn" onclick="addNewAdhoc('suzaku')">ADHOC</button>
+                            <div id="suggestions-suzaku" class="suggestions-list-container"></div>
+                        </div>
+                    </div>
+                    <div class="cmd-msg" id="msg-suzaku"></div>
                 </div>
-                
-                <div class="cmd-msg" id="msg-sirius"></div>
+                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
+                <div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
             </div>
-            <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
-            <div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
+
+            <!-- SIRIUS -->
+            <div class="guardian-card g-sirius" id="card-sirius">
+                <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
+                <div class="main-stat-box">
+                    <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div>
+                    <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div>
+                    <div class="sub-stat">Power: <span id="power-sirius">0%</span></div>
+                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
+                <div class="holdings-list" id="list-sirius"></div>
+
+                <!-- ADHOC -->
+                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+                <div class="holdings-list adhoc-list" id="adhoc-list-sirius"></div>
+
+                <div class="commander-section">
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-sirius"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="buy-price-sirius" placeholder="Price" oninput="calcQty('sirius', 'buy')">
+                            <input type="number" class="cmd-input input-weight" id="buy-weight-sirius" placeholder="%" oninput="calcQty('sirius', 'buy')">
+                            <button class="cmd-btn buy-btn" id="btn-buy-sirius" onclick="executeOrder('sirius', 'buy')">CONFIRM</button>
+                        </div>
+                    </div>
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-sirius"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="sell-price-sirius" placeholder="Price" oninput="calcQty('sirius', 'sell')">
+                            <input type="number" class="cmd-input input-weight" id="sell-weight-sirius" placeholder="%" oninput="calcQty('sirius', 'sell')">
+                            <button class="cmd-btn sell-btn" id="btn-sell-sirius" onclick="executeOrder('sirius', 'sell')">CONFIRM</button>
+                        </div>
+                    </div>
+                    <!-- ADHOC CMD -->
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                        <div class="cmd-controls adhoc-results-container">
+                            <input type="text" class="cmd-input input-price" id="adhoc-search-sirius" placeholder="Name/Code">
+                            <input type="number" class="cmd-input input-weight" id="adhoc-weight-sirius" placeholder="%" step="0.1">
+                            <button class="cmd-btn buy-btn" onclick="addNewAdhoc('sirius')">ADHOC</button>
+                            <div id="suggestions-sirius" class="suggestions-list-container"></div>
+                        </div>
+                    </div>
+                    <div class="cmd-msg" id="msg-sirius"></div>
+                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
+                <div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
+            </div>
+
+            <!-- GENBU -->
+            <div class="guardian-card g-genbu" id="card-genbu">
+                <div class="card-header"><div class="avatar">🐢</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
+                <div class="main-stat-box">
+                    <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
+                    <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
+                    <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
+                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
+                <div class="holdings-list" id="list-genbu"></div>
+                
+                <!-- ADHOC -->
+                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+                <div class="holdings-list adhoc-list" id="adhoc-list-genbu"></div>
+
+                <div class="commander-section">
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="buy-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'buy')">
+                            <input type="number" class="cmd-input input-weight" id="buy-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'buy')">
+                            <button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button>
+                        </div>
+                    </div>
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="sell-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'sell')">
+                            <input type="number" class="cmd-input input-weight" id="sell-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'sell')">
+                            <button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button>
+                        </div>
+                    </div>     
+                    <!-- ADHOC CMD -->
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                        <div class="cmd-controls adhoc-results-container">
+                            <input type="text" class="cmd-input input-price" id="adhoc-search-genbu" placeholder="Name/Code">
+                            <input type="number" class="cmd-input input-weight" id="adhoc-weight-genbu" placeholder="%" step="0.1">
+                            <button class="cmd-btn buy-btn" onclick="addNewAdhoc('genbu')">ADHOC</button>
+                            <div id="suggestions-genbu" class="suggestions-list-container"></div>
+                        </div>
+                    </div>
+                    <div class="cmd-msg" id="msg-genbu"></div>
+                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
+                <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
+            </div>
+
+            <!-- KIRIN -->
+            <div class="guardian-card g-kirin" id="card-kirin">
+                <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
+                <div class="main-stat-box">
+                    <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div>
+                    <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div>
+                    <div class="sub-stat">Power: <span id="power-kirin">0%</span></div>
+                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
+                <div class="holdings-list" id="list-kirin"></div>
+
+                <!-- ADHOC -->
+                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
+                <div class="holdings-list adhoc-list" id="adhoc-list-kirin"></div>
+
+                <div class="commander-section">
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-kirin"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="buy-price-kirin" placeholder="Price" oninput="calcQty('kirin', 'buy')">
+                            <input type="number" class="cmd-input input-weight" id="buy-weight-kirin" placeholder="%" oninput="calcQty('kirin', 'buy')">
+                            <button class="cmd-btn buy-btn" id="btn-buy-kirin" onclick="executeOrder('kirin', 'buy')">CONFIRM</button>
+                        </div>
+                    </div>
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-kirin"></span></div>
+                        <div class="cmd-controls">
+                            <input type="number" class="cmd-input input-price" id="sell-price-kirin" placeholder="Price" oninput="calcQty('kirin', 'sell')">
+                            <input type="number" class="cmd-input input-weight" id="sell-weight-kirin" placeholder="%" oninput="calcQty('kirin', 'sell')">
+                            <button class="cmd-btn sell-btn" id="btn-sell-kirin" onclick="executeOrder('kirin', 'sell')">CONFIRM</button>
+                        </div>
+                    </div>
+                    <!-- ADHOC CMD -->
+                    <div class="cmd-row">
+                        <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
+                        <div class="cmd-controls adhoc-results-container">
+                            <input type="text" class="cmd-input input-price" id="adhoc-search-kirin" placeholder="Name/Code">
+                            <input type="number" class="cmd-input input-weight" id="adhoc-weight-kirin" placeholder="%" step="0.1">
+                            <button class="cmd-btn buy-btn" onclick="addNewAdhoc('kirin')">ADHOC</button>
+                            <div id="suggestions-kirin" class="suggestions-list-container"></div>
+                        </div>
+                    </div>
+                    <div class="cmd-msg" id="msg-kirin"></div>
+                </div>
+                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
+                <div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
+            </div>
         </div>
 
-		<!-- GENBU -->
-        <div class="guardian-card g-genbu" id="card-genbu">
-            <div class="card-header"><div class="avatar">🐢</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
-            <div class="main-stat-box">
-                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div>
-                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div>
-                <div class="sub-stat">Power: <span id="power-genbu">0%</span></div>
-            </div>
-            
-            <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
-            <div class="holdings-list" id="list-genbu"></div>
-            
-            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
-            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
-            <div class="holdings-list adhoc-list" id="adhoc-list-genbu"></div>
-            <!-- END NEW SECTION -->
-
-            <div class="commander-section">
-                <!-- BUY -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="buy-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'buy')">
-                        <input type="number" class="cmd-input input-weight" id="buy-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'buy')">
-                        <button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button>
-                    </div>
-                </div>
-                <!-- SELL -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="sell-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'sell')">
-                        <input type="number" class="cmd-input input-weight" id="sell-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'sell')">
-                        <button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button>
-                    </div>
-                </div>     
-                <!-- ADHOC GENBU-->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
-                    <div class="cmd-controls adhoc-results-container">
-                        <input type="text" class="cmd-input input-price" id="adhoc-search-genbu" placeholder="Name/Code">
-                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-genbu" placeholder="%" step="0.1">
-                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('genbu')">ADHOC</button>
-                        <div id="suggestions-genbu" class="suggestions-list-container"></div>
-                    </div>
-                </div>
-                
-                <div class="cmd-msg" id="msg-genbu"></div>
-            </div>
-
-            <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
-            <div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
+        <!-- Settlement Panel: 控制显示与否 -->
+        <div class="settlement-panel" id="settlementPanel">
+            <h3 class="pixel-font" style="text-align:center;color:#fff;">Historical Performance</h3>
+            <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
         </div>
 
-        <!-- KIRIN -->
-        <div class="guardian-card g-kirin" id="card-kirin">
-            <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
-            <div class="main-stat-box">
-                <div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div>
-                <div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div>
-                <div class="sub-stat">Power: <span id="power-kirin">0%</span></div>
-            </div>
-            <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div>
-            <div class="holdings-list" id="list-kirin"></div>
-
-            <!-- [NEW] ADHOC OBSERVATIONS SECTION -->
-            <div class="list-header">ADDHOC OBSERVATIONS (USER)</div>
-            <div class="holdings-list adhoc-list" id="adhoc-list-kirin"></div>
-            <!-- END NEW SECTION -->
-
-            <div class="commander-section">
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-kirin"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="buy-price-kirin" placeholder="Price" oninput="calcQty('kirin', 'buy')">
-                        <input type="number" class="cmd-input input-weight" id="buy-weight-kirin" placeholder="%" oninput="calcQty('kirin', 'buy')">
-                        <button class="cmd-btn buy-btn" id="btn-buy-kirin" onclick="executeOrder('kirin', 'buy')">CONFIRM</button>
-                    </div>
-                </div>
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-kirin"></span></div>
-                    <div class="cmd-controls">
-                        <input type="number" class="cmd-input input-price" id="sell-price-kirin" placeholder="Price" oninput="calcQty('kirin', 'sell')">
-                        <input type="number" class="cmd-input input-weight" id="sell-weight-kirin" placeholder="%" oninput="calcQty('kirin', 'sell')">
-                        <button class="cmd-btn sell-btn" id="btn-sell-kirin" onclick="executeOrder('kirin', 'sell')">CONFIRM</button>
-                    </div>
-                </div>
-                
-                <!-- ADHOC KIRIN -->
-                <div class="cmd-row">
-                    <div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div>
-                    <div class="cmd-controls adhoc-results-container">
-                        <input type="text" class="cmd-input input-price" id="adhoc-search-kirin" placeholder="Name/Code">
-                        <input type="number" class="cmd-input input-weight" id="adhoc-weight-kirin" placeholder="%" step="0.1">
-                        <button class="cmd-btn buy-btn" onclick="addNewAdhoc('kirin')">ADHOC</button>
-                        <div id="suggestions-kirin" class="suggestions-list-container"></div>
-                    </div>
-                </div>
-                
-                <div class="cmd-msg" id="msg-kirin"></div>
-            </div>
-            <div class="list-header">PORTFOLIO HOLDINGS (USER)</div>
-            <div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
+        <div class="system-controls">
+            <button id="engageBtn" class="start-btn" onclick="initSystem()">[ ENGAGE SYSTEM ]</button>
+            <div class="log-box" id="systemLog"><div class="log-line">> System Standby...</div></div>
         </div>
-    </div>
 
-    <!-- Settlement Panel: 控制显示与否 -->
-    <div class="settlement-panel" id="settlementPanel">
-        <h3 class="pixel-font" style="text-align:center;color:#fff;">Historical Performance</h3>
-        <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
-    </div>
+    </div> <!-- 【NEW】main-scaler 结束 -->
 
-    <div class="system-controls">
-        <button id="engageBtn" class="start-btn" onclick="initSystem()">[ ENGAGE SYSTEM ]</button>
-        <div class="log-box" id="systemLog"><div class="log-line">> System Standby...</div></div>
-    </div>
+    <!-- ==================================================================== -->
+    <!-- 以下模态框全部移出 main-scaler，作为 body 的直接子元素，确保 position fixed 定位准确 -->
+    <!-- ==================================================================== -->
 
     <!-- [新增] 动态曲线 Modal 结构 -->
     <div id="chartModal" class="modal-overlay" onclick="closeModal()">
@@ -648,7 +507,6 @@
                 <div style="display: flex; align-items: baseline;">
                     <span id="modalTitle" class="pixel-font" style="font-size:1.2em; color:#FFD700;">STOCK</span>
                     <span id="modalCode" style="color:#888; margin-left:10px; font-family:'Roboto Mono';">(--)</span>
-                    <!-- 新增：实时涨跌幅跳动显示 -->
                     <span id="modalPct" style="margin-left:20px; font-weight:bold; font-size:1.4em;">0.00%</span>
                 </div>
                 <button class="close-btn" onclick="closeModal()">[X] CLOSE</button>
@@ -656,42 +514,43 @@
             <div class="detail-chart-wrapper"><canvas id="detailChartCanvas"></canvas></div>
         </div>
     </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="modal-overlay" onclick="document.getElementById('settingsModal').style.display='none'">
+        <div class="modal-content" style="height:auto; max-width:400px; border-color:#888;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span class="pixel-font" style="color:#fff;">SYSTEM SETTINGS</span>
+                <button class="close-btn" onclick="document.getElementById('settingsModal').style.display='none'">[X]</button>
+            </div>
+            <div class="setting-row">
+                <span class="switch-label">Github Proxy</span>
+                <input type="checkbox" id="chkGitProxy" checked onchange="toggleProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
+            </div>
+            <div style="padding:15px; color:#666; font-size:0.7em;">
+                Enable proxy to accelerate model loading if connection is slow.
+            </div>
+        </div>
+    </div>
+    
+    <!-- RANKING MODAL -->
+    <div id="rankingModal" class="modal-overlay" onclick="document.getElementById('rankingModal').style.display='none'">
+        <div class="modal-content" style="border-color:#FFD700; height: 70vh;" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="pixel-font" style="color:#FFD700; font-size:1.2em;">Quant BATTLE RANKING</div>
+                <button class="close-btn" onclick="document.getElementById('rankingModal').style.display='none'">[X]</button>
+            </div>
+            <div style="padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:10px; display:flex; justify-content:space-between; color:#aaa; font-size:0.7em;">
+                <span>ENTITY</span>
+                <span>RETURN (%)</span>
+            </div>
+            <div id="rankingList" class="rank-list">
+                <!-- 动态生成的内容 -->
+            </div>
+        </div>
+    </div>
+
     <script src="adhoc-manager.js"></script>
     <script src="applogic.js"></script>
-	<script src="Rankingmodal.js"></script>
-	<!-- SETTINGS MODAL -->
-	<div id="settingsModal" class="modal-overlay" onclick="document.getElementById('settingsModal').style.display='none'">
-		<div class="modal-content" style="height:auto; max-width:400px; border-color:#888;" onclick="event.stopPropagation()">
-			<div class="modal-header">
-				<span class="pixel-font" style="color:#fff;">SYSTEM SETTINGS</span>
-				<button class="close-btn" onclick="document.getElementById('settingsModal').style.display='none'">[X]</button>
-			</div>
-			<div class="setting-row">
-				<span class="switch-label">Github Proxy</span>
-				<!-- 默认打钩 -->
-				<input type="checkbox" id="chkGitProxy" checked onchange="toggleProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
-			</div>
-			<div style="padding:15px; color:#666; font-size:0.7em;">
-				Enable proxy to accelerate model loading if connection is slow.
-			</div>
-		</div>
-	</div>
-	
-	<!-- RANKING MODAL -->
-	<div id="rankingModal" class="modal-overlay" onclick="document.getElementById('rankingModal').style.display='none'">
-		<div class="modal-content" style="border-color:#FFD700; height: 70vh;" onclick="event.stopPropagation()">
-			<div class="modal-header">
-				<div class="pixel-font" style="color:#FFD700; font-size:1.2em;">Quant BATTLE RANKING</div>
-				<button class="close-btn" onclick="document.getElementById('rankingModal').style.display='none'">[X]</button>
-			</div>
-			<div style="padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:10px; display:flex; justify-content:space-between; color:#aaa; font-size:0.7em;">
-				<span>ENTITY</span>
-				<span>RETURN (%)</span>
-			</div>
-			<div id="rankingList" class="rank-list">
-				<!-- 动态生成的内容 -->
-			</div>
-		</div>
-	</div>
+    <script src="Rankingmodal.js"></script>
 </body>
 </html>
