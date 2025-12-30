@@ -37,12 +37,6 @@
             min-height: 100vh; 
         }
 
-		<!-- 放在 body 标签内任意位置，例如 main-scaler 开始之前 -->
-		<audio id="bgMusic" loop>
-		    <!-- 请将此处替换为你的音乐文件路径 -->
-		    <source src="Ennio Morricone - Deborah's Theme.mp3" type="audio/mpeg">
-		</audio>
-
         /* 新增：包裹层默认样式，继承原本 body 的 flex 布局特性 */
         .main-scaler {
             padding: 20px;
@@ -274,7 +268,12 @@
 		}
     </style>
 </head>
-<body>
+<body>	
+	<!-- 放在 body 标签内任意位置，例如 main-scaler 开始之前 -->
+	<audio id="bgMusic" loop>
+		<!-- 请将此处替换为你的音乐文件路径 -->
+		<source src="Ennio Morricone - Deborah's Theme.mp3" type="audio/mpeg">
+	</audio>
     <!-- 【NEW】新增包裹层，包含原来的主要页面内容 -->
     <div class="main-scaler">
         
