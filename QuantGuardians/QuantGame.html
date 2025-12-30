@@ -26,6 +26,12 @@
             --user-gold: #FFD700;
         }
         * { box-sizing: border-box; }
+
+		<!-- 放在 body 标签内任意位置，例如 main-scaler 开始之前 -->
+		<audio id="bgMusic" loop>
+		    <!-- 请将此处替换为你的音乐文件路径 -->
+		    <source src="bgm.mp3" type="audio/mpeg">
+		</audio>
         
         /* Body 基础样式保持，但不再负责 Flex 布局，Flex 移交给 main-scaler */
         body { 
@@ -36,6 +42,12 @@
             padding: 0; /* padding 移交给内部容器 */
             min-height: 100vh; 
         }
+
+		<!-- 放在 body 标签内任意位置，例如 main-scaler 开始之前 -->
+		<audio id="bgMusic" loop>
+		    <!-- 请将此处替换为你的音乐文件路径 -->
+		    <source src="Ennio Morricone - Deborah's Theme.mp3" type="audio/mpeg">
+		</audio>
 
         /* 新增：包裹层默认样式，继承原本 body 的 flex 布局特性 */
         .main-scaler {
@@ -282,6 +294,10 @@
                 
                 <!-- 2. 排序图标按钮 -->
                 <button class="icon-btn" onclick="openRanking()" title="Battle Ranking">🏆</button>
+				 <!-- 【NEW】3. 新增 MP3 播放/停止按钮 -->
+                <!-- 使用 icon-btn 类确保高度和样式一致 -->
+                <button class="icon-btn" onclick="toggleMusic()" id="musicBtn" title="Play Music">▶️</button>
+				
                 
                 <!-- 3. 原有的 SYNC CLOUD 按钮 -->
                 <button class="oss-btn" onclick="syncToCloud()">
