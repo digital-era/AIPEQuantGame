@@ -272,7 +272,7 @@
 	<!-- 放在 body 标签内任意位置，例如 main-scaler 开始之前 -->
 	<audio id="bgMusic" loop>
 		<!-- 请将此处替换为你的音乐文件路径 -->
-		<source src="Ennio Morricone - Deborah's Theme.mp3" type="audio/mpeg">
+		<!--source src="Ennio Morricone - Deborah's Theme.mp3" type="audio/mpeg"-->
 	</audio>
     <!-- 【NEW】新增包裹层，包含原来的主要页面内容 -->
     <div class="main-scaler">
@@ -558,7 +558,26 @@
             </div>
         </div>
     </div>
-
+    <script>
+    	(function() {
+	        // 1. 获取当前系统时间的小时数 (0-23)
+	        var currentHour = getChinaDate.getHours();
+	        
+	        // 2. 获取音频元素
+	        var audioPlayer = document.getElementById('bgMusic');
+	        
+	        // 3. 定义音乐文件路径
+	        var dayMusic = "Legends of the Fall.mp3";
+	        var nightMusic = "Deborah's Theme - Ennio Morricone.mp3";
+	        
+	        // 4. 判断时间逻辑：早7点(包含) 到 晚7点(不包含) 之间
+	        if (currentHour >= 7 && currentHour < 19) {
+	            audioPlayer.src = dayMusic;
+	        } else {
+	            audioPlayer.src = nightMusic;
+	        }
+    })();
+	</script>
     <script src="adhoc-manager.js"></script>
     <script src="applogic.js"></script>
     <script src="Rankingmodal.js"></script>
