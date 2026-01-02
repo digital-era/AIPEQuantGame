@@ -143,21 +143,10 @@
         }
         .log-box { background: #000; border: 1px solid #333; height: 100px; overflow-y: scroll; text-align: left; padding: 10px; font-size: 0.75em; color: #0f0; }
         .log-line { border-bottom: 1px solid #111; padding: 2px 0; }
-        
-        .oss-btn {
-            /* --- position: static !important; margin-top: 0 !important; height: 38px; right: 0; top: 20px; background: #224; color: #fff; border: 1px solid #66a; --- */
-			position: static !important; margin-top: 0 !important; height: 38px;background: #224; color: #fff; border: 1px solid #66a;
-            padding: 8px 12px; cursor: pointer; font-family: 'Press Start 2P'; font-size: 10px; 
-            display: flex; align-items: center; gap: 6px; border-radius: 4px;
-        }
-        .oss-status { width: 6px; height: 6px; border-radius: 50%; background: #666; display: inline-block;}
-        .oss-status.syncing { background: #ff0; box-shadow: 0 0 5px #ff0; animation: blink 1s infinite; }
-        .oss-status.done { background: #0f0; box-shadow: 0 0 5px #0f0; }
-        @keyframes blink { 50% { opacity: 0.5; } }
 
-        @media (max-width: 768px) {
+		@media (max-width: 768px) {
             .header { position: static; padding-top: 10px; }
-            .oss-btn { position: relative; right: auto; top: auto; margin-top: 15px; width: auto; }
+            /* 原来的 .oss-btn 那一行删掉了，因为现在统一在 header-controls 里管理了 */
             .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
         }
         
@@ -204,11 +193,61 @@
 
 		/* --- Header Controls Group --- */
 		.header-controls { position: relative; right: auto; top: auto; margin-top: 20px; display: flex; gap: 8px; align-items: center; justify-content: center; }
-		.icon-btn {
-		    background: #222; border: 1px solid #555; color: #aaa; width: 38px; height: 38px;
-		    display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 4px; transition: all 0.2s; font-size: 1.2em;
-		}
-		.icon-btn:hover { background: #333; color: #fff; border-color: #fff; transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.3); }		
+		/* --- 统一的图标按钮样式 --- */
+        .icon-btn {
+            background: #222; 
+            border: 1px solid #555; 
+            color: #aaa; 
+            width: 38px; 
+            height: 38px;
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: pointer; 
+            border-radius: 4px; 
+            transition: all 0.2s; 
+            font-size: 1.2em;
+            position: relative; /* 关键：为内部的小红点提供定位基准 */
+            padding: 0; /* 清除默认内边距 */
+        }
+
+        /* 鼠标悬停状态 - 统一为白色高亮 */
+        .icon-btn:hover { 
+            background: #333; 
+            color: #fff; 
+            border-color: #fff; 
+            transform: scale(1.1); 
+            box-shadow: 0 0 10px rgba(255,255,255,0.3); 
+        }
+
+        /* 鼠标点击按下状态 - 统一效果 */
+        .icon-btn:active {
+            background: #444;
+            border-color: #fff;
+            transform: scale(0.95); /* 点击时轻微缩小，产生按压感 */
+        }
+
+        /* --- 云同步状态指示灯 (右上角悬浮小点) --- */
+        .oss-status { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: #666; /* 默认灰色 */
+            display: block; 
+            
+            /* 绝对定位到按钮右上角 */
+            position: absolute; 
+            top: 4px; 
+            right: 4px; 
+            z-index: 2;
+            border: 1px solid #222; /* 增加黑色描边，增加对比度 */
+        }
+        
+        /* 状态颜色动画保持不变 */
+        .oss-status.syncing { background: #ff0; box-shadow: 0 0 5px #ff0; animation: blink 1s infinite; }
+        .oss-status.done { background: #0f0; box-shadow: 0 0 5px #0f0; }
+        @keyframes blink { 50% { opacity: 0.5; } }        
+        /* 移除原来的 .oss-btn 样式，因为它现在已经合并进 .icon-btn 了 */
 	
 		/* --- Settings Modal --- */
 		.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #333; font-family: 'Roboto Mono'; }
@@ -289,12 +328,13 @@
                 <button class="icon-btn" onclick="openRanking()" title="Battle Ranking">🏆</button>
 				 <!-- 【NEW】3. 新增 MP3 播放/停止按钮 -->
                 <!-- 使用 icon-btn 类确保高度和样式一致 -->
-                <button class="icon-btn" onclick="toggleMusic()" id="musicBtn" title="Play Music">▶️</button>
+                <button class="icon-btn" onclick="toggleMusic()" id="musicBtn" title="Play Music">🎼</button>
 				
                 
                 <!-- 3. 原有的 SYNC CLOUD 按钮 -->
-                <button class="oss-btn" onclick="syncToCloud()">
-                    <span class="oss-status" id="ossStatusDot"></span> SYNC CLOUD
+				<button class="icon-btn" onclick="syncToCloud()" title="Sync Cloud" style="position: relative;">
+                    ☁️
+                    <span class="oss-status" id="ossStatusDot"></span>
                 </button>
             </div>
         </div>
