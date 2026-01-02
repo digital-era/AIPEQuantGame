@@ -232,22 +232,31 @@ function toggleMusic() {
     // 如果音乐暂停中，则播放
     if (music.paused) {
         music.play().then(() => {
-            btn.innerHTML = '⏹️'; // 切换为停止/暂停图标
+            // 1. 播放时，图标变为停止符号，提示用户可以点击停止
+            btn.innerHTML = '⏹️'; 
             btn.title = "Stop Music";
-            // 可选：添加一点高亮效果表示正在播放
-            btn.style.color = "#10B981"; // 绿色高亮
-            btn.style.borderColor = "#10B981";
+            
+            // 2. 仅改变文字/图标颜色为高亮色（绿色），不改变边框！
+            // 这样能保持边框和其他图标一致，同时又能看出正在播放
+            btn.style.color = "#10B981"; 
+            
+            // 【已删除】禁止修改边框颜色，保持 UI 统一
+            // btn.style.borderColor = "#10B981"; 
         }).catch(error => {
-            console.error("播放失败 (可能是浏览器自动播放策略限制):", error);
-            alert("无法播放音乐，请确保已与页面交互或检查音频路径。");
+            console.error("播放失败:", error);
+            // 即使失败，也尽量重置回五线谱
+            btn.innerHTML = '🎼';
         });
     } else {
         // 如果正在播放，则暂停
         music.pause();
-        btn.innerHTML = '▶️'; // 切换回播放图标
+        
+        // 3. 暂停/停止后，图标恢复为五线谱 🎼
+        btn.innerHTML = '🎼'; 
         btn.title = "Play Music";
-        // 恢复默认样式
+        
+        // 4. 清除颜色样式，恢复默认灰色
         btn.style.color = ""; 
-        btn.style.borderColor = "";
+        // btn.style.borderColor = ""; // 不需要清除，因为上面没加
     }
 }
