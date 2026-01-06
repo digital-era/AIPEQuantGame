@@ -756,6 +756,14 @@ async function updateMarketData(forceFetch = false) {
             }
         }
 
+         // =========== 【修改开始】 ===========
+        // 将计算出的组合满仓收益率，乘以策略的风控仓位因子 (Power)
+        // 例如：组合涨幅 1%，但 Power 为 0.5 (半仓)，则系统收益应为 0.5%
+        if (g.power !== undefined && g.power !== null) {
+            systemRtn = systemRtn * g.power;
+        }
+        // =========== 【修改结束】 ===========
+
         // 【新增】Update ADHOC Prices (修复问题1：Adhoc区域微图为空)
         // 必须获取价格，adhoc对象才有history数据用于画图
         for (let s of g.adhocObservations) {
