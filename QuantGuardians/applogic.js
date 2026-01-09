@@ -1564,33 +1564,50 @@ function renderHistoryChart() {
     // [修改] 优化 Canvas 高度
     canvas.style.minHeight = "300px"; 
 
-    // 2. 插入控制开关
+    // 2. 插入控制开关 (修复焦点跳动问题的核心)
     let controlsDiv = document.getElementById('chartVariantControls');
+    
+    // 【修复点1】：只有当 controlsDiv 不存在时，才创建 DOM 和 innerHTML。
+    // 这样避免了每次 updateChartRange 刷新图表时，销毁下拉框导致手机焦点丢失/跳屏。
     if (!controlsDiv) {
         controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
         controlsDiv.style.cssText = "display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-bottom:10px; font-size:12px; color:#aaa;";
         canvas.parentNode.insertBefore(controlsDiv, canvas);
+
+        // 注意：给 select 和 input 加上 id，方便后续同步状态（如果需要）
+        controlsDiv.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px; margin-right:auto;">
+                <span style="color:#888;">Range:</span>
+                <select id="chartRangeSelect" onchange="window.updateChartRange(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
+                    <option value="all">All History</option>
+                    <option value="ytd">Year to Date</option>
+                    <option value="1w">Last 5 Days</option>
+                </select>
+            </div>
+            <label style="cursor:pointer; display:flex; align-items:center;">
+                <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
+                <span style="border-bottom: 2px dashed #888">N+2</span>
+            </label>
+            <label style="cursor:pointer; display:flex; align-items:center;">
+                <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" style="margin-right:5px;"> 
+                <span style="border-bottom: 2px dotted #888">N+3</span>
+            </label>
+        `;
     }
 
-    controlsDiv.innerHTML = `
-        <div style="display:flex; align-items:center; gap:10px; margin-right:auto;">
-            <span style="color:#888;">Range:</span>
-            <select onchange="window.updateChartRange(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
-                <option value="all" ${currentChartRange === 'all' ? 'selected' : ''}>All History</option>
-                <option value="ytd" ${currentChartRange === 'ytd' ? 'selected' : ''}>Year to Date</option>
-                <option value="1w"  ${currentChartRange === '1w' ? 'selected' : ''}>Last 5 Days</option>
-            </select>
-        </div>
-        <label style="cursor:pointer; display:flex; align-items:center;">
-            <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" ${typeof showN2 !== 'undefined' && showN2 ? 'checked' : ''} style="margin-right:5px;"> 
-            <span style="border-bottom: 2px dashed #888">N+2</span>
-        </label>
-        <label style="cursor:pointer; display:flex; align-items:center;">
-            <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" ${typeof showN3 !== 'undefined' && showN3 ? 'checked' : ''} style="margin-right:5px;"> 
-            <span style="border-bottom: 2px dotted #888">N+3</span>
-        </label>
-    `;
+    // 【同步状态】：虽然不重建DOM，但我们要确保 UI 状态和变量一致
+    // (防止变量是通过代码改变的，而 UI 没变)
+    const rangeSelect = document.getElementById('chartRangeSelect');
+    if (rangeSelect && rangeSelect.value !== currentChartRange) {
+        rangeSelect.value = currentChartRange;
+    }
+    const chkN2 = document.getElementById('toggleN2');
+    if (chkN2) chkN2.checked = (typeof showN2 !== 'undefined' && showN2);
+    
+    const chkN3 = document.getElementById('toggleN3');
+    if (chkN3) chkN3.checked = (typeof showN3 !== 'undefined' && showN3);
+
 
     // 3. 销毁旧图表
     if (perfChart) {
@@ -1621,14 +1638,11 @@ function renderHistoryChart() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // ============ 【核心修复开始：新增归一化处理函数】 ============
-        // 作用：取出指定范围的数据，并减去该范围第一个有效值，使曲线从 0% 开始
+        // 【修复点2】：检测是否为手机屏幕
+        const isMobile = window.innerWidth < 768;
+
         const getNormalizedData = (fullData, startIndex) => {
-            // 1. 先进行切片
             const sliced = fullData.slice(startIndex);
-            
-            // 2. 寻找基准值 (Anchor)
-            // 并不是简单的 sliced[0]，因为第0个可能是 null (非交易日或缺失数据)
             let anchor = null;
             for (let val of sliced) {
                 if (val !== null && val !== undefined) {
@@ -1636,32 +1650,21 @@ function renderHistoryChart() {
                     break;
                 }
             }
-
-            // 3. 如果范围内全是 null，直接返回
             if (anchor === null) return sliced;
-
-            // 4. 执行归一化：(当前值 - 基准值)
             return sliced.map(val => {
                 if (val === null || val === undefined) return null;
-                // 这里是简单的减法，因为你的原始数据已经是“累计收益率%”
-                // 如果原始数据是股价，公式应为 (val - anchor) / anchor * 100
                 return val - anchor; 
             });
         };
-        // ============ 【核心修复结束】 ============
 
-        // --- 修改 Dataset 构建逻辑，调用 getNormalizedData ---
         const createDataset = (label, color, dataKey, groupKey, options = {}) => {
             const fullData = historyData.datasets[dataKey] || [];
-            
-            // 【修改点】：不再直接 slice，而是调用归一化函数
             const normalizedData = getNormalizedData(fullData, sliceStartIndex);
-
             return {
                 label: label, 
                 borderColor: color, 
                 backgroundColor: color + '1A',
-                data: normalizedData, // 使用归一化后的数据
+                data: normalizedData, 
                 tension: 0.3, 
                 pointRadius: 0, 
                 borderWidth: 2, 
@@ -1676,13 +1679,10 @@ function renderHistoryChart() {
         const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
             const isN2 = type === 'n2';
             const fullData = historyData.datasets[`${parentKey}_${type}`] || [];
-            
-            // 【修改点】：变体数据同样需要归一化
             const normalizedData = getNormalizedData(fullData, sliceStartIndex);
-
             return {
                 label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
-                data: normalizedData, // 使用归一化后的数据
+                data: normalizedData, 
                 borderColor: color,
                 borderWidth: 1.5,
                 borderDash: isN2 ? [6, 4] : [2, 3], 
@@ -1717,7 +1717,6 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 初始化 Chart (保持不变) ---
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1776,7 +1775,6 @@ function renderHistoryChart() {
                             return A - B;
                         },
                         callbacks: {
-                            // 可选优化：Tooltip 显示时明确这是期间收益
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) {
@@ -1796,11 +1794,15 @@ function renderHistoryChart() {
                         ticks: { color: '#666' }, 
                         grid: { color: '#333' } 
                     }, 
+                    // 【修复点3】：针对 X 轴进行移动端适配
                     x: { 
                         ticks: { 
                             color: '#666', 
-                            maxTicksLimit: 6,
-                            maxRotation: 0,
+                            // 手机上减少显示的刻度数量，防止拥挤
+                            maxTicksLimit: isMobile ? 5 : 10, 
+                            // 手机上强制允许旋转，甚至强制旋转45度，以便显示更清晰
+                            maxRotation: isMobile ? 45 : 0, 
+                            minRotation: isMobile ? 45 : 0, 
                             autoSkip: true
                         }, 
                         grid: { color: '#333' } 
