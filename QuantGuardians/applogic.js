@@ -61,6 +61,15 @@ let historyData = { dates: [], datasets: {} };
 let priceUpdateInterval = null; // 用于存储 setInterval 的 ID，以便在市场关闭时清除
 let hasClosedPrices = false;    // 标识收盘价格是否已获取并锁定
 
+// [新增] 全局变量存储当前时间范围选择状态
+let currentChartRange = 'all'; // 可选值: 'all', 'ytd', '1w'
+
+// [新增] 切换时间范围的全局函数
+window.updateChartRange = function(range) {
+    currentChartRange = range;
+    renderHistoryChart(); // 重新渲染图表
+};
+
 /**
  * 获取当前时刻对应的中国时间对象
  * 原理：将当前UTC时间转换为中国时区的字符串，再重新解析为 Date 对象
@@ -1544,30 +1553,49 @@ let showN3 = false;
 
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
-function renderHistoryChart() {
+
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
     
     // 1. 显示容器
     chartContainer.style.display = 'block';
     
-    // 2. 插入控制开关
-    if (!document.getElementById('chartVariantControls')) {
-        const controlsDiv = document.createElement('div');
+    // [修改] 优化 Canvas 高度，防止手机上太扁
+    canvas.style.minHeight = "300px"; 
+
+    // 2. 插入控制开关 (包含 Checkbox 和 新增的下拉菜单)
+    let controlsDiv = document.getElementById('chartVariantControls');
+    
+    // 如果控制栏不存在，则创建
+    if (!controlsDiv) {
+        controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
-        controlsDiv.style.cssText = "display:flex; justify-content:flex-end; gap:15px; margin-bottom:5px; font-size:12px; color:#aaa; height:25px;";
-        controlsDiv.innerHTML = `
-            <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
-                <span style="border-bottom: 2px dashed #888">Show N+2 (Dashed)</span>
-            </label>
-            <label style="cursor:pointer; display:flex; align-items:center;">
-                <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" style="margin-right:5px;"> 
-                <span style="border-bottom: 2px dotted #888">Show N+3 (Dotted)</span>
-            </label>
-        `;
+        // [修改] 样式调整，适应手机端换行
+        controlsDiv.style.cssText = "display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-bottom:10px; font-size:12px; color:#aaa;";
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
+
+    // 动态刷新控制栏内容 (确保 Select 状态同步)
+    // 注意：这里使用 innerHTML 重新生成，确保下拉框选中状态正确
+    controlsDiv.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px; margin-right:auto;">
+            <span style="color:#888;">Range:</span>
+            <select onchange="window.updateChartRange(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
+                <option value="all" ${currentChartRange === 'all' ? 'selected' : ''}>All History</option>
+                <option value="ytd" ${currentChartRange === 'ytd' ? 'selected' : ''}>Year to Date</option>
+                <option value="1w"  ${currentChartRange === '1w' ? 'selected' : ''}>Last 5 Days</option>
+            </select>
+        </div>
+
+        <label style="cursor:pointer; display:flex; align-items:center;">
+            <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" ${typeof showN2 !== 'undefined' && showN2 ? 'checked' : ''} style="margin-right:5px;"> 
+            <span style="border-bottom: 2px dashed #888">N+2</span>
+        </label>
+        <label style="cursor:pointer; display:flex; align-items:center;">
+            <input type="checkbox" id="toggleN3" onchange="window.toggleVariantState('n3')" ${typeof showN3 !== 'undefined' && showN3 ? 'checked' : ''} style="margin-right:5px;"> 
+            <span style="border-bottom: 2px dotted #888">N+3</span>
+        </label>
+    `;
 
     // 3. 销毁旧图表
     if (perfChart) {
@@ -1575,39 +1603,68 @@ function renderHistoryChart() {
         perfChart = null;
     }
 
-    // 4. 延迟初始化
+    // 4. 计算数据切片 (核心新增逻辑)
+    // 根据 selected range 决定从哪里开始 slice
+    let sliceStartIndex = 0;
+    const allDates = historyData.dates || [];
+    const totalPoints = allDates.length;
+
+    if (currentChartRange === 'ytd') {
+        // 今年 (Year to Date)
+        const currentYear = new Date().getFullYear(); // 获取本地当前年份
+        // 找到第一个日期大于等于 "YYYY-01-01" 的索引
+        // 假设日期格式为 "YYYY-MM-DD" 或类似可比较字符串
+        const startStr = `${currentYear}-01-01`;
+        const idx = allDates.findIndex(d => d >= startStr);
+        sliceStartIndex = idx >= 0 ? idx : 0;
+    } else if (currentChartRange === '1w') {
+        // 最近一周 (最近5个交易日)
+        sliceStartIndex = Math.max(0, totalPoints - 5);
+    } else {
+        // All
+        sliceStartIndex = 0;
+    }
+
+    // 生成当前视图用的 Label
+    const viewDates = allDates.slice(sliceStartIndex);
+
+    // 5. 延迟初始化图表
     setTimeout(() => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // --- 数据集构建逻辑 ---
-        const createDataset = (label, color, dataKey, groupKey, options = {}) => ({
-            label: label, 
-            borderColor: color, 
-            backgroundColor: color + '1A',
-            data: historyData.datasets[dataKey] || [], 
-            tension: 0.3, 
-            pointRadius: 0, 
-            borderWidth: 2, 
-            spanGaps: true,
-            order: 1, 
-            isMain: true,
-            groupKey: groupKey, 
-            ...options
-        });
+        // --- 数据集构建逻辑 (修改：增加 .slice(sliceStartIndex)) ---
+        const createDataset = (label, color, dataKey, groupKey, options = {}) => {
+            const fullData = historyData.datasets[dataKey] || [];
+            return {
+                label: label, 
+                borderColor: color, 
+                backgroundColor: color + '1A',
+                data: fullData.slice(sliceStartIndex), // [核心修改] 切片数据
+                tension: 0.3, 
+                pointRadius: 0, 
+                borderWidth: 2, 
+                spanGaps: true,
+                order: 1, 
+                isMain: true,
+                groupKey: groupKey, 
+                ...options
+            };
+        };
 
         const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
             const isN2 = type === 'n2';
+            const fullData = historyData.datasets[`${parentKey}_${type}`] || [];
             return {
                 label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
-                data: historyData.datasets[`${parentKey}_${type}`] || [],
+                data: fullData.slice(sliceStartIndex), // [核心修改] 切片数据
                 borderColor: color,
                 borderWidth: 1.5,
                 borderDash: isN2 ? [6, 4] : [2, 3], 
                 pointRadius: 0,
                 tension: 0.3,
                 fill: false,
-                hidden: true, 
+                hidden: true, // 默认隐藏，由 updateVariantVisibility 控制
                 order: 10,
                 variantType: type,
                 groupKey: groupKey,
@@ -1635,26 +1692,25 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 构建标签到索引的映射 ---
-        const labelToIndexMap = {};
-        datasets.forEach((dataset, originalIndex) => {
-            if (dataset.isMain === true) {
-                labelToIndexMap[dataset.label] = originalIndex;
-            }
-        });
-
-        console.log('Label to index mapping:', labelToIndexMap);
-
         // --- 初始化 Chart ---
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: historyData.dates,
+                labels: viewDates, // 使用切片后的日期
                 datasets: datasets
             },
             options: {
                 responsive: true, 
                 maintainAspectRatio: false, 
+                // [修改] 增加底部 Padding，解决手机上X轴标签被切断的问题
+                layout: {
+                    padding: {
+                        left: 0,
+                        right: 0,
+                        top: 10,
+                        bottom: 25 // 增加底部空间
+                    }
+                },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
                     legend: { 
@@ -1662,55 +1718,36 @@ function renderHistoryChart() {
                         labels: { 
                             color: '#ccc',
                             font: { size: 12 },
-                            // 使用filter保持图标显示
+                            boxWidth: 12, // 稍微调小图例图标以节省空间
+                            padding: 15,
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
                                 return ds.isMain === true;
                             }
                         },
-                        // 修复点击事件：移除 e.stopPropagation()
                         onClick: function(e, legendItem, legend) {
+                            // 保持原有的图例点击逻辑
                             const chart = legend.chart;
-                            
-                            // 获取点击图例的元素
                             const clickedDatasetIndex = legendItem.datasetIndex;
                             const dataset = chart.data.datasets[clickedDatasetIndex];
                             
-                            // 如果点击的不是图标（而是标签文本），忽略
-                            if (!legendItem.datasetIndex && legendItem.datasetIndex !== 0) {
-                                return;
-                            }
+                            if (!legendItem.datasetIndex && legendItem.datasetIndex !== 0) return;
                             
-                            // 获取当前图例的显示状态
                             const meta = chart.getDatasetMeta(clickedDatasetIndex);
                             const isCurrentlyVisible = !meta.hidden;
                         
-                            // 切换整个组（主线 + 所有变体）
                             chart.data.datasets.forEach((ds, idx) => {
                                 if (ds.groupKey === dataset.groupKey) {
-                                    // 更新显示/隐藏状态
-                                    if (isCurrentlyVisible) {
-                                        chart.hide(idx);
-                                    } else {
-                                        chart.show(idx);
-                                    }
+                                    if (isCurrentlyVisible) chart.hide(idx);
+                                    else chart.show(idx);
                                 }
                             });
                         
-                            // 更新图例项的显示状态
                             legendItem.hidden = isCurrentlyVisible;
-                        
-                            // 强制更新图表
                             chart.update();
                         
-                            // 更新复选框状态（确保与图表同步）
                             if (typeof window.updateVariantVisibility === 'function') {
                                 setTimeout(window.updateVariantVisibility, 50);
-                            }
-                        
-                            // 防止事件冒泡
-                            if (e.stopPropagation && typeof e.stopPropagation === 'function') {
-                                e.stopPropagation();
                             }
                         }
                     },       
@@ -1723,30 +1760,27 @@ function renderHistoryChart() {
                     }
                 },
                 scales: { 
-                    y: { ticks: { color: '#666' }, grid: { color: '#333' } }, 
-                    x: { ticks: { color: '#666', maxTicksLimit: 8 }, grid: { color: '#333' } } 
+                    y: { 
+                        ticks: { color: '#666' }, 
+                        grid: { color: '#333' } 
+                    }, 
+                    x: { 
+                        ticks: { 
+                            color: '#666', 
+                            maxTicksLimit: 6, // 限制X轴标签数量，防止拥挤
+                            maxRotation: 0,   // 防止标签倾斜导致占用过多垂直空间
+                            autoSkip: true
+                        }, 
+                        grid: { color: '#333' } 
+                    } 
                 }
             }
         });
 
-        // 强制调整大小和更新
-        setTimeout(() => {
-            if (perfChart) {
-                // 强制布局计算
-                void chartContainer.offsetHeight;
-                
-                // 调整大小
-                perfChart.resize();
-                
-                // 更新图表
-                perfChart.update();
-                
-                // 更新复选框状态
-                if (typeof window.updateVariantVisibility === 'function') {
-                    window.updateVariantVisibility();
-                }
-            }
-        }, 100);
+        // 强制刷新 N+2/N+3 的显示状态
+        if (typeof window.updateVariantVisibility === 'function') {
+            window.updateVariantVisibility();
+        }
 
     }, 50);
 }
