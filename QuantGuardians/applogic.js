@@ -1561,23 +1561,18 @@ function renderHistoryChart() {
     // 1. 显示容器
     chartContainer.style.display = 'block';
     
-    // [修改] 优化 Canvas 高度，防止手机上太扁
+    // [修改] 优化 Canvas 高度
     canvas.style.minHeight = "300px"; 
 
-    // 2. 插入控制开关 (包含 Checkbox 和 新增的下拉菜单)
+    // 2. 插入控制开关
     let controlsDiv = document.getElementById('chartVariantControls');
-    
-    // 如果控制栏不存在，则创建
     if (!controlsDiv) {
         controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
-        // [修改] 样式调整，适应手机端换行
         controlsDiv.style.cssText = "display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-bottom:10px; font-size:12px; color:#aaa;";
         canvas.parentNode.insertBefore(controlsDiv, canvas);
     }
 
-    // 动态刷新控制栏内容 (确保 Select 状态同步)
-    // 注意：这里使用 innerHTML 重新生成，确保下拉框选中状态正确
     controlsDiv.innerHTML = `
         <div style="display:flex; align-items:center; gap:10px; margin-right:auto;">
             <span style="color:#888;">Range:</span>
@@ -1587,7 +1582,6 @@ function renderHistoryChart() {
                 <option value="1w"  ${currentChartRange === '1w' ? 'selected' : ''}>Last 5 Days</option>
             </select>
         </div>
-
         <label style="cursor:pointer; display:flex; align-items:center;">
             <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" ${typeof showN2 !== 'undefined' && showN2 ? 'checked' : ''} style="margin-right:5px;"> 
             <span style="border-bottom: 2px dashed #888">N+2</span>
@@ -1604,29 +1598,22 @@ function renderHistoryChart() {
         perfChart = null;
     }
 
-    // 4. 计算数据切片 (核心新增逻辑)
-    // 根据 selected range 决定从哪里开始 slice
+    // 4. 计算数据切片索引
     let sliceStartIndex = 0;
     const allDates = historyData.dates || [];
     const totalPoints = allDates.length;
 
     if (currentChartRange === 'ytd') {
-        // 今年 (Year to Date)
-        const currentYear = new Date().getFullYear(); // 获取本地当前年份
-        // 找到第一个日期大于等于 "YYYY-01-01" 的索引
-        // 假设日期格式为 "YYYY-MM-DD" 或类似可比较字符串
+        const currentYear = new Date().getFullYear();
         const startStr = `${currentYear}-01-01`;
         const idx = allDates.findIndex(d => d >= startStr);
         sliceStartIndex = idx >= 0 ? idx : 0;
     } else if (currentChartRange === '1w') {
-        // 最近一周 (最近5个交易日)
         sliceStartIndex = Math.max(0, totalPoints - 5);
     } else {
-        // All
         sliceStartIndex = 0;
     }
 
-    // 生成当前视图用的 Label
     const viewDates = allDates.slice(sliceStartIndex);
 
     // 5. 延迟初始化图表
@@ -1634,14 +1621,47 @@ function renderHistoryChart() {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // --- 数据集构建逻辑 (修改：增加 .slice(sliceStartIndex)) ---
+        // ============ 【核心修复开始：新增归一化处理函数】 ============
+        // 作用：取出指定范围的数据，并减去该范围第一个有效值，使曲线从 0% 开始
+        const getNormalizedData = (fullData, startIndex) => {
+            // 1. 先进行切片
+            const sliced = fullData.slice(startIndex);
+            
+            // 2. 寻找基准值 (Anchor)
+            // 并不是简单的 sliced[0]，因为第0个可能是 null (非交易日或缺失数据)
+            let anchor = null;
+            for (let val of sliced) {
+                if (val !== null && val !== undefined) {
+                    anchor = val;
+                    break;
+                }
+            }
+
+            // 3. 如果范围内全是 null，直接返回
+            if (anchor === null) return sliced;
+
+            // 4. 执行归一化：(当前值 - 基准值)
+            return sliced.map(val => {
+                if (val === null || val === undefined) return null;
+                // 这里是简单的减法，因为你的原始数据已经是“累计收益率%”
+                // 如果原始数据是股价，公式应为 (val - anchor) / anchor * 100
+                return val - anchor; 
+            });
+        };
+        // ============ 【核心修复结束】 ============
+
+        // --- 修改 Dataset 构建逻辑，调用 getNormalizedData ---
         const createDataset = (label, color, dataKey, groupKey, options = {}) => {
             const fullData = historyData.datasets[dataKey] || [];
+            
+            // 【修改点】：不再直接 slice，而是调用归一化函数
+            const normalizedData = getNormalizedData(fullData, sliceStartIndex);
+
             return {
                 label: label, 
                 borderColor: color, 
                 backgroundColor: color + '1A',
-                data: fullData.slice(sliceStartIndex), // [核心修改] 切片数据
+                data: normalizedData, // 使用归一化后的数据
                 tension: 0.3, 
                 pointRadius: 0, 
                 borderWidth: 2, 
@@ -1656,16 +1676,20 @@ function renderHistoryChart() {
         const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
             const isN2 = type === 'n2';
             const fullData = historyData.datasets[`${parentKey}_${type}`] || [];
+            
+            // 【修改点】：变体数据同样需要归一化
+            const normalizedData = getNormalizedData(fullData, sliceStartIndex);
+
             return {
                 label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
-                data: fullData.slice(sliceStartIndex), // [核心修改] 切片数据
+                data: normalizedData, // 使用归一化后的数据
                 borderColor: color,
                 borderWidth: 1.5,
                 borderDash: isN2 ? [6, 4] : [2, 3], 
                 pointRadius: 0,
                 tension: 0.3,
                 fill: false,
-                hidden: true, // 默认隐藏，由 updateVariantVisibility 控制
+                hidden: true,
                 order: 10,
                 variantType: type,
                 groupKey: groupKey,
@@ -1693,24 +1717,18 @@ function renderHistoryChart() {
             datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
         });
 
-        // --- 初始化 Chart ---
+        // --- 初始化 Chart (保持不变) ---
         perfChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: viewDates, // 使用切片后的日期
+                labels: viewDates, 
                 datasets: datasets
             },
             options: {
                 responsive: true, 
                 maintainAspectRatio: false, 
-                // [修改] 增加底部 Padding，解决手机上X轴标签被切断的问题
                 layout: {
-                    padding: {
-                        left: 0,
-                        right: 0,
-                        top: 10,
-                        bottom: 25 // 增加底部空间
-                    }
+                    padding: { left: 0, right: 0, top: 10, bottom: 25 }
                 },
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: { 
@@ -1719,7 +1737,7 @@ function renderHistoryChart() {
                         labels: { 
                             color: '#ccc',
                             font: { size: 12 },
-                            boxWidth: 12, // 稍微调小图例图标以节省空间
+                            boxWidth: 12,
                             padding: 15,
                             filter: function(item, chartData) {
                                 const ds = chartData.datasets[item.datasetIndex];
@@ -1727,7 +1745,6 @@ function renderHistoryChart() {
                             }
                         },
                         onClick: function(e, legendItem, legend) {
-                            // 保持原有的图例点击逻辑
                             const chart = legend.chart;
                             const clickedDatasetIndex = legendItem.datasetIndex;
                             const dataset = chart.data.datasets[clickedDatasetIndex];
@@ -1757,6 +1774,20 @@ function renderHistoryChart() {
                             const A = a.dataset.isMain ? 0 : 1;
                             const B = b.dataset.isMain ? 0 : 1;
                             return A - B;
+                        },
+                        callbacks: {
+                            // 可选优化：Tooltip 显示时明确这是期间收益
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    const sign = context.parsed.y > 0 ? '+' : '';
+                                    label += sign + context.parsed.y.toFixed(2) + '%';
+                                }
+                                return label;
+                            }
                         }
                     }
                 },
@@ -1768,8 +1799,8 @@ function renderHistoryChart() {
                     x: { 
                         ticks: { 
                             color: '#666', 
-                            maxTicksLimit: 6, // 限制X轴标签数量，防止拥挤
-                            maxRotation: 0,   // 防止标签倾斜导致占用过多垂直空间
+                            maxTicksLimit: 6,
+                            maxRotation: 0,
                             autoSkip: true
                         }, 
                         grid: { color: '#333' } 
@@ -1778,7 +1809,6 @@ function renderHistoryChart() {
             }
         });
 
-        // 强制刷新 N+2/N+3 的显示状态
         if (typeof window.updateVariantVisibility === 'function') {
             window.updateVariantVisibility();
         }
