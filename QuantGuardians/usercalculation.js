@@ -1,92 +1,13 @@
+/*
 // ==================================================================================
 // 1. 配置信息
 // ==================================================================================
-
-// --- GitHub 配置 ---
-const GITHUB_CONFIG = {
-  USERNAME: "digital-era",
-  REPO_NAME: "AIPEQModel",
-  TARGET_BRANCH: "main",
-  FILE_PATH: "HK/EEIFlowHK.xlsx" // 指定子目录 HK 下的文件
-};
-
-window.OSS_CONFIG = {
-  // OSS相关配置
-  ACCESS_KEY_ID: '', 
-  ACCESS_KEY_SECRET: '',
-  REGION: 'oss-cn-hangzhou', 
-  BUCKET_NAME: 'aiep-users',
-
-  // OSS 路径配置
-  OSS_REMOTE_PATH: 'AIPEQuantGuardiansPortfolio.xlsx',
-  OSS_JSON_PATH: 'QuantGuardians综合评估.json',
-  
-  INITIAL_CAPITAL: 100000.0
-};
-
 const STRATEGY_MAP = {
   'genbu':  { sheet_flow: '低波OR', sheet_snap: '低波', name: '低波' },
   'suzaku': { sheet_flow: '大成OR', sheet_snap: '大成', name: '大成' },
   'sirius': { sheet_flow: '流入OR', sheet_snap: '流入', name: '流入' },
   'kirin':  { sheet_flow: '大智OR', sheet_snap: '大智', name: '大智' }
 };
-
-
-// 页面加载逻辑
-document.addEventListener('DOMContentLoaded', function() {
-    var saved = localStorage.getItem('OSS_CONFIG_STORE');
-    if (saved) {
-        try {
-            var parsed = JSON.parse(saved);
-            window.OSS_CONFIG = parsed;
-            // 填充 Input
-            document.getElementById('oss_region').value = parsed.region;
-            document.getElementById('oss_bucket').value = parsed.bucket;
-            document.getElementById('oss_ak_id').value = parsed.accessKeyId;
-            document.getElementById('oss_ak_secret').value = parsed.accessKeySecret;
-        } catch (e) {
-            console.error("Config load error", e);
-        }
-    }
-});
-
-// 保存设置并显示“游戏化”的提示
-function saveOssSettings() {
-    var regionVal = document.getElementById('oss_region').value;
-    var bucketVal = document.getElementById('oss_bucket').value;
-    var idVal = document.getElementById('oss_ak_id').value;
-    var secretVal = document.getElementById('oss_ak_secret').value;
-    var statusMsg = document.getElementById('save-status-msg');
-
-    // 简单的非空校验
-    if(!regionVal || !bucketVal || !idVal || !secretVal) {
-        statusMsg.style.color = "#EF4444"; // Suzaku Red (Error)
-        statusMsg.innerText = ">> ERROR: MISSING FIELDS <<";
-        return;
-    }
-
-    var newConfig = {
-        region: regionVal,
-        bucket: bucketVal,
-        accessKeyId: idVal,
-        accessKeySecret: secretVal
-    };
-    
-    // 更新全局和本地存储
-    window.OSS_CONFIG = newConfig;
-    localStorage.setItem('OSS_CONFIG_STORE', JSON.stringify(newConfig));
-
-    // 成功的视觉反馈 (Genbu Green)
-    statusMsg.style.color = "#10B981"; 
-    statusMsg.innerText = ">> SYSTEM UPDATED SUCCESSFULLY <<";
-
-    // 1.5秒后清除提示
-    setTimeout(function() {
-        statusMsg.innerText = "";
-    }, 1500);
-    
-    // 注意：不自动关闭窗口，让用户看到“成功”提示
-}
 
 // 日志工具
 function log(msg, type = 'info') {
@@ -100,15 +21,6 @@ function log(msg, type = 'info') {
   logDiv.scrollTop = logDiv.scrollHeight;
   console.log(`[${time}] ${msg}`);
 }
-
-// 初始化 OSS 客户端 (已修复: 增加 secure: true)
-const client = new OSS({
-  region: window.OSS_CONFIG.REGION,
-  accessKeyId: window.OSS_CONFIG.ACCESS_KEY_ID,
-  accessKeySecret: window.OSS_CONFIG.ACCESS_KEY_SECRET,
-  bucket: window.OSS_CONFIG.BUCKET_NAME,
-  secure: true // ⚠️ 关键修改：强制使用 HTTPS，避免混合内容错误
-});
 
 // ==================================================================================
 // 2. 核心类：回测引擎
@@ -604,3 +516,4 @@ async function updateExcelAndUpload(workbook, enginesCache, hkTargetData) {
   await client.put(window.OSS_CONFIG.OSS_REMOTE_PATH, blob);
   log(`✅ Excel 更新并上传成功！`, 'success');
 }
+*/
