@@ -1,9 +1,26 @@
 // ================= CONFIG =================
 // const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
-const STS_API_URL = 'https://aipeinvestmentagent.pages.dev/api/sts-credentials'; 
-const OSS_BUCKET = 'aiep-users'; 
-const OSS_REGION = 'oss-cn-hangzhou'; 
-const OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
+// const STS_API_URL = 'https://aipeinvestmentagent.pages.dev/api/sts-credentials'; 
+const STS_API_URL = 'api/user-sts-credentials'; 
+let OSS_BUCKET = 'aiep-users'; 
+let OSS_REGION = 'oss-cn-hangzhou'; 
+let ACCESS_KEY_ID = ''; 
+let ACCESS_KEY_SECRET = ''; 
+let STS_ROLE_ARN = ''; 
+
+let OSS_FILE_NAME = 'AIPEQuantGuardiansPortfolio.xlsx';
+
+const OSS_JSON_PATH = 'QuantGuardians综合评估.json';    
+const INITIAL_CAPITAL = 100000.0;
+
+window.OSS_CONFIG = {
+  // OSS相关配置
+  OSS_REGION: 'oss-cn-hangzhou', 
+  OSS_BUCKET: 'aiep-users',    
+  ACCESS_KEY_ID: '', 
+  ACCESS_KEY_SECRET: '',
+  STS_ROLE_ARN: '',
+};
 
 const GITHUB_USER = 'digital-era';
 const GITHUB_REPO = 'AIPEQModel';
@@ -63,6 +80,69 @@ let hasClosedPrices = false;    // 标识收盘价格是否已获取并锁定
 
 // [新增] 全局变量存储当前时间范围选择状态
 let currentChartRange = 'all'; // 可选值: 'all', 'ytd', '1w'
+
+
+// 页面加载逻辑
+document.addEventListener('DOMContentLoaded', function() {
+    var saved = localStorage.getItem('OSS_CONFIG_STORE');
+    if (saved) {
+        try {
+            var parsed = JSON.parse(saved);
+            window.OSS_CONFIG = parsed;
+            // 填充 Input
+            document.getElementById('oss_region').value = parsed.region;
+            document.getElementById('oss_bucket').value = parsed.bucket;
+            document.getElementById('oss_ak_id').value = parsed.accessKeyId;
+            document.getElementById('oss_ak_secret').value = parsed.accessKeySecret;
+        } catch (e) {
+            console.error("Config load error", e);
+        }
+    }
+});
+
+// 保存设置并显示提示
+function saveOssSettings() {
+    var regionVal = document.getElementById('oss_region').value;
+    var bucketVal = document.getElementById('oss_bucket').value;
+    var idVal = document.getElementById('oss_ak_id').value;
+    var secretVal = document.getElementById('oss_ak_secret').value;
+    var statusMsg = document.getElementById('save-status-msg');
+
+    // 简单的非空校验
+    if(!regionVal || !bucketVal || !idVal || !secretVal) {
+        statusMsg.style.color = "#EF4444"; // Suzaku Red (Error)
+        statusMsg.innerText = ">> ERROR: MISSING FIELDS <<";
+        return;
+    }
+
+    var newConfig = {
+        region: regionVal,
+        bucket: bucketVal,
+        accessKeyId: idVal,
+        accessKeySecret: secretVal,
+        stsrolearn: arnVal,
+    };
+    
+    // 更新全局和本地存储
+    window.OSS_CONFIG = newConfig;
+    OSS_BUCKET = newConfig.bucket;
+    OSS_REGION = newConfig.region;        
+    ACCESS_KEY_ID = newConfig.idVal;; 
+    ACCESS_KEY_SECRET = newConfig.secretVal;
+    STS_ROLE_ARN = newConfig.arnVal;; 
+    localStorage.setItem('OSS_CONFIG_STORE', JSON.stringify(newConfig));
+
+    // 成功的视觉反馈 (Genbu Green)
+    statusMsg.style.color = "#10B981"; 
+    statusMsg.innerText = ">> SYSTEM UPDATED SUCCESSFULLY <<";
+
+    // 1.5秒后清除提示
+    setTimeout(function() {
+        statusMsg.innerText = "";
+    }, 1500);
+    
+    // 注意：不自动关闭窗口，让用户看到“成功”提示
+}
 
 // [新增] 切换时间范围的全局函数
 window.updateChartRange = function(range) {
@@ -394,6 +474,20 @@ async function initOSS() {
                     'Content-Type': 'application/json',
                 } 
             }); // 指向你创建的STS凭证颁发函数
+
+        const res = await fetch(STS_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            // 关键修改：添加 body，并与 API 中解构的参数名保持一致
+            body: JSON.stringify({
+                OSS_ACCESS_KEY_ID: window.OSS_CONFIG.accessKeyId,
+                OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.accessKeySecret,
+                OSS_STS_ROLE_ARN: window.OSS_CONFIG.roleArn,
+                OSS_REGION: window.OSS_CONFIG.region
+            })
+        });
 
         const data = await res.json();
         ossClient = new OSS({
