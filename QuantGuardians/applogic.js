@@ -510,7 +510,12 @@ async function initOSS() {
 
         // --- 初始化 OSS 客户端 ---
         ossClient = new OSS({
-            region: window.OSS_CONFIG.OSS_REGION, // 建议也从配置读取，保持一致
+            // 关键修改：OSS SDK 的 region 必须带 "oss-" 前缀
+            // 如果你的配置已经是 "oss-cn-hangzhou"，这里直接用即可。
+            // 如果配置只有 "cn-hangzhou"，则需要手动加上 "oss-"。
+            region: window.OSS_CONFIG.OSS_REGION.startsWith('oss-') 
+                    ? window.OSS_CONFIG.OSS_REGION 
+                    : `oss-${window.OSS_CONFIG.OSS_REGION}`, 
             accessKeyId: data.AccessKeyId,
             accessKeySecret: data.AccessKeySecret,
             stsToken: data.SecurityToken,
