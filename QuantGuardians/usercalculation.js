@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             var parsed = JSON.parse(savedConfig);
             // 更新全局变量
-            window.OSS_window.OSS_CONFIG = parsed;
+            window.OSS_CONFIG = parsed;
             // 更新 Input 显示的值
             document.getElementById('oss_region').value = parsed.region;
             document.getElementById('oss_bucket').value = parsed.bucket;
@@ -62,7 +62,7 @@ function saveOssSettings() {
     };
     
     // 更新全局变量
-    window.OSS_window.OSS_CONFIG = newConfig;
+    window.OSS_CONFIG = newConfig;
     
     // 持久化存储
     localStorage.setItem('OSS_window.OSS_CONFIG_STORE', JSON.stringify(newConfig));
