@@ -32,43 +32,60 @@ const STRATEGY_MAP = {
 };
 
 
-// 页面加载时尝试从 LocalStorage 读取配置覆盖默认值
+// 页面加载逻辑
 document.addEventListener('DOMContentLoaded', function() {
-    var savedConfig = localStorage.getItem('OSS_window.OSS_CONFIG_STORE');
-    if (savedConfig) {
+    var saved = localStorage.getItem('OSS_CONFIG_STORE');
+    if (saved) {
         try {
-            var parsed = JSON.parse(savedConfig);
-            // 更新全局变量
+            var parsed = JSON.parse(saved);
             window.OSS_CONFIG = parsed;
-            // 更新 Input 显示的值
+            // 填充 Input
             document.getElementById('oss_region').value = parsed.region;
             document.getElementById('oss_bucket').value = parsed.bucket;
             document.getElementById('oss_ak_id').value = parsed.accessKeyId;
             document.getElementById('oss_ak_secret').value = parsed.accessKeySecret;
-            console.log("OSS Config loaded from LocalStorage");
         } catch (e) {
-            console.error("Failed to load OSS config", e);
+            console.error("Config load error", e);
         }
     }
 });
 
-// 保存配置函数
+// 保存设置并显示“游戏化”的提示
 function saveOssSettings() {
+    var regionVal = document.getElementById('oss_region').value;
+    var bucketVal = document.getElementById('oss_bucket').value;
+    var idVal = document.getElementById('oss_ak_id').value;
+    var secretVal = document.getElementById('oss_ak_secret').value;
+    var statusMsg = document.getElementById('save-status-msg');
+
+    // 简单的非空校验
+    if(!regionVal || !bucketVal || !idVal || !secretVal) {
+        statusMsg.style.color = "#EF4444"; // Suzaku Red (Error)
+        statusMsg.innerText = ">> ERROR: MISSING FIELDS <<";
+        return;
+    }
+
     var newConfig = {
-        region: document.getElementById('oss_region').value,
-        bucket: document.getElementById('oss_bucket').value,
-        accessKeyId: document.getElementById('oss_ak_id').value,
-        accessKeySecret: document.getElementById('oss_ak_secret').value
+        region: regionVal,
+        bucket: bucketVal,
+        accessKeyId: idVal,
+        accessKeySecret: secretVal
     };
     
-    // 更新全局变量
+    // 更新全局和本地存储
     window.OSS_CONFIG = newConfig;
+    localStorage.setItem('OSS_CONFIG_STORE', JSON.stringify(newConfig));
+
+    // 成功的视觉反馈 (Genbu Green)
+    statusMsg.style.color = "#10B981"; 
+    statusMsg.innerText = ">> SYSTEM UPDATED SUCCESSFULLY <<";
+
+    // 1.5秒后清除提示
+    setTimeout(function() {
+        statusMsg.innerText = "";
+    }, 1500);
     
-    // 持久化存储
-    localStorage.setItem('OSS_window.OSS_CONFIG_STORE', JSON.stringify(newConfig));
-    
-    alert("OSS Configuration Saved & Applied!");
-    document.getElementById('settingsModal').style.display = 'none';
+    // 注意：不自动关闭窗口，让用户看到“成功”提示
 }
 
 // 日志工具
