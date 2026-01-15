@@ -14,7 +14,7 @@ const OSS_JSON_PATH = 'QuantGuardians综合评估.json';
 const INITIAL_CAPITAL = 100000.0;
 
 window.OSS_CONFIG = {
-  // OSS相关配置
+  // 建议统一键名，这里保持原样，但下方的保存逻辑需要适配它
   OSS_REGION: 'oss-cn-hangzhou', 
   OSS_BUCKET: 'aiep-users',    
   ACCESS_KEY_ID: '', 
@@ -88,13 +88,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (saved) {
         try {
             var parsed = JSON.parse(saved);
-            window.OSS_CONFIG = parsed;
-            // 填充 Input
-            document.getElementById('oss_region').value = parsed.region;
-            document.getElementById('oss_bucket').value = parsed.bucket;
-            document.getElementById('oss_ak_id').value = parsed.accessKeyId;
-            document.getElementById('oss_ak_secret').value = parsed.accessKeySecret;
-            document.getElementById('oss_stc_rolearn').value = parsed.arnVal;
+            // 将读取到的配置覆盖到 window.OSS_CONFIG
+            // 注意：这里假设 LocalStorage 存的键名与 window.OSS_CONFIG 一致
+            if (parsed.OSS_REGION) window.OSS_CONFIG = parsed;
+
+            // 填充 Input (确保这里读取的键名与保存时的一致)
+            document.getElementById('oss_region').value = parsed.OSS_REGION || '';
+            document.getElementById('oss_bucket').value = parsed.OSS_BUCKET || '';
+            document.getElementById('oss_ak_id').value = parsed.ACCESS_KEY_ID || '';
+            document.getElementById('oss_ak_secret').value = parsed.ACCESS_KEY_SECRET || '';
+            document.getElementById('oss_stc_rolearn').value = parsed.STS_ROLE_ARN || '';
+            
+            // 同时更新全局变量
+            OSS_REGION = parsed.OSS_REGION || OSS_REGION;
+            OSS_BUCKET = parsed.OSS_BUCKET || OSS_BUCKET;
+            ACCESS_KEY_ID = parsed.ACCESS_KEY_ID || '';
+            ACCESS_KEY_SECRET = parsed.ACCESS_KEY_SECRET || '';
+            STS_ROLE_ARN = parsed.STS_ROLE_ARN || '';
+
         } catch (e) {
             console.error("Config load error", e);
         }
@@ -112,39 +123,46 @@ function saveOssSettings() {
 
     // 简单的非空校验
     if(!regionVal || !bucketVal || !idVal || !secretVal || !arnVal) {
-        statusMsg.style.color = "#EF4444"; // Suzaku Red (Error)
-        statusMsg.innerText = ">> ERROR: MISSING FIELDS <<";
+        if(statusMsg) {
+            statusMsg.style.color = "#EF4444"; 
+            statusMsg.innerText = ">> ERROR: MISSING FIELDS <<";
+        }
         return;
     }
 
+    // 【修正】结构与 window.OSS_CONFIG 保持一致
     var newConfig = {
-        region: regionVal,
-        bucket: bucketVal,
-        accessKeyId: idVal,
-        accessKeySecret: secretVal,
-        stsrolearn: arnVal,
+        OSS_REGION: regionVal,
+        OSS_BUCKET: bucketVal,
+        ACCESS_KEY_ID: idVal,
+        ACCESS_KEY_SECRET: secretVal,
+        STS_ROLE_ARN: arnVal
     };
     
-    // 更新全局和本地存储
+    // 更新全局配置对象
     window.OSS_CONFIG = newConfig;
-    OSS_BUCKET = newConfig.bucket;
-    OSS_REGION = newConfig.region;        
-    ACCESS_KEY_ID = newConfig.idVal;; 
-    ACCESS_KEY_SECRET = newConfig.secretVal;
-    STS_ROLE_ARN = newConfig.arnVal;; 
+    
+    // 【修正】更新全局独立变量 (使用正确的值来源)
+    OSS_BUCKET = regionVal; // 注意：原代码逻辑可能是想分别赋值，但通常有了 OSS_CONFIG 就不需要单独变量，这里为了兼容保留
+    OSS_REGION = bucketVal; // ⚠️ 注意：原代码这里 OSS_BUCKET 和 OSS_REGION 可能弄反了，请根据实际情况检查
+    // 修正后的赋值：
+    OSS_REGION = regionVal;
+    OSS_BUCKET = bucketVal;
+    ACCESS_KEY_ID = idVal; 
+    ACCESS_KEY_SECRET = secretVal;
+    STS_ROLE_ARN = arnVal; 
+    
     localStorage.setItem('OSS_CONFIG_STORE', JSON.stringify(newConfig));
 
-    // 成功的视觉反馈 (Genbu Green)
-    statusMsg.style.color = "#10B981"; 
-    statusMsg.innerText = ">> SYSTEM UPDATED SUCCESSFULLY <<";
-
-    // 1.5秒后清除提示
-    setTimeout(function() {
-        statusMsg.innerText = "";
-    }, 1500);
-    
-    // 注意：不自动关闭窗口，让用户看到“成功”提示
-}
+    // 成功的视觉反馈
+    if(statusMsg) {
+        statusMsg.style.color = "#10B981"; 
+        statusMsg.innerText = ">> SYSTEM UPDATED SUCCESSFULLY <<";
+        setTimeout(function() {
+            statusMsg.innerText = "";
+        }, 1500);
+    }
+};
 
 // [新增] 切换时间范围的全局函数
 window.updateChartRange = function(range) {
