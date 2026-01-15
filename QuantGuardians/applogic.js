@@ -94,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('oss_bucket').value = parsed.bucket;
             document.getElementById('oss_ak_id').value = parsed.accessKeyId;
             document.getElementById('oss_ak_secret').value = parsed.accessKeySecret;
+            document.getElementById('oss_stc_rolearn').value = parsed.arnVal;
         } catch (e) {
             console.error("Config load error", e);
         }
@@ -106,10 +107,11 @@ function saveOssSettings() {
     var bucketVal = document.getElementById('oss_bucket').value;
     var idVal = document.getElementById('oss_ak_id').value;
     var secretVal = document.getElementById('oss_ak_secret').value;
+    var arnVal = document.getElementById('oss_stc_rolearn').value;
     var statusMsg = document.getElementById('save-status-msg');
 
     // 简单的非空校验
-    if(!regionVal || !bucketVal || !idVal || !secretVal) {
+    if(!regionVal || !bucketVal || !idVal || !secretVal || !arnVal) {
         statusMsg.style.color = "#EF4444"; // Suzaku Red (Error)
         statusMsg.innerText = ">> ERROR: MISSING FIELDS <<";
         return;
