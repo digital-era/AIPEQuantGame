@@ -575,17 +575,48 @@
 
     <!-- SETTINGS MODAL -->
     <div id="settingsModal" class="modal-overlay" onclick="document.getElementById('settingsModal').style.display='none'">
-        <div class="modal-content" style="height:auto; max-width:400px; border-color:#888;" onclick="event.stopPropagation()">
+        <!-- 稍微增加了max-width以容纳长字符串 -->
+        <div class="modal-content" style="height:auto; max-width:500px; border-color:#888;" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <span class="pixel-font" style="color:#fff;">SYSTEM SETTINGS</span>
                 <button class="close-btn" onclick="document.getElementById('settingsModal').style.display='none'">[X]</button>
             </div>
+            
+            <!-- 原有的 GitHub Proxy -->
             <div class="setting-row">
                 <span class="switch-label">Github Proxy</span>
                 <input type="checkbox" id="chkGitProxy" checked onchange="toggleProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
             </div>
-            <div style="padding:15px; color:#666; font-size:0.7em;">
-                Enable proxy to accelerate model loading if connection is slow.
+
+            <!-- 分割线 -->
+            <div style="border-top: 1px dashed #333; margin: 10px 0;"></div>
+            <div class="pixel-font" style="font-size: 0.8em; color: #FFD700; margin-bottom: 10px; text-align: center;">ALIYUN OSS CONFIG</div>
+
+            <!-- 新增 OSS 配置字段 -->
+            <div class="setting-row">
+                <span class="switch-label" style="font-size: 0.8em;">Region</span>
+                <input type="text" id="oss_region" class="cmd-input" style="width: 220px;" value="oss-cn-hangzhou">
+            </div>
+            <div class="setting-row">
+                <span class="switch-label" style="font-size: 0.8em;">Bucket</span>
+                <input type="text" id="oss_bucket" class="cmd-input" style="width: 220px;" value="aiep-users">
+            </div>
+            <div class="setting-row">
+                <span class="switch-label" style="font-size: 0.8em;">AccessKey ID</span>
+                <input type="text" id="oss_ak_id" class="cmd-input" style="width: 220px;" value="">
+            </div>
+            <div class="setting-row">
+                <span class="switch-label" style="font-size: 0.8em;">AccessKey Secret</span>
+                <input type="password" id="oss_ak_secret" class="cmd-input" style="width: 220px;" value="">
+            </div>
+
+            <!-- 保存按钮 -->
+            <div style="padding:15px; text-align: center;">
+                <button class="cmd-btn buy-btn" style="width: 100% !important; padding: 10px; font-size: 0.8em;" onclick="saveOssSettings()">SAVE CONFIGURATION</button>
+            </div>
+
+            <div style="padding:10px; color:#666; font-size:0.6em; text-align: center;">
+                * Config will be saved to LocalStorage.
             </div>
         </div>
     </div>
