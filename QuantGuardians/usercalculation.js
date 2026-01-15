@@ -10,7 +10,7 @@ const GITHUB_CONFIG = {
   FILE_PATH: "HK/EEIFlowHK.xlsx" // 指定子目录 HK 下的文件
 };
 
-const window.OSS_CONFIG = {
+window.OSS_CONFIG = {
   // OSS相关配置
   ACCESS_KEY_ID: '', 
   ACCESS_KEY_SECRET: '',
