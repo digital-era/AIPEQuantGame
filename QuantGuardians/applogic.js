@@ -503,10 +503,10 @@ async function initOSS() {
             },
             // 关键修改：添加 body，并与 API 中解构的参数名保持一致
             body: JSON.stringify({
-                OSS_ACCESS_KEY_ID: window.OSS_CONFIG.accessKeyId,
-                OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.accessKeySecret,
-                OSS_STS_ROLE_ARN: window.OSS_CONFIG.roleArn,
-                OSS_REGION: window.OSS_CONFIG.region
+                OSS_ACCESS_KEY_ID: window.OSS_CONFIG.ACCESS_KEY_ID,
+                OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.ACCESS_KEY_SECRET,
+                OSS_STS_ROLE_ARN: window.OSS_CONFIG.STS_ROLE_ARN,
+                OSS_REGION: window.OSS_CONFIG.OSS_REGION
             })
         });
 
