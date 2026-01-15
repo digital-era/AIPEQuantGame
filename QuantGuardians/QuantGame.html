@@ -573,16 +573,16 @@
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
+	<!-- SETTINGS MODAL -->
     <div id="settingsModal" class="modal-overlay" onclick="document.getElementById('settingsModal').style.display='none'">
-        <!-- 宽度稍微增加到 450px 以容纳长密钥 -->
+        <!-- 宽度保持 450px -->
         <div class="modal-content" style="height:auto; max-width:450px; border-color:#888;" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <span class="pixel-font" style="color:#fff;">SYSTEM SETTINGS</span>
                 <button class="close-btn" onclick="document.getElementById('settingsModal').style.display='none'">[X]</button>
             </div>
             
-            <!-- Git Proxy 保持不变 -->
+            <!-- Github Proxy -->
             <div class="setting-row">
                 <span class="switch-label">Github Proxy</span>
                 <input type="checkbox" id="chkGitProxy" checked onchange="toggleProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
@@ -606,31 +606,32 @@
                     <span class="switch-label" style="font-size: 0.7em; color:#aaa;">BUCKET:</span>
                     <input type="text" id="oss_bucket" class="cmd-input" style="width: 250px; color:#fff;" value="aiep-users">
                 </div>
+                
+                <!-- 【修改点1】AccessKey ID 改为 password 类型 -->
                 <div style="display:flex; justify-content: space-between; align-items: center;">
                     <span class="switch-label" style="font-size: 0.7em; color:#aaa;">AK ID:</span>
-                    <input type="text" id="oss_ak_id" class="cmd-input" style="width: 250px; color:#fff;" value="">
+                    <input type="password" id="oss_ak_id" class="cmd-input" style="width: 250px; color:#fff;" value="">
                 </div>
+                
+                <!-- AccessKey Secret 保持 password 类型 -->
                 <div style="display:flex; justify-content: space-between; align-items: center;">
                     <span class="switch-label" style="font-size: 0.7em; color:#aaa;">SECRET:</span>
-                    <!-- type="password" 保护显示 -->
                     <input type="password" id="oss_ak_secret" class="cmd-input" style="width: 250px; color:#fff;" value="">
                 </div>
             </div>
 
             <!-- Save Button & Status Message -->
             <div style="padding:20px 10px 10px 10px; text-align: center;">
-                <button class="cmd-btn buy-btn" style="width: 100% !important; padding: 12px; font-size: 0.8em;" onclick="saveOssSettings()">
+                <!-- 【修改点2】font-size 调整为 0.6em，padding 调整为 10px -->
+                <button class="cmd-btn buy-btn" style="width: 100% !important; padding: 10px; font-size: 0.6em;" onclick="saveOssSettings()">
                     UPDATE CONFIGURATION
                 </button>
                 
-                <!-- 这里显示状态提示，替代 alert -->
-                <div id="save-status-msg" class="pixel-font" style="height: 20px; margin-top: 10px; font-size: 0.6em; color: #10B981;">
-                    <!-- JS 会在这里写入文字 -->
-                </div>
+                <!-- 状态提示文字区域 -->
+                <div id="save-status-msg" class="pixel-font" style="height: 20px; margin-top: 10px; font-size: 0.6em; color: #10B981;"></div>
             </div>
         </div>
-    </div>
-   
+    </div>   
     
     <!-- RANKING MODAL -->
     <div id="rankingModal" class="modal-overlay" onclick="document.getElementById('rankingModal').style.display='none'">
