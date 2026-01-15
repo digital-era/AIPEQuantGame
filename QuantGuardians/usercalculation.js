@@ -10,12 +10,12 @@ const GITHUB_CONFIG = {
   FILE_PATH: "HK/EEIFlowHK.xlsx" // 指定子目录 HK 下的文件
 };
 
-const CONFIG = {
+const window.OSS_CONFIG = {
   // OSS相关配置
   ACCESS_KEY_ID: '', 
   ACCESS_KEY_SECRET: '',
-  REGION: '', 
-  BUCKET_NAME: '',
+  REGION: 'oss-cn-hangzhou', 
+  BUCKET_NAME: 'aiep-users',
 
   // OSS 路径配置
   OSS_REMOTE_PATH: 'AIPEQuantGuardiansPortfolio.xlsx',
@@ -30,6 +30,46 @@ const STRATEGY_MAP = {
   'sirius': { sheet_flow: '流入OR', sheet_snap: '流入', name: '流入' },
   'kirin':  { sheet_flow: '大智OR', sheet_snap: '大智', name: '大智' }
 };
+
+
+// 页面加载时尝试从 LocalStorage 读取配置覆盖默认值
+document.addEventListener('DOMContentLoaded', function() {
+    var savedConfig = localStorage.getItem('OSS_window.OSS_CONFIG_STORE');
+    if (savedConfig) {
+        try {
+            var parsed = JSON.parse(savedConfig);
+            // 更新全局变量
+            window.OSS_window.OSS_CONFIG = parsed;
+            // 更新 Input 显示的值
+            document.getElementById('oss_region').value = parsed.region;
+            document.getElementById('oss_bucket').value = parsed.bucket;
+            document.getElementById('oss_ak_id').value = parsed.accessKeyId;
+            document.getElementById('oss_ak_secret').value = parsed.accessKeySecret;
+            console.log("OSS Config loaded from LocalStorage");
+        } catch (e) {
+            console.error("Failed to load OSS config", e);
+        }
+    }
+});
+
+// 保存配置函数
+function saveOssSettings() {
+    var newConfig = {
+        region: document.getElementById('oss_region').value,
+        bucket: document.getElementById('oss_bucket').value,
+        accessKeyId: document.getElementById('oss_ak_id').value,
+        accessKeySecret: document.getElementById('oss_ak_secret').value
+    };
+    
+    // 更新全局变量
+    window.OSS_window.OSS_CONFIG = newConfig;
+    
+    // 持久化存储
+    localStorage.setItem('OSS_window.OSS_CONFIG_STORE', JSON.stringify(newConfig));
+    
+    alert("OSS Configuration Saved & Applied!");
+    document.getElementById('settingsModal').style.display = 'none';
+}
 
 // 日志工具
 function log(msg, type = 'info') {
@@ -46,10 +86,10 @@ function log(msg, type = 'info') {
 
 // 初始化 OSS 客户端 (已修复: 增加 secure: true)
 const client = new OSS({
-  region: CONFIG.REGION,
-  accessKeyId: CONFIG.ACCESS_KEY_ID,
-  accessKeySecret: CONFIG.ACCESS_KEY_SECRET,
-  bucket: CONFIG.BUCKET_NAME,
+  region: window.OSS_CONFIG.REGION,
+  accessKeyId: window.OSS_CONFIG.ACCESS_KEY_ID,
+  accessKeySecret: window.OSS_CONFIG.ACCESS_KEY_SECRET,
+  bucket: window.OSS_CONFIG.BUCKET_NAME,
   secure: true // ⚠️ 关键修改：强制使用 HTTPS，避免混合内容错误
 });
 
@@ -58,7 +98,7 @@ const client = new OSS({
 // ==================================================================================
 class PortfolioBacktest {
   constructor(flowData, snapData, marketDataMap, hkDataMap) {
-      this.cash = CONFIG.INITIAL_CAPITAL;
+      this.cash = window.OSS_CONFIG.INITIAL_CAPITAL;
       this.positions = {}; 
       this.history = [];
       this.marketMap = {...marketDataMap}; // 深拷贝一份基础A股行情
@@ -86,7 +126,7 @@ class PortfolioBacktest {
   }
 
   run() {
-      let prevTotalEquity = CONFIG.INITIAL_CAPITAL;
+      let prevTotalEquity = window.OSS_CONFIG.INITIAL_CAPITAL;
       let initializedFromSnap = false;
 
       for (const date of this.allDates) {
@@ -102,7 +142,7 @@ class PortfolioBacktest {
                   const price = dailyPrices[code];
 
                   if (price && price > 0 && weight > 0) {
-                      const qty = Math.floor((CONFIG.INITIAL_CAPITAL * weight) / price);
+                      const qty = Math.floor((window.OSS_CONFIG.INITIAL_CAPITAL * weight) / price);
                       this.positions[code] = qty;
                       this.cash -= (qty * price);
                   }
@@ -277,12 +317,12 @@ async function startProcess() {
       const hkTargetData = lastHkDate ? hkDataFullMap[lastHkDate] : {};
       
       // 2. 下载主 Excel
-      log(`正在下载 Portfolio: ${CONFIG.OSS_REMOTE_PATH}`);
+      log(`正在下载 Portfolio: ${window.OSS_CONFIG.OSS_REMOTE_PATH}`);
       
       // 增加错误捕获，提示 CORS 问题
       let result;
       try {
-          result = await client.get(CONFIG.OSS_REMOTE_PATH);
+          result = await client.get(window.OSS_CONFIG.OSS_REMOTE_PATH);
       } catch (ossErr) {
           if (String(ossErr).includes('XHR error') || ossErr.status === -1 || ossErr.status === 0) {
               throw new Error("OSS 连接被拦截。请检查：1. 是否开启了 CORS？2. 代码中是否已开启 secure: true？3. 浏览器控制台是否有混合内容报错？");
@@ -415,8 +455,8 @@ async function generateAndUploadJson(resultsDict) {
   const jsonString = JSON.stringify(outputData, null, 4);
   const blob = new Blob([jsonString], { type: 'application/json' });
   
-  await client.put(CONFIG.OSS_JSON_PATH, blob);
-  log(`✅ JSON 报告已上传至 OSS: ${CONFIG.OSS_JSON_PATH}`, 'success');
+  await client.put(window.OSS_CONFIG.OSS_JSON_PATH, blob);
+  log(`✅ JSON 报告已上传至 OSS: ${window.OSS_CONFIG.OSS_JSON_PATH}`, 'success');
 }
 
 // 更新 Excel 内容
@@ -543,7 +583,7 @@ async function updateExcelAndUpload(workbook, enginesCache, hkTargetData) {
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   
-  log(`正在上传更新后的 Excel: ${CONFIG.OSS_REMOTE_PATH}`);
-  await client.put(CONFIG.OSS_REMOTE_PATH, blob);
+  log(`正在上传更新后的 Excel: ${window.OSS_CONFIG.OSS_REMOTE_PATH}`);
+  await client.put(window.OSS_CONFIG.OSS_REMOTE_PATH, blob);
   log(`✅ Excel 更新并上传成功！`, 'success');
 }
