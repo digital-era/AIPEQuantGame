@@ -488,13 +488,14 @@ async function initOSS() {
     if (ossClient) return true;
     try {
         // const res = await fetch(STS_API_URL);
+        /*
         const res = await fetch(STS_API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 } 
-            }); // 指向你创建的STS凭证颁发函数
-
+            }); // 指向你创建的STS凭证颁发函数 
+        */
         const res = await fetch(STS_API_URL, {
             method: 'POST',
             headers: {
