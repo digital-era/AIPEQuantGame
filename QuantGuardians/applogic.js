@@ -1,7 +1,7 @@
 // ================= CONFIG =================
 // const STS_API_URL = 'https://aiep-users.vercel.app/api/sts'; 
 // const STS_API_URL = 'https://aipeinvestmentagent.pages.dev/api/sts-credentials'; 
-const STS_API_URL = 'api/user-sts-credentials'; 
+const STS_API_URL = "/api/user-sts-credentials"; 
 let OSS_BUCKET = 'aiep-users'; 
 let OSS_REGION = 'oss-cn-hangzhou'; 
 let ACCESS_KEY_ID = ''; 
