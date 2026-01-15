@@ -483,51 +483,65 @@ function openDetailChart(item, color) {
     }, 30);
 }
 // ================= LOGIC =================
-
 async function initOSS() {
     if (ossClient) return true;
+    
+    // 提取配置参数，避免重复写
+    const postBody = JSON.stringify({
+        OSS_ACCESS_KEY_ID: window.OSS_CONFIG.ACCESS_KEY_ID,
+        OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.ACCESS_KEY_SECRET,
+        OSS_STS_ROLE_ARN: window.OSS_CONFIG.STS_ROLE_ARN,
+        OSS_REGION: window.OSS_CONFIG.OSS_REGION
+    });
+
     try {
-        // const res = await fetch(STS_API_URL);
-        /*
-        const res = await fetch(STS_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                } 
-            }); // 指向你创建的STS凭证颁发函数 
-        */
+        // --- 第一次获取 Token ---
         const res = await fetch(STS_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            // 关键修改：添加 body，并与 API 中解构的参数名保持一致
-            body: JSON.stringify({
-                OSS_ACCESS_KEY_ID: window.OSS_CONFIG.ACCESS_KEY_ID,
-                OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.ACCESS_KEY_SECRET,
-                OSS_STS_ROLE_ARN: window.OSS_CONFIG.STS_ROLE_ARN,
-                OSS_REGION: window.OSS_CONFIG.OSS_REGION
-            })
+            body: postBody // 发送参数
         });
 
+        if (!res.ok) throw new Error(`STS fetch failed: ${res.status}`);
         const data = await res.json();
+
+        // --- 初始化 OSS 客户端 ---
         ossClient = new OSS({
-            region: OSS_REGION, accessKeyId: data.AccessKeyId, accessKeySecret: data.AccessKeySecret,
-            stsToken: data.SecurityToken, bucket: OSS_BUCKET,
+            region: window.OSS_CONFIG.OSS_REGION, // 建议也从配置读取，保持一致
+            accessKeyId: data.AccessKeyId,
+            accessKeySecret: data.AccessKeySecret,
+            stsToken: data.SecurityToken,
+            bucket: window.OSS_CONFIG.OSS_BUCKET || OSS_BUCKET, // 确保 bucket 变量存在
+            
+            // --- 关键修复：刷新 Token 的逻辑 ---
             refreshSTSToken: async () => {
-                // const r = await fetch(STS_API_URL); 
+                console.log("正在刷新 STS Token...");
                 const r = await fetch(STS_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                } 
-            }); // 指向你创建的STS凭证颁发函数
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: postBody // <--- 这里必须补上，否则刷新会失败！
+                });
+                
+                if (!r.ok) throw new Error("Refresh token failed");
                 const d = await r.json();
-                return { accessKeyId: d.AccessKeyId, accessKeySecret: d.AccessKeySecret, stsToken: d.SecurityToken };
+                
+                return {
+                    accessKeyId: d.AccessKeyId,
+                    accessKeySecret: d.AccessKeySecret,
+                    stsToken: d.SecurityToken
+                };
             }
         });
         return true;
-    } catch (e) { log("OSS Init Fail", "red"); return false; }
+    } catch (e) { 
+        console.error(e);
+        log("OSS Init Fail", "red"); 
+        return false; 
+    }
 }
 
 async function loadStrategies() {
