@@ -972,6 +972,9 @@ async function fetchPrice(item) {
     if (!item.code) return;
     const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;
     const marketIsClosed = isMarketClosed();
+    
+    // 【修复点 1】必须在这里声明，否则会污染全局变量
+    let officialChangePercent = null; 
 
     try {
         let intradayData = []; // 分钟级历史数据
@@ -1427,7 +1430,8 @@ async function syncToCloud() {
         for (let key in GUARDIAN_CONFIG) {
             const cfg = GUARDIAN_CONFIG[key];
             const g = gameState.guardians[key];
-            hasNewData = false;
+            // 【修复点 2】 增加 let 声明
+            let hasNewData = false;
 
             let snapData = [];
             if (wb.Sheets[cfg.simpleName]) {
