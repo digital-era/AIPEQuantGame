@@ -338,15 +338,15 @@ class PortfolioBacktestEngine {
 
 
 async function generateAndUploadJsonReport(resultsDict) {
-    console.log("Starting report generation (Detailed Analysis Mode)...");
+    console.log("Starting report generation (Detailed Analysis Mode - Strict Trading Days)...");
 
     // ================= 配置区 =================
     const MARKET_FILE_NAME = 'MarketMap.json'; 
     const USER_REPORT_FILE = 'User模型综合评估.json';
     const ASSET_FIELD_NAME = '总资产'; 
     const DATE_FIELD_NAME  = '日期'; 
-    const POSITION_FIELD_NAME = '持仓明细'; // 新增：持仓明细字段
-    const TRADE_FIELD_NAME = '交易记录';   // 新增：交易记录字段
+    const POSITION_FIELD_NAME = '持仓明细'; 
+    const TRADE_FIELD_NAME = '交易记录';   
     const INITIAL_CASH = 100000;
     // ==========================================
 
@@ -364,32 +364,42 @@ async function generateAndUploadJsonReport(resultsDict) {
         return str; 
     }
 
-    const dateSet = new Set();
-    const strategyDailyMap = {}; 
-    const strategyPositionsMap = {}; // 新增：存储每日持仓明细
-    const strategyTradesMap = {};    // 新增：存储每日交易记录
-    const strategies = Object.keys(resultsDict);
-    const flowDates = new Set();
+    // 仅用于存储 MarketMap 中定义的合法交易日
+    const validTradingDatesSet = new Set();
     
-    let marketDates = [];
+    const strategyDailyMap = {}; 
+    const strategyPositionsMap = {}; 
+    const strategyTradesMap = {};    
+    const strategies = Object.keys(resultsDict);
+    
+    // 用于记录策略实际有数据的日期（辅助分析，不用于生成时间轴）
+    const strategyActiveDates = new Set(); 
 
-    // --- 1. 读取 MarketMap ---
+    // --- 1. 读取 MarketMap (确立唯一时间基准) ---
     try {
         const result = await ossClient.get(MARKET_FILE_NAME);
         const marketJsonStr = result.content ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) : "";
         
         if (marketJsonStr) {
             const marketData = JSON.parse(marketJsonStr);
-            marketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
+            // 兼容数组或对象格式
+            const rawMarketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
             
-            marketDates.forEach(d => {
+            rawMarketDates.forEach(d => {
                 const stdDate = normalizeDate(d);
-                if (stdDate) dateSet.add(stdDate);
+                if (stdDate) validTradingDatesSet.add(stdDate);
             });
-            console.log(`✅ MarketMap 加载完成，${marketDates.length} 个交易日`);
+            console.log(`✅ MarketMap 加载完成，基准交易日共 ${validTradingDatesSet.size} 天`);
         }
     } catch (e) {
         console.warn(`⚠️ 读取 MarketMap 失败: ${e.message}`);
+        console.error("无法继续：缺少交易日基准数据");
+        return;
+    }
+
+    if (validTradingDatesSet.size === 0) {
+        console.error("❌ 错误：MarketMap 中没有有效的日期数据");
+        return;
     }
 
     // --- 2. 提取策略流水具体日期 ---
@@ -397,8 +407,8 @@ async function generateAndUploadJsonReport(resultsDict) {
     
     strategies.forEach(key => {
         strategyDailyMap[key] = {};
-        strategyPositionsMap[key] = {}; // 初始化持仓明细
-        strategyTradesMap[key] = {};    // 初始化交易记录
+        strategyPositionsMap[key] = {}; 
+        strategyTradesMap[key] = {};    
         
         const records = resultsDict[key];
         
@@ -407,6 +417,7 @@ async function generateAndUploadJsonReport(resultsDict) {
             return;
         }
 
+        // 排序
         const sortedRecords = records.sort((a, b) => 
             String(a[DATE_FIELD_NAME]).localeCompare(String(b[DATE_FIELD_NAME]))
         );
@@ -416,173 +427,198 @@ async function generateAndUploadJsonReport(resultsDict) {
             const stdDate = normalizeDate(rawDate);
             
             if (stdDate) {
-                // 保存总资产
+                // 保存原始数据
                 strategyDailyMap[key][stdDate] = h;
-                flowDates.add(stdDate);
-                dateSet.add(stdDate);
+                strategyActiveDates.add(stdDate);
                 
-                // 保存持仓明细（如果有）
-                if (h[POSITION_FIELD_NAME]) {
-                    strategyPositionsMap[key][stdDate] = h[POSITION_FIELD_NAME];
-                }
-                
-                // 保存交易记录（如果有）
-                if (h[TRADE_FIELD_NAME]) {
-                    strategyTradesMap[key][stdDate] = h[TRADE_FIELD_NAME];
-                }
+                if (h[POSITION_FIELD_NAME]) strategyPositionsMap[key][stdDate] = h[POSITION_FIELD_NAME];
+                if (h[TRADE_FIELD_NAME]) strategyTradesMap[key][stdDate] = h[TRADE_FIELD_NAME];
             }
         });
         
         console.log(`✅ 策略 [${key}] 处理完毕`);
     });
 
-    // --- 3. 生成最终时间轴 ---
-    const sortedDates = Array.from(dateSet).sort();
+    // --- 3. 生成最终时间轴 (严格基于 MarketMap) ---
+    const sortedDates = Array.from(validTradingDatesSet).sort();
     
-    console.log(`📊 [最终合并结果]`);
-    console.log(`   总日期数: ${sortedDates.length} 天`);
-    console.log(`   时间范围: ${sortedDates[0] || '无'} -> ${sortedDates[sortedDates.length-1] || '无'}`);
+    console.log(`📊 [最终合并结果 - 严格交易日模式]`);
+    console.log(`   总交易日数: ${sortedDates.length} 天 (已剔除周末/节假日)`);
+    console.log(`   时间范围: ${sortedDates[0]} -> ${sortedDates[sortedDates.length-1]}`);
 
     // --- 4. 构建总资产曲线 ---
     console.log("📈 开始构建总资产曲线...");
     const totalEquityCurve = [];
     const lastKnownValues = {};
+    
+    // 初始化每个策略的初始资金
     strategies.forEach(key => lastKnownValues[key] = INITIAL_CASH);
 
-    // 专门分析 2026-01-09 的数据
-    const targetDate = "2026-01-09";
-    const targetDateIndex = sortedDates.indexOf(targetDate);
-    
-    if (targetDateIndex === -1) {
-        console.warn(`❌ 目标日期 ${targetDate} 不在日期列表中`);
-    }
-
-    sortedDates.forEach((date, index) => {
+    // 遍历每一个标准交易日
+    sortedDates.forEach((date) => {
         let dailySum = 0;
         
         strategies.forEach(key => {
+            // 尝试获取当日数据
             const dayRecord = strategyDailyMap[key][date];
+            
             if (dayRecord) {
+                // 如果当日有数据，更新 lastKnownValues
                 let valStr = dayRecord[ASSET_FIELD_NAME];
                 if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
                 const val = parseFloat(valStr);
                 if (!isNaN(val)) {
                     lastKnownValues[key] = val;
-                    dailySum += val;
                 }
-            } else {
-                dailySum += lastKnownValues[key];
             }
+            // 无论当日是否有数据，都累加 lastKnownValues (Fill-Forward 逻辑)
+            dailySum += lastKnownValues[key];
         });
 
         totalEquityCurve.push({ date: date, value: dailySum });
     });
 
-    // --- 5. 专门分析 2026-01-09 的收益率来源 ---
+    // --- 5. 专门分析 2026-01-09 的收益率来源 (保持原有逻辑，但基于新的 timeline) ---
     console.log("\n" + "=".repeat(80));
     console.log("🔍 2026-01-09 收益率详细来源分析");
     console.log("=".repeat(80));
     
+    const targetDate = "2026-01-09";
+    const targetDateIndex = sortedDates.indexOf(targetDate);
+    
     if (targetDateIndex !== -1) {
-        const prevDate = sortedDates[targetDateIndex - 1];
+        // 如果是第一天，无法计算前一日
+        const prevDate = targetDateIndex > 0 ? sortedDates[targetDateIndex - 1] : null;
         const currentEquity = totalEquityCurve[targetDateIndex].value;
-        const prevEquity = totalEquityCurve[targetDateIndex - 1].value;
+        const prevEquity = prevDate ? totalEquityCurve[targetDateIndex - 1].value : INITIAL_CASH * strategies.length;
+        
         const dailyRet = prevEquity !== 0 ? (currentEquity - prevEquity) / prevEquity : 0;
         
         console.log(`📅 分析日期: ${targetDate}`);
         console.log(`📊 总体情况:`);
-        console.log(`   前一日(${prevDate})总资产: ${prevEquity.toFixed(2)}`);
-        console.log(`   当日(${targetDate})总资产: ${currentEquity.toFixed(2)}`);
-        console.log(`   收益率: ${(dailyRet * 100).toFixed(2)}%`);
+        console.log(`   前一交易日(${prevDate || '无'}): ${prevEquity.toFixed(2)}`);
+        console.log(`   当前交易日(${targetDate}): ${currentEquity.toFixed(2)}`);
+        console.log(`   日收益率: ${(dailyRet * 100).toFixed(2)}%`);
         
-        // 分析每个策略的贡献
         console.log("\n📊 各策略贡献分析:");
         console.log("策略名称              前一日资产        当日资产        变化金额        贡献度");
         console.log("-".repeat(80));
         
         let totalContribution = 0;
+        
         strategies.forEach(key => {
-            const prevDayRecord = strategyDailyMap[key][prevDate];
+            // 注意：这里需要回溯查找前一交易日该策略的实际值（如果是填充值，逻辑依然成立）
+            // 为了展示准确，我们重新获取当时这一天在 totalEquityCurve 计算时使用的值
+            // 但为简化，这里直接查 map，如果 map 没有，说明沿用了更早的值，这里简单处理查 map
+            
             const currDayRecord = strategyDailyMap[key][targetDate];
+            const prevDayRecord = prevDate ? strategyDailyMap[key][prevDate] : null;
+
+            // 获取当日资产 (如果当日无记录，理应取 lastKnown，但在 breakdown 分析中，
+            // 最好显示"无数据"或手动计算出的填充值。这里为了简便，我们模拟 fill-forward)
             
-            let prevValue = 0;
-            let currValue = 0;
+            // 这是一个局部的小模拟，为了打印
+            let valPrev = INITIAL_CASH;
+            let valCurr = INITIAL_CASH;
             
-            // 获取前一日资产
-            if (prevDayRecord) {
-                let valStr = prevDayRecord[ASSET_FIELD_NAME];
-                if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
-                prevValue = parseFloat(valStr) || lastKnownValues[key];
+            // 倒推 curr
+            // 实际系统中，totalEquityCurve 已经存了每天的总和，但没存每天每个策略的分项值
+            // 这里简单取 map 值，如果 undefined，说明该策略当天没动作
+            
+            // 更严谨的做法：重新运行一遍 fill-forward 逻辑只为了打印（略繁琐），
+            // 或者：直接信任 map 数据，如果 map 为空，说明没变化。
+            
+            // 获取前一日真实值（含填充）
+            // 我们通过遍历 sortedDates 到 prevDate 来获取最准确的状态
+            let tempLast = INITIAL_CASH;
+            // 快速查找 prevDate 的状态
+            if (prevDate) {
+               // 找到 prevDate 之前（含）最后一次有数据的记录
+               // 简单起见，直接使用 strategyDailyMap[prevDate] ?? 
+               // 如果 prevDate 策略没数据，这里打印出来可能会显示 0 或 undefined，
+               // 为了最准确，建议不做深度回溯，仅展示有记录的情况。
             }
+
+            // 这里为了不让代码过于复杂，我们仅展示 strategyDailyMap 中存在的记录
+            // 如果某天是填充值，变化金额为 0，不影响贡献度计算。
             
-            // 获取当日资产
-            if (currDayRecord) {
-                let valStr = currDayRecord[ASSET_FIELD_NAME];
-                if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
-                currValue = parseFloat(valStr) || lastKnownValues[key];
+            // 为了拿到正确的"前一日资产"（即使是填充的），我们利用 totalEquityCurve 构建时的逻辑
+            // 但由于 totalEquityCurve 没有保存 breakdown，这里简化处理：
+            // 如果 prevDayRecord 不存在，我们在打印时会显示 undefined，这可以接受，或者你可以选择不打印填充值。
+            
+            // 修正：为了打印准确，从 map 取值，如果取不到，暂用 "未更新" 表示
+            let displayPrev = prevDayRecord ? parseFloat(String(prevDayRecord[ASSET_FIELD_NAME]).replace(/,/g, '')) : "未更新(持平)";
+            let displayCurr = currDayRecord ? parseFloat(String(currDayRecord[ASSET_FIELD_NAME]).replace(/,/g, '')) : "未更新(持平)";
+            
+            // 计算数值用于贡献度
+            // 这里必须模拟 Fill-Forward 才能算出正确的 Contribution
+            // 重新计算 prevValue
+            let pVal = INITIAL_CASH;
+            for(let i=0; i<=targetDateIndex-1; i++) {
+                const d = sortedDates[i];
+                if(strategyDailyMap[key][d]) {
+                     let v = strategyDailyMap[key][d][ASSET_FIELD_NAME];
+                     if(typeof v === 'string') v = v.replace(/,/g, '');
+                     pVal = parseFloat(v);
+                }
             }
-            
-            const change = currValue - prevValue;
+            // 重新计算 currValue
+            let cVal = pVal; // 默认继承
+            if (strategyDailyMap[key][targetDate]) {
+                 let v = strategyDailyMap[key][targetDate][ASSET_FIELD_NAME];
+                 if(typeof v === 'string') v = v.replace(/,/g, '');
+                 cVal = parseFloat(v);
+            }
+
+            const change = cVal - pVal;
             const contribution = prevEquity !== 0 ? change / prevEquity : 0;
             totalContribution += contribution;
-            
+
             console.log(
                 `${key.padEnd(20)} ` +
-                `${prevValue.toFixed(2).padStart(15)} ` +
-                `${currValue.toFixed(2).padStart(15)} ` +
+                `${pVal.toFixed(2).padStart(15)} ` +
+                `${cVal.toFixed(2).padStart(15)} ` +
                 `${change.toFixed(2).padStart(15)} ` +
                 `${(contribution * 100).toFixed(2)}%`.padStart(15)
             );
             
-            // 如果该策略有持仓明细，打印具体持仓变化
-            if (strategyPositionsMap[key][targetDate] || strategyPositionsMap[key][prevDate]) {
+            // --- 持仓与交易明细打印 (保持不变) ---
+            if (strategyPositionsMap[key][targetDate] || (prevDate && strategyPositionsMap[key][prevDate])) {
                 console.log(`   └─ 持仓分析:`);
-                
-                const prevPositions = strategyPositionsMap[key][prevDate] || [];
+                const prevPositions = (prevDate && strategyPositionsMap[key][prevDate]) || [];
                 const currPositions = strategyPositionsMap[key][targetDate] || [];
                 
-                // 简单的持仓对比分析
                 const prevPosMap = new Map();
                 const currPosMap = new Map();
                 
                 prevPositions.forEach(pos => {
-                    if (pos.code && pos.marketValue) {
-                        prevPosMap.set(pos.code, parseFloat(pos.marketValue));
-                    }
+                    if (pos.code && pos.marketValue) prevPosMap.set(pos.code, parseFloat(pos.marketValue));
                 });
-                
                 currPositions.forEach(pos => {
-                    if (pos.code && pos.marketValue) {
-                        currPosMap.set(pos.code, parseFloat(pos.marketValue));
-                    }
+                    if (pos.code && pos.marketValue) currPosMap.set(pos.code, parseFloat(pos.marketValue));
                 });
                 
-                // 找出变化的持仓
                 const allCodes = new Set([...prevPosMap.keys(), ...currPosMap.keys()]);
                 allCodes.forEach(code => {
                     const prevVal = prevPosMap.get(code) || 0;
                     const currVal = currPosMap.get(code) || 0;
                     const changeVal = currVal - prevVal;
-                    
                     if (Math.abs(changeVal) > 0.01) {
                         console.log(`      ${code}: ${prevVal.toFixed(2)} → ${currVal.toFixed(2)} (${changeVal > 0 ? '+' : ''}${changeVal.toFixed(2)})`);
                     }
                 });
             }
             
-            // 如果该策略有交易记录，打印交易详情
             if (strategyTradesMap[key][targetDate]) {
                 const trades = strategyTradesMap[key][targetDate];
                 if (Array.isArray(trades) && trades.length > 0) {
                     console.log(`   └─ 当日交易记录(${trades.length}笔):`);
-                    
                     trades.forEach((trade, idx) => {
                         const type = trade.type || (trade.amount > 0 ? '买入' : '卖出');
                         const code = trade.code || '未知';
                         const amount = parseFloat(trade.amount || 0);
                         const price = parseFloat(trade.price || 0);
                         const volume = parseFloat(trade.volume || 0);
-                        
                         console.log(`      ${idx+1}. ${type} ${code}: ${volume}股 @ ${price.toFixed(2)} 金额:${amount.toFixed(2)}`);
                     });
                 }
@@ -592,31 +628,13 @@ async function generateAndUploadJsonReport(resultsDict) {
         console.log(`\n📊 贡献度验证:`);
         console.log(`   各策略贡献度合计: ${(totalContribution * 100).toFixed(2)}%`);
         console.log(`   实际日收益率: ${(dailyRet * 100).toFixed(2)}%`);
-        console.log(`   差异: ${Math.abs((totalContribution - dailyRet) * 100).toFixed(4)}%`);
-        
-        // 如果没有持仓和交易明细，给出建议
-        let hasDetailedData = false;
-        strategies.forEach(key => {
-            if (strategyPositionsMap[key][targetDate] || strategyTradesMap[key][targetDate]) {
-                hasDetailedData = true;
-            }
-        });
-        
-        if (!hasDetailedData) {
-            console.log("\n⚠️ 注意: 未找到持仓明细或交易记录数据");
-            console.log("   要分析收益率的具体来源，需要流水数据包含以下字段:");
-            console.log("   1. '持仓明细': 包含股票代码、数量、市值等信息");
-            console.log("   2. '交易记录': 包含买卖操作、股票代码、价格、数量等信息");
-            console.log("\n   请检查流水数据格式或修改字段名称配置。");
-        }
         
     } else {
-        console.log(`❌ 无法分析: 目标日期 ${targetDate} 不在日期列表中`);
+        console.log(`❌ 无法分析: 目标日期 ${targetDate} 不是有效交易日`);
     }
-    
     console.log("=".repeat(80) + "\n");
 
-    // --- 6. 继续原来的指标计算和报告生成 ---
+    // --- 6. 计算收益率指标 ---
     console.log("🧮 开始计算收益率指标...");
     
     const dailyDataList = [];
@@ -624,18 +642,10 @@ async function generateAndUploadJsonReport(resultsDict) {
     let maxPeak = -Infinity; 
     let maxDdSoFar = 0;      
     
-    if (totalEquityCurve.length === 0) {
-        console.warn("❌ [严重] 有效资产数据为空");
-        return;
-    }
-
-    // 显式计算：初始本金 = 单个策略本金 * 策略数量
-    const theoreticalInitialEquity = INITIAL_CASH * strategies.length;
-
-    // 在计算 dailyDataList 循环之前，强制修正初始基准（可选，视具体需求）
-    // 或者在计算 annRet 时使用：
-    const initialEquity = theoreticalInitialEquity
+    // 理论总初始本金
+    const initialEquity = INITIAL_CASH * strategies.length;
     
+    // 这里的 days 现在的物理含义是“交易日天数”
     const days = totalEquityCurve.length;
 
     totalEquityCurve.forEach((dayData, idx) => {
@@ -654,19 +664,19 @@ async function generateAndUploadJsonReport(resultsDict) {
         const dd = maxPeak > 0 ? (currentEquity - maxPeak) / maxPeak : 0;
         if (Math.abs(dd) > maxDdSoFar) maxDdSoFar = Math.abs(dd);
 
-        // 只添加有流水的日期到dailyDataList
-        if (flowDates.has(dayData.date)) {
-            dailyDataList.push({
-                "日期": dayData.date,
-                "每日收益率": dailyRet,
-                "累计收益率": cumRet,
-                "最大回撤率（至当日）": maxDdSoFar,
-                "总资产": currentEquity
-            });
-        }
+        // 输出到 JSON
+        // 这里不需要过滤 flowDates，因为我们希望 JSON 包含完整的 MarketMap 时间轴（填充后的）
+        // 这样前端画图才是连续的，并且排除了周末
+        dailyDataList.push({
+            "日期": dayData.date,
+            "每日收益率": dailyRet,
+            "累计收益率": cumRet,
+            "最大回撤率（至当日）": maxDdSoFar,
+            "总资产": currentEquity
+        });
     });
 
-    // --- 6. 统计 & 上传 ---
+    // --- 7. 统计 & 上传 ---
     console.log("📊 生成最终报告...");
     
     if (dailyDataList.length === 0) {
@@ -677,11 +687,16 @@ async function generateAndUploadJsonReport(resultsDict) {
     const lastDay = dailyDataList[dailyDataList.length - 1];
     const finalEquity = totalEquityCurve[days - 1].value;
 
+    // 1. 年化收益率 (CAGR)
+    // 逻辑：(最终/初始) ^ (252 / 交易日天数) - 1
+    // 因为 days 已经排除了周末，所以这里用 252 是非常准确的
     let annRet = 0;
     if (days > 1 && initialEquity > 0) {
         annRet = Math.pow((finalEquity / initialEquity), (252 / days)) - 1;
     }
 
+    // 2. 夏普比率
+    // 逻辑：(日均收益率 / 日收益率标准差) * sqrt(252)
     let sharpe = 0;
     if (dailyReturns.length > 1) {
         const sumRet = dailyReturns.reduce((a, b) => a + b, 0);
@@ -705,7 +720,7 @@ async function generateAndUploadJsonReport(resultsDict) {
         "分析天数": days,
         "初始资产": initialEquity,
         "最终资产": finalEquity,
-        "每日评估数据": dailyDataList  // 只包含有流水的日期
+        "每日评估数据": dailyDataList 
     };
 
     // 打印简版报告
@@ -716,12 +731,9 @@ async function generateAndUploadJsonReport(resultsDict) {
     console.log(`年化收益率: ${(annRet * 100).toFixed(2)}%`);
     console.log(`最大回撤: ${(maxDdSoFar * 100).toFixed(2)}%`);
     console.log(`夏普比率: ${sharpe.toFixed(2)}`);
-    console.log(`分析天数: ${days}`);
+    console.log(`分析天数(交易日): ${days}`);
     console.log(`初始资产: ${initialEquity.toFixed(2)}`);
     console.log(`最终资产: ${finalEquity.toFixed(2)}`);
-    console.log(`日期池天数: ${sortedDates.length}`);
-    console.log(`有流水天数: ${flowDates.size}`);
-    console.log(`JSON输出天数: ${dailyDataList.length}`);
     console.log("=".repeat(50));
 
     try {
