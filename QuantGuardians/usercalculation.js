@@ -447,7 +447,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     console.log("📈 开始构建总资产曲线...");
     const totalEquityCurve = [];
     const lastKnownValues = {};
-    strategies.forEach(key => lastKnownValues[key] = INITIAL_CASH / Math.max(1, strategies.length));
+    strategies.forEach(key => lastKnownValues[key] = INITIAL_CASH);
 
     // 专门分析 2026-01-09 的数据
     const targetDate = "2026-01-09";
@@ -629,7 +629,13 @@ async function generateAndUploadJsonReport(resultsDict) {
         return;
     }
 
-    const initialEquity = totalEquityCurve[0].value;
+    // 显式计算：初始本金 = 单个策略本金 * 策略数量
+    const theoreticalInitialEquity = INITIAL_CASH * strategies.length;
+
+    // 在计算 dailyDataList 循环之前，强制修正初始基准（可选，视具体需求）
+    // 或者在计算 annRet 时使用：
+    const initialEquity = theoreticalInitialEquity
+    
     const days = totalEquityCurve.length;
 
     totalEquityCurve.forEach((dayData, idx) => {
