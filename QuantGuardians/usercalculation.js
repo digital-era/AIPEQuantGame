@@ -335,6 +335,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     const USER_REPORT_FILE = 'User模型综合评估.json';
     const ASSET_FIELD_NAME = '总资产'; 
     const DATE_FIELD_NAME  = '日期'; 
+    const INITIAL_CASH = 100000; // 初始资金
     // ==========================================
 
     // --- 辅助函数：标准化日期 ---
@@ -354,6 +355,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     const dateSet = new Set();
     const strategyDailyMap = {}; 
     const strategies = Object.keys(resultsDict);
+    const flowDates = new Set(); // 专门记录有真实流水的日期
     
     // 在外部声明 marketDates，确保在整个函数中都可以访问
     let marketDates = [];  // 在外部声明，初始化为空数组
@@ -378,7 +380,6 @@ async function generateAndUploadJsonReport(resultsDict) {
         }
     } catch (e) {
         console.warn(`⚠️ 读取 MarketMap 失败 (将仅使用策略流水日期): ${e.message}`);
-        // marketDates 保持为空数组
     }
 
     // --- 2. 提取策略流水具体日期 (与MarketMap日期取并集) ---
@@ -409,6 +410,7 @@ async function generateAndUploadJsonReport(resultsDict) {
                 // 保存这个策略在这个日期的流水记录
                 strategyDailyMap[key][stdDate] = h;
                 validDatesForStrategy.push(stdDate);
+                flowDates.add(stdDate); // 添加到有流水的日期集合
                 
                 // 如果这个日期不在日期池中，添加到日期池
                 if (!dateSet.has(stdDate)) {
@@ -428,26 +430,37 @@ async function generateAndUploadJsonReport(resultsDict) {
 
     // --- 3. 生成最终时间轴 (MarketMap日期 + 所有流水日期) ---
     const sortedDates = Array.from(dateSet).sort();
+    const sortedFlowDates = Array.from(flowDates).sort(); // 只有有流水的日期
     
     console.log(`📊 [最终合并结果]`);
     console.log(`   总日期数: ${sortedDates.length} 天`);
+    console.log(`   有流水的日期: ${sortedFlowDates.length} 天`);
     console.log(`   时间范围: ${sortedDates[0] || '无'} -> ${sortedDates[sortedDates.length-1] || '无'}`);
-    console.log(`   📆 完整日期列表: ${JSON.stringify(sortedDates)}`);
+    console.log(`   📆 日期池完整列表: ${JSON.stringify(sortedDates)}`);
+    console.log(`   📆 有流水日期列表: ${JSON.stringify(sortedFlowDates)}`);
 
-    if (sortedDates.length === 0) {
-        console.warn("❌ [严重] 没有找到任何有效日期，无法生成报告");
+    if (sortedFlowDates.length === 0) {
+        console.warn("❌ [严重] 没有找到任何有流水的日期，无法生成报告");
         return;
     }
 
-    // --- 4. 构建总资产曲线 ---
-    console.log("📈 开始构建总资产曲线...");
+    // --- 4. 构建总资产曲线（只基于有流水的日期）---
+    console.log("📈 开始构建总资产曲线（仅基于有流水的日期）...");
     const totalEquityCurve = [];
     const lastKnownValues = {};
-    strategies.forEach(key => lastKnownValues[key] = 0);
+    
+    // 初始资金分配
+    if (strategies.length > 0) {
+        const initialPerStrategy = INITIAL_CASH / strategies.length;
+        strategies.forEach(key => lastKnownValues[key] = initialPerStrategy);
+    } else {
+        console.warn("⚠️ 没有策略数据，使用默认初始资金");
+        lastKnownValues['default'] = INITIAL_CASH;
+    }
 
-    sortedDates.forEach((date, index) => {
+    // 关键修改：只遍历有流水的日期
+    sortedFlowDates.forEach((date, index) => {
         let dailySum = 0;
-        let hasAnyData = false;  // 是否有任意策略有数据
         
         strategies.forEach(key => {
             const dayRecord = strategyDailyMap[key][date];
@@ -459,7 +472,6 @@ async function generateAndUploadJsonReport(resultsDict) {
                 if (!isNaN(val)) {
                     lastKnownValues[key] = val;
                     dailySum += val;
-                    hasAnyData = true;
                 }
             } else {
                 // 这个策略在这个日期没有流水，使用上一次的值（资产保持不变）
@@ -467,18 +479,18 @@ async function generateAndUploadJsonReport(resultsDict) {
             }
         });
 
+        // 如果没有策略（特殊情况），使用默认值
+        if (strategies.length === 0) {
+            dailySum = lastKnownValues['default'];
+        }
+
         // 添加这个日期的数据到总资产曲线
-        // 注意：即使所有策略都没有数据，我们也记录这个日期（因为可能在MarketMap中）
         totalEquityCurve.push({ date: date, value: dailySum });
         
-        if (index < 5 || index >= sortedDates.length - 5) {
-            console.log(`   ${date}: ${dailySum.toFixed(2)} ${hasAnyData ? '(有流水)' : '(无流水，使用上次值)'}`);
-        } else if (index === 5) {
-            console.log(`   ... 省略中间 ${sortedDates.length - 10} 天的数据 ...`);
-        }
+        console.log(`   ${date}: ${dailySum.toFixed(2)}`);
     });
 
-    // --- 5. 指标计算 ---
+    // --- 5. 指标计算（修复除零问题）---
     console.log("🧮 开始计算收益率指标...");
     
     const dailyDataList = [];
@@ -491,10 +503,17 @@ async function generateAndUploadJsonReport(resultsDict) {
         return;
     }
 
-    const initialEquity = totalEquityCurve[0].value;
+    // 确保初始资产不为0
+    let initialEquity = totalEquityCurve[0].value;
+    if (initialEquity <= 0) {
+        console.warn(`⚠️ 初始资产为 ${initialEquity}，使用初始资金 ${INITIAL_CASH}`);
+        initialEquity = INITIAL_CASH;
+        totalEquityCurve[0].value = INITIAL_CASH;
+    }
+    
     const days = totalEquityCurve.length;
     
-    console.log(`   初始资产: ${initialEquity}`);
+    console.log(`   初始资产: ${initialEquity.toFixed(2)}`);
     console.log(`   总分析天数: ${days}`);
 
     totalEquityCurve.forEach((dayData, idx) => {
@@ -507,12 +526,13 @@ async function generateAndUploadJsonReport(resultsDict) {
             dailyReturns.push(dailyRet);
         }
 
-        const cumRet = (currentEquity - initialEquity) / initialEquity;
+        const cumRet = prevEquity !== 0 ? (currentEquity - initialEquity) / initialEquity : 0;
 
         if (currentEquity > maxPeak) maxPeak = currentEquity;
         const dd = maxPeak > 0 ? (currentEquity - maxPeak) / maxPeak : 0;
         if (Math.abs(dd) > maxDdSoFar) maxDdSoFar = Math.abs(dd);
 
+        // 只添加有流水的日期到dailyDataList
         dailyDataList.push({
             "日期": dayData.date,
             "每日收益率": dailyRet,
@@ -529,8 +549,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     const finalEquity = totalEquityCurve[days - 1].value;
 
     let annRet = 0;
-    if (days > 1) {
-        // 年化收益率基于交易日计算（252天）
+    if (days > 1 && initialEquity > 0) {
         annRet = Math.pow((finalEquity / initialEquity), (252 / days)) - 1;
     }
 
@@ -554,7 +573,10 @@ async function generateAndUploadJsonReport(resultsDict) {
         "年化收益率": annRet,
         "最大回撤率": maxDdSoFar,
         "夏普比率": sharpe,
-        "每日评估数据": dailyDataList
+        "分析天数": days,
+        "初始资产": initialEquity,
+        "最终资产": finalEquity,
+        "每日评估数据": dailyDataList  // 只包含有流水的日期
     };
 
     // 打印简版报告
@@ -565,8 +587,12 @@ async function generateAndUploadJsonReport(resultsDict) {
     console.log(`年化收益率: ${(annRet * 100).toFixed(2)}%`);
     console.log(`最大回撤: ${(maxDdSoFar * 100).toFixed(2)}%`);
     console.log(`夏普比率: ${sharpe.toFixed(2)}`);
-    console.log(`总分析天数: ${days}`);
-    console.log(`市场交易日数: ${marketDates.length}`);  // 现在可以正常访问 marketDates
+    console.log(`分析天数: ${days}`);
+    console.log(`初始资产: ${initialEquity.toFixed(2)}`);
+    console.log(`最终资产: ${finalEquity.toFixed(2)}`);
+    console.log(`日期池天数: ${sortedDates.length}`);
+    console.log(`有流水天数: ${sortedFlowDates.length}`);
+    console.log(`JSON输出天数: ${dailyDataList.length}`);
     console.log("=".repeat(50));
 
     try {
