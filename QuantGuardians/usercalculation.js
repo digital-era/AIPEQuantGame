@@ -332,7 +332,7 @@ async function generateAndUploadJsonReport(resultsDict) {
 
     // ================= 配置区 =================
     const MARKET_FILE_NAME = 'MarketMap.json'; 
-    const USER_REPORT_FILE = 'UserReport.json';
+    const USER_REPORT_FILE = 'User模型综合评估.json';
     
     // ✅ 根据日志修正：字段名必须完全匹配 console 输出的 keys
     const ASSET_FIELD_NAME = '总资产'; 
