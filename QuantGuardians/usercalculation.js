@@ -170,19 +170,25 @@ class PortfolioBacktestEngine {
         
         // ... (预处理逻辑保持不变) ...
         this.flows = flowData.map(r => {
-            let dateRaw = String(r['修改时间'] || '');
+            let dateRaw = String(r['修改时间'] || '').trim(); // 去除可能存在的空格
             let dateFmt = null;
-            if (dateRaw.length === 8 && !dateRaw.includes('-')) {
+
+            // 修改点：只要长度大于等于8，且不含横杠，就截取前8位
+            if (dateRaw.length >= 8 && !dateRaw.includes('-')) {
+                // 截图中的数据是 '202512181630'，我们只需要前8位 '20251218'
                 dateFmt = `${dateRaw.substring(0,4)}-${dateRaw.substring(4,6)}-${dateRaw.substring(6,8)}`;
-            } else if (dateRaw.includes('-')) {
+            } 
+            // 兼容 '2025-12-18 16:30' 这种情况
+            else if (dateRaw.includes('-')) {
                 dateFmt = dateRaw.split(' ')[0];
             }
+
             return {
                 ...r,
                 code: String(r['股票代码']).trim(),
                 price: parseFloat(r['价格']),
                 qty: parseFloat(r['标的数量']),
-                type: r['操作类型'],
+                type: r['操作类型'], // 截图显示是 'Buy'/'Sell'，大小写需注意，代码里如果是区分大小写的要注意
                 dateFmt: dateFmt
             };
         }).filter(r => r.dateFmt).sort((a,b) => a.dateFmt.localeCompare(b.dateFmt));
