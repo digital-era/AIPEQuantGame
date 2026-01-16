@@ -104,8 +104,8 @@ def process_data():
             df1 = pd.read_excel(FILE_PATH_1, sheet_name='Flow5Days', dtype={'代码': str})
             
             # 提取需要的列 (假设列名没有多余空格，如果有建议先 strip)
-            # 目标: 代码, 日期, spj
-            df1 = df1[['日期', '代码', 'spj']]
+            # 目标: 代码, 日期, 收盘价
+            df1 = df1[['日期', '代码', '收盘价']]
             df1.columns = ['date', 'code', 'price'] # 重命名以便统一
             
             all_data.append(df1)
