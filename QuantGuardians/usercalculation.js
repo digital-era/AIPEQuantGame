@@ -27,6 +27,25 @@ async function triggerCalculation() {
             if (!success) throw new Error("OSS 连接初始化失败，请检查网络或配置");
         }
 
+        // 2. 加载 MarketMap.json (新增代码)
+        let globalMarketMap = {};
+        try {
+            log("正在下载全市场行情数据: MarketMap.json...", "#88f");
+            const marketResult = await ossClient.get('MarketMap.json');
+            
+            // 处理 Buffer 转 JSON
+            const contentString = new TextDecoder("utf-8").decode(marketResult.content);
+            globalMarketMap = JSON.parse(contentString);
+            
+            log(`✅ 行情数据加载成功，涵盖 ${Object.keys(globalMarketMap).length} 个交易日`, "#0f0");
+        } catch (err) {
+            log("⚠️ 未找到 MarketMap.json 或解析失败，将使用交易价格近似计算。", "orange");
+            console.warn(err);
+            // 失败不阻断流程，仅降级为旧逻辑
+            globalMarketMap = {}; 
+        }
+
+
         // 2. 加载港股数据 (用于补充 Excel 中缺失的价格)
         // 使用现有的 fetchPrice 逻辑太慢(逐个请求)，这里我们并发加载或简化处理
         // 为简单起见，本次计算优先使用 Excel 内的价格，缺失的使用当前 API
@@ -69,7 +88,8 @@ async function triggerCalculation() {
             const dataSnap = sheetToJsonEx(wsSnap);
 
             // 实例化回测引擎 (类定义在下方)
-            const engine = new PortfolioBacktestEngine(dataFlow, dataSnap);
+            // 【修改点】：将 globalMarketMap 传入构造函数
+            const engine = new PortfolioBacktestEngine(dataFlow, dataSnap, globalMarketMap);
             const history = await engine.run(); // run 现在是 async 的，以便内部获取价格
 
             allStrategiesResults[key] = history;
@@ -139,27 +159,43 @@ function sheetToJsonEx(worksheet) {
     return data;
 }
 
-// 简易回测引擎
+// ==================================================================================
+// 增强版回测引擎 (支持全量日期补全 + MarketMap行情结合)
+// ==================================================================================
+
 class PortfolioBacktestEngine {
-    constructor(flowData, snapData) {
+    /**
+     * @param {Array} flowData - 交易流水数组
+     * @param {Array} snapData - 持仓快照数组 (用于兜底初始化)
+     * @param {Object} marketMap - 全市场行情字典 { "YYYY-MM-DD": { "code": price, ... } }
+     */
+    constructor(flowData, snapData, marketMap = {}) {
         this.cash = 100000; // 默认初始资金
         this.positions = {}; 
-        this.history = [];
+        this.marketMap = marketMap;
         
-        // 预处理数据
+        // 1. 预处理流水数据
         this.flows = flowData.map(r => {
-            // 兼容日期格式
-            let dateStr = String(r['修改时间'] || '').substring(0, 8);
+            // 兼容日期格式：Excel可能是 20230101 或 2023-01-01
+            let dateRaw = String(r['修改时间'] || '');
+            let dateFmt = null;
+            
+            // 简单处理两种常见格式
+            if (dateRaw.length === 8 && !dateRaw.includes('-')) {
+                dateFmt = `${dateRaw.substring(0,4)}-${dateRaw.substring(4,6)}-${dateRaw.substring(6,8)}`;
+            } else if (dateRaw.includes('-')) {
+                dateFmt = dateRaw.split(' ')[0]; // 去掉可能的时间部分
+            }
+
             return {
                 ...r,
                 code: String(r['股票代码']).trim(),
                 price: parseFloat(r['价格']),
                 qty: parseFloat(r['标的数量']),
-                type: r['操作类型'],
-                date: dateStr,
-                dateFmt: dateStr.length === 8 ? `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}` : null
+                type: r['操作类型'], // Buy / Sell
+                dateFmt: dateFmt
             };
-        }).filter(r => r.dateFmt).sort((a,b) => a.date - b.date);
+        }).filter(r => r.dateFmt).sort((a,b) => a.dateFmt.localeCompare(b.dateFmt));
 
         this.snap = snapData.map(r => ({
             ...r,
@@ -167,48 +203,73 @@ class PortfolioBacktestEngine {
             weight: parseFloat(r['配置比例 (%)'] || 0)
         }));
 
-        // 提取所有涉及的日期
-        this.dates = [...new Set(this.flows.map(f => f.dateFmt))].sort();
-        // 如果没有流水，给一个今天的日期
-        if (this.dates.length === 0) {
-            const today = new Date().toISOString().split('T')[0];
-            this.dates = [today];
+        // 2. 确定回测的时间范围 (从最早一笔交易 到 今天)
+        this.timeline = [];
+        if (this.flows.length > 0) {
+            const startDate = this.flows[0].dateFmt;
+            const endDate = new Date().toISOString().split('T')[0]; // 今天
+            this.timeline = this.generateDateRange(startDate, endDate);
+        } else {
+            // 如果没有流水，默认生成最近30天用于展示 Snap 效果
+            const endDate = new Date().toISOString().split('T')[0];
+            const startDate = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
+            this.timeline = this.generateDateRange(startDate, endDate);
         }
     }
 
-    async run() {
-        // 简单模拟逻辑：仅根据流水计算资金变动
-        // 注意：要在浏览器端精确复现历史净值，需要完整的历史行情数据(MarketMap)
-        // 由于这里没有完整的历史行情库，我们采用 "近似市值法"：
-        // 1. 现金流绝对准确
-        // 2. 持仓市值 = 持仓量 * (流水中的最新价格 OR 现在的价格)
+    /**
+     * 生成连续的日期数组字符串 ['2023-01-01', '2023-01-02', ...]
+     */
+    generateDateRange(start, end) {
+        const arr = [];
+        let dt = new Date(start);
+        const endDt = new Date(end);
         
-        let currentCash = this.cash;
-        let positions = {}; // code -> qty
-        let lastPrices = {}; // code -> price
+        while (dt <= endDt) {
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const d = String(dt.getDate()).padStart(2, '0');
+            arr.push(`${y}-${m}-${d}`);
+            dt.setDate(dt.getDate() + 1);
+        }
+        return arr;
+    }
 
-        // 如果没有流水，尝试从 Snap 初始化 (视为初始买入)
+    async run() {
+        let currentCash = this.cash;
+        let positions = {}; // { "600519": 100, ... }
+        let lastPrices = {}; // { "600519": 1700.00, ... } 记录每只股票最新的已知价格
+
+        // --- 初始化阶段：如果没有任何流水，尝试从 Snap 加载初始持仓 ---
         if (this.flows.length === 0 && this.snap.length > 0) {
             this.snap.forEach(s => {
                 if (s.code !== '100000' && s.weight > 0 && s['收盘价格']) {
                     const p = parseFloat(s['收盘价格']);
+                    // 假设总仓位按权重分配
                     const qty = Math.floor((this.cash * (s.weight/100)) / p);
-                    positions[s.code] = qty;
-                    lastPrices[s.code] = p;
-                    currentCash -= qty * p;
+                    if(qty > 0) {
+                        positions[s.code] = qty;
+                        lastPrices[s.code] = p;
+                        currentCash -= qty * p;
+                    }
                 }
             });
         }
 
         const history = [];
 
-        // 遍历每一天
-        for (const date of this.dates) {
+        // --- 核心循环：遍历时间轴每一天 ---
+        for (const date of this.timeline) {
+            // 1. 获取当日的外部行情数据 (MarketMap)
+            // 假设 marketMap 结构为: { "2023-01-01": { "600519": 100.5, ... } }
+            const dailyMarketData = this.marketMap[date] || {};
+
+            // 2. 处理当日发生的交易流水
             const dailyFlows = this.flows.filter(f => f.dateFmt === date);
             
-            // 处理当日交易
             dailyFlows.forEach(f => {
-                lastPrices[f.code] = f.price; // 更新最新价格
+                // 交易发生，更新该股票的最新“交易价”作为价格基准
+                lastPrices[f.code] = f.price; 
                 
                 if (f.type === 'Buy') {
                     currentCash -= f.price * f.qty;
@@ -217,49 +278,49 @@ class PortfolioBacktestEngine {
                     currentCash += f.price * f.qty;
                     if (positions[f.code]) {
                         positions[f.code] -= f.qty;
-                        if (positions[f.code] <= 0.01) delete positions[f.code];
+                        // 清理微小碎股误差
+                        if (positions[f.code] <= 0.001) delete positions[f.code];
                     }
                 }
             });
 
-            // 计算当日市值
+            // 3. 计算当日持仓市值 (Mark-to-Market)
             let stockMv = 0;
+            
+            // 遍历当前所有持仓
             for (let code in positions) {
                 const qty = positions[code];
-                // 如果当日没有交易，价格沿用之前的。
-                // *优化*：此处最好能获取当日收盘价，但为减少API请求，暂用最近一次交易价近似
-                // 或使用全局 fetchPrice 获取当前价（如果是最后一天）
-                let price = lastPrices[code] || 0;
-                stockMv += qty * price;
+                
+                // --- 价格获取优先级逻辑 ---
+                // Priority 1: MarketMap 中当日的收盘价 (最准确)
+                // Priority 2: 当日刚刚交易的价格 (如果 MarketMap 没数据，比如新股上市首日)
+                // Priority 3: 昨天或以前的 lastPrices (前向填充，用于周末或停牌)
+                
+                let currentPrice = 0;
+                
+                // 尝试从 MarketMap 获取
+                // 注意：这里需要确保 Excel 里的 code 和 MarketMap 里的 key 一致
+                // 如果 MarketMap 带后缀 (如 "600519.SH")，需要自行处理匹配逻辑，这里假设完全一致
+                if (dailyMarketData[code] !== undefined) {
+                    currentPrice = parseFloat(dailyMarketData[code]);
+                    // 更新历史价格缓存，供后续无行情日期使用
+                    lastPrices[code] = currentPrice; 
+                } else {
+                    // 如果没行情，使用缓存的最后价格
+                    currentPrice = lastPrices[code] || 0;
+                }
+                
+                stockMv += qty * currentPrice;
             }
 
             const totalEquity = currentCash + stockMv;
             
-            // 记录历史
             history.push({
                 '日期': date,
                 '总资产': totalEquity,
                 '现金': currentCash,
                 '持仓市值': stockMv
             });
-        }
-        
-        // 修正最后一天的数据：尝试获取实时价格更新市值
-        if (history.length > 0) {
-            const lastEntry = history[history.length - 1];
-            let realMv = 0;
-            for (let code in positions) {
-                // 利用主代码中的 fetchPrice 逻辑 (如果已缓存)
-                // 这里简单发个请求获取最新价
-                let price = lastPrices[code];
-                try {
-                     // 简单去重请求，这里略过，直接用最近流水的价格兜底
-                     // 如果需要更精确，可以调用 external API
-                } catch(e) {}
-                realMv += positions[code] * price;
-            }
-            lastEntry['持仓市值'] = realMv;
-            lastEntry['总资产'] = currentCash + realMv;
         }
 
         return history;
