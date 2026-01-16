@@ -328,7 +328,7 @@ class PortfolioBacktestEngine {
 }
 
 async function generateAndUploadJsonReport(resultsDict) {
-    console.log("Starting report generation (With Debug Logs)...");
+    console.log("Starting report generation (Simple Union Mode)...");
 
     // ================= 配置区 =================
     const MARKET_FILE_NAME = 'MarketMap.json'; 
@@ -338,6 +338,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     // ==========================================
 
     // --- 辅助函数：标准化日期 ---
+    // 统一处理 20251218 -> 2025-12-18
     function normalizeDate(dateStr) {
         if (!dateStr) return null;
         const str = String(dateStr).trim();
@@ -351,21 +352,40 @@ async function generateAndUploadJsonReport(resultsDict) {
         return str; 
     }
 
-    // --- 1. 日期收集与预处理 ---
     const dateSet = new Set();
-    const strategies = Object.keys(resultsDict);
     const strategyDailyMap = {}; 
+    const strategies = Object.keys(resultsDict);
 
-    console.log("--- [DEBUG] 阶段1: 解析策略流水中的日期 ---");
+    // --- 1. 读取 MarketMap (基准交易日) ---
+    // 只要是 MarketMap 里有的，都算进来（用于补全空仓期的日期）
+    try {
+        const result = await ossClient.get(MARKET_FILE_NAME);
+        const marketJsonStr = result.content ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) : "";
+        
+        if (marketJsonStr) {
+            const marketData = JSON.parse(marketJsonStr);
+            const marketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
+            
+            marketDates.forEach(d => {
+                const stdDate = normalizeDate(d);
+                if (stdDate) dateSet.add(stdDate);
+            });
+            console.log(`✅ [Step 1] MarketMap 加载完成，基准日期池: ${dateSet.size} 天`);
+        }
+    } catch (e) {
+        console.warn(`⚠️ 读取 MarketMap 失败 (将仅使用策略流水日期): ${e.message}`);
+    }
 
-    // 1.1 处理流水表
+    // --- 2. 提取策略流水具体日期 (取并集) ---
+    // 不做范围填充，只提取流水中“真实存在”的日期点
     strategies.forEach(key => {
         strategyDailyMap[key] = {};
         const records = resultsDict[key];
+        
+        // 调试计数
+        let addedCount = 0;
 
-        // 临时Set，用于调试打印当前策略包含哪些日期
-        const currentStrategyDates = new Set();
-
+        // 排序确保后续处理顺序（虽然Set无所谓顺序，但Map构建需要）
         const sortedRecords = records.sort((a, b) => 
             String(a[DATE_FIELD_NAME]).localeCompare(String(b[DATE_FIELD_NAME]))
         );
@@ -375,83 +395,31 @@ async function generateAndUploadJsonReport(resultsDict) {
             const stdDate = normalizeDate(rawDate);
             
             if (stdDate) {
-                dateSet.add(stdDate); 
-                currentStrategyDates.add(`${stdDate} (原: ${rawDate})`); // 调试用
+                // 【核心逻辑】直接加入 Set，取并集
+                // 如果 MarketMap 里有了，Set 会自动去重
+                // 如果 MarketMap 里没有（比如是最新交易日），这里会补充进去
+                if (!dateSet.has(stdDate)) {
+                    addedCount++;
+                }
+                dateSet.add(stdDate);
+                
+                // 记录数据映射
                 strategyDailyMap[key][stdDate] = h;
-            } else {
-                console.warn(`⚠️ [DEBUG] 日期解析失败: [${rawDate}] (策略: ${key})`);
             }
         });
-
-        // 打印该策略解析出的前5个和后5个日期，避免刷屏，但能看到范围
-        const dateArr = Array.from(currentStrategyDates).sort();
-        console.log(`策略 [${key}] 贡献了 ${dateArr.length} 个交易日`);
-        if (dateArr.length > 0) {
-            console.log(`   -> 开始于: ${dateArr[0]}`);
-            console.log(`   -> 结束于: ${dateArr[dateArr.length - 1]}`);
-            // 如果觉得有问题，可以在这里把 dateArr 全部打印出来:
-            // console.log(`   -> 全部日期:`, dateArr);
-        }
+        console.log(`✅ [Step 2] 策略 [${key}] 处理完毕，向日期池新增了 ${addedCount} 个唯一日期`);
     });
 
-    console.log(`✅ 策略数据预处理完成，当前日期池: ${dateSet.size} 天`);
-
-    // 1.2 处理 MarketMap (基准交易日补全)
-    console.log("--- [DEBUG] 阶段2: 解析 MarketMap ---");
-    try {
-        const result = await ossClient.get(MARKET_FILE_NAME);
-        const marketJsonStr = result.content ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) : "";
-        
-        if (marketJsonStr) {
-            const marketData = JSON.parse(marketJsonStr);
-            const marketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
-            
-            console.log(`[DEBUG] MarketMap 原始包含 ${marketDates.length} 个条目`);
-            
-            let addedCount = 0;
-            const addedDatesList = []; // 用于记录到底补了哪些天
-
-            marketDates.forEach(d => {
-                const stdDate = normalizeDate(d);
-                if (stdDate) {
-                    // 关键调试点：如果 dateSet 里没有，说明是 MarketMap 强行补进去的
-                    if (!dateSet.has(stdDate)) {
-                        addedCount++;
-                        dateSet.add(stdDate);
-                        addedDatesList.push(`${stdDate} (原: ${d})`);
-                    }
-                }
-            });
-
-            console.log(`✅ MarketMap 处理完毕。`);
-            console.log(`   -> 共补充了 ${addedCount} 个日期 (这些日期在策略流水中不存在)`);
-            
-            if (addedCount > 0) {
-                console.log("   -> ⚠️ 警告：以下是 MarketMap 强行补充的日期，请检查是否包含非交易日：");
-                // 打印出来，看看是不是混进了周末或节假日
-                console.log(JSON.stringify(addedDatesList, null, 2));
-            } else {
-                console.log("   -> 完美：MarketMap 没有引入任何额外日期。");
-            }
-        }
-    } catch (e) {
-        console.warn(`⚠️ 读取 MarketMap 异常: ${e.message}`);
-    }
-
-    // 1.3 最终时间轴排序
+    // --- 3. 生成最终时间轴 ---
     const sortedDates = Array.from(dateSet).sort();
-    
-    console.log("--- [DEBUG] 阶段3: 最终日期列表 ---");
-    console.log(`最终时间轴包含 ${sortedDates.length} 天。首日: ${sortedDates[0]}, 末日: ${sortedDates[sortedDates.length-1]}`);
-    // 如果怀疑中间有断层或异常，可以取消下面这行的注释
-    // console.log("完整日期列表:", sortedDates);
+    console.log(`📆 最终时间轴: ${sortedDates.length} 天 (Start: ${sortedDates[0]} -> End: ${sortedDates[sortedDates.length-1]})`);
 
     if (sortedDates.length === 0) {
-        console.warn("❌ [严重] 最终日期列表为空。");
+        console.warn("❌ [严重] 日期列表为空，无法生成报告");
         return;
     }
 
-    // --- 2. 构建总资产曲线 ---
+    // --- 4. 构建总资产曲线 ---
     const totalEquityCurve = [];
     const lastKnownValues = {};
     strategies.forEach(key => lastKnownValues[key] = 0);
@@ -462,29 +430,23 @@ async function generateAndUploadJsonReport(resultsDict) {
         strategies.forEach(key => {
             const dayRecord = strategyDailyMap[key][date];
             if (dayRecord) {
+                // 有数据则更新
                 let valStr = dayRecord[ASSET_FIELD_NAME];
                 if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
                 const val = parseFloat(valStr);
-                if (!isNaN(val)) {
-                    lastKnownValues[key] = val;
-                }
+                if (!isNaN(val)) lastKnownValues[key] = val;
             }
+            // 无数据则沿用上一次的值 (FFill)
             dailySum += lastKnownValues[key];
         });
 
+        // 过滤初期 0 资产
         if (dailySum > 0) {
             totalEquityCurve.push({ date: date, value: dailySum });
         }
     });
 
-    console.log(`📊 资产曲线构建完成，有效数据点: ${totalEquityCurve.length}`);
-
-    if (totalEquityCurve.length === 0) {
-        console.warn("❌ 资产曲线为空");
-        return;
-    }
-
-    // --- 3. 指标计算 ---
+    // --- 5. 指标计算 ---
     const dailyDataList = [];
     const dailyReturns = []; 
     let maxPeak = -Infinity; 
@@ -517,7 +479,7 @@ async function generateAndUploadJsonReport(resultsDict) {
         });
     });
 
-    // --- 4. 统计 & 上传 ---
+    // --- 6. 统计 & 上传 ---
     const lastDay = dailyDataList[dailyDataList.length - 1];
     const finalEquity = totalEquityCurve[days - 1].value;
 
