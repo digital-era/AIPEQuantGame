@@ -72,3 +72,130 @@ let price = marketPrice || lastPrices[code] || 0;
 ### 总结
 当前代码的逻辑是 **“以最近一次交易价作为当前市价”**。
 若要修复此缺陷，需要补充 **所有持仓股票** 在 **每一天** 的 **收盘价**。
+
+
+
+
+# 1. 安装阿里云 OSS SDK (Colab 默认不包含)
+!pip install oss2 pandas openpyxl
+
+import pandas as pd
+import json
+import oss2
+import os
+
+# ================= 配置信息 =================
+ACCESS_KEY_ID = ''
+ACCESS_KEY_SECRET = ''
+ENDPOINT = 'http://oss-cn-hangzhou.aliyuncs.com'
+BUCKET_NAME = 'aiep-users'
+
+FILE_PATH_1 = '/content/EEIFlow.xlsx'
+FILE_PATH_2 = '/content/EEIFlowHK.xlsx'
+OUTPUT_FILENAME = 'MarketMap.json'
+
+def process_data():
+    all_data = []
+
+    # ================= 处理文件 1: EEIFlow.xlsx =================
+    if os.path.exists(FILE_PATH_1):
+        try:
+            # dtype={'代码': str} 确保 0 开头的数字被读取为字符串
+            df1 = pd.read_excel(FILE_PATH_1, sheet_name='Flow5Days', dtype={'代码': str})
+            
+            # 提取需要的列 (假设列名没有多余空格，如果有建议先 strip)
+            # 目标: 代码, 日期, spj
+            df1 = df1[['日期', '代码', 'spj']]
+            df1.columns = ['date', 'code', 'price'] # 重命名以便统一
+            
+            all_data.append(df1)
+            print(f"成功读取 {FILE_PATH_1}")
+        except Exception as e:
+            print(f"读取 {FILE_PATH_1} 失败: {e}")
+    else:
+        print(f"文件不存在: {FILE_PATH_1}")
+
+    # ================= 处理文件 2: EEIFlowHK.xlsx =================
+    if os.path.exists(FILE_PATH_2):
+        try:
+            # dtype={'代码': str} 确保 0 开头的数字被读取为字符串
+            df2 = pd.read_excel(FILE_PATH_2, sheet_name='ARHK', dtype={'代码': str})
+            
+            # 提取需要的列
+            # 目标: 代码, 日期, Price
+            df2 = df2[['日期', '代码', 'Price']]
+            df2.columns = ['date', 'code', 'price'] # 重命名以便统一
+            
+            all_data.append(df2)
+            print(f"成功读取 {FILE_PATH_2}")
+        except Exception as e:
+            print(f"读取 {FILE_PATH_2} 失败: {e}")
+    else:
+        print(f"文件不存在: {FILE_PATH_2}")
+
+    # ================= 合并与格式化 =================
+    if not all_data:
+        print("没有数据被处理。")
+        return
+
+    # 合并两个 DataFrame
+    final_df = pd.concat(all_data, ignore_index=True)
+
+    # 确保日期是字符串格式 (YYYY-MM-DD)
+    # 如果 Excel 里是日期对象，这里转换为字符串；如果是字符串，保持原样
+    final_df['date'] = pd.to_datetime(final_df['date']).dt.strftime('%Y-%m-%d')
+
+    # 构建字典结构: { "date": { "code": price, ... } }
+    market_map = {}
+
+    # 按日期分组处理
+    for date_val, group in final_df.groupby('date'):
+        # 将该日期下的数据转换为 {code: price} 字典
+        # zip 将两列打包，dict 转换为字典
+        codes = group['code'].tolist()
+        prices = group['price'].tolist()
+        
+        # 确保 code 是字符串并去重 (如果同一天同一代码有多条数据，后面的会覆盖前面的)
+        daily_data = dict(zip(codes, prices))
+        
+        market_map[date_val] = daily_data
+
+    # ================= 生成 JSON 文件 =================
+    with open(OUTPUT_FILENAME, 'w', encoding='utf-8') as f:
+        # ensure_ascii=False 允许非 ASCII 字符（虽然这里主要是数字和代码）
+        # indent=2 为了美观，如果为了文件大小可以去掉
+        json.dump(market_map, f, ensure_ascii=False, indent=2)
+    
+    print(f"JSON 文件已生成: {OUTPUT_FILENAME}")
+    
+    return market_map
+
+def upload_to_oss():
+    if not os.path.exists(OUTPUT_FILENAME):
+        print("找不到要上传的 JSON 文件。")
+        return
+
+    print("正在上传到 OSS...")
+    try:
+        # 初始化 OSS Auth 和 Bucket
+        auth = oss2.Auth(ACCESS_KEY_ID, ACCESS_KEY_SECRET)
+        bucket = oss2.Bucket(auth, ENDPOINT, BUCKET_NAME)
+
+        # 上传文件
+        # put_object_from_file(OSS上的文件名, 本地文件名)
+        result = bucket.put_object_from_file(OUTPUT_FILENAME, OUTPUT_FILENAME)
+
+        if result.status == 200:
+            print(f"上传成功! 文件位置: oss://{BUCKET_NAME}/{OUTPUT_FILENAME}")
+        else:
+            print(f"上传可能失败，状态码: {result.status}")
+
+    except oss2.exceptions.OssError as e:
+        print(f"OSS 上传发生错误: {e}")
+
+# ================= 执行主逻辑 =================
+# 1. 处理数据
+process_data()
+
+# 2. 上传 OSS
+upload_to_oss()
