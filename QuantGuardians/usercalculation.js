@@ -378,11 +378,11 @@ async function generateAndUploadJsonReport(resultsDict) {
         });
     });
 
-    // 1.2 处理 MaketMap.json (Market Map)
+    // 1.2 处理 MarketMap.json (Market Map)
     // 逻辑：如果日期在 MaketMap 中存在，也应纳入考量
     try {
-        console.log("正在尝试读取 MaketMap.json 以对齐交易日...");
-        const result = await ossClient.get('MaketMap.json');
+        console.log("正在尝试读取 MarketMap.json 以对齐交易日...");
+        const result = await ossClient.get('MarketMap.json');
         
         let marketJsonStr = "";
         if (result.content) {
@@ -410,10 +410,10 @@ async function generateAndUploadJsonReport(resultsDict) {
                 const stdDate = normalizeDate(d);
                 if (stdDate) dateSet.add(stdDate);
             });
-            console.log(`✅ MaketMap.json 读取成功，合并后日期总数: ${dateSet.size}`);
+            console.log(`✅ MarketMap.json 读取成功，合并后日期总数: ${dateSet.size}`);
         }
     } catch (e) {
-        console.warn("⚠️ 读取 MaketMap.json 失败或文件不存在，将仅使用策略实际流水日期。", e);
+        console.warn("⚠️ 读取 MarketMap.json 失败或文件不存在，将仅使用策略实际流水日期。", e);
     }
 
     // 1.3 排序得到最终时间轴 (标准日期格式)
