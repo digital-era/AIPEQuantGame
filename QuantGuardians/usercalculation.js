@@ -328,72 +328,146 @@ class PortfolioBacktestEngine {
 }
 
 async function generateAndUploadJsonReport(resultsDict) {
-    // 合并所有策略的日期
+    // --- 1. 数据准备与对齐 (模拟 Pandas concat & ffill) ---
     const dateSet = new Set();
-    Object.values(resultsDict).forEach(hist => {
-        hist.forEach(h => dateSet.add(h['日期']));
+    const strategies = Object.keys(resultsDict);
+    
+    // 收集所有策略出现过的日期
+    strategies.forEach(key => {
+        resultsDict[key].forEach(h => dateSet.add(h['日期']));
     });
+    
+    // 日期排序
     const sortedDates = Array.from(dateSet).sort();
 
-    if (sortedDates.length === 0) return;
+    if (sortedDates.length === 0) {
+        console.warn("❌ [User模型] 无有效日期数据，跳过报告生成");
+        return;
+    }
 
-    const dailyDataList = [];
-    const totalCurve = [];
-    let initialTotal = 0;
-    
-    // 假设每个策略初始资金 10w，总共 40w (或者按实际配置)
-    // 这里为了展示 User 整体收益，我们将所有策略的 PnL 加总
-    
-    let maxDd = 0;
-    let globalPeak = 0;
+    const totalEquityCurve = [];
+    // 记录每个策略上一次已知的资产值，初始为0 (fillna(0))
+    const lastKnownValues = {};
+    strategies.forEach(key => lastKnownValues[key] = 0);
 
-    sortedDates.forEach((date, idx) => {
+    // 遍历每一天，聚合总资产
+    sortedDates.forEach(date => {
         let dailySum = 0;
         
-        Object.values(resultsDict).forEach(hist => {
-            // 找到该策略在该日的资产，若无则取最近一天
-            const dayData = hist.find(h => h['日期'] === date);
+        strategies.forEach(key => {
+            // 尝试找该策略当日数据
+            const dayData = resultsDict[key].find(h => h['日期'] === date);
             if (dayData) {
-                dailySum += dayData['总资产'];
-            } else {
-                // 找这一天之前的最后一条数据
-                const prev = hist.filter(h => h['日期'] < date).pop();
-                dailySum += prev ? prev['总资产'] : 100000; // 默认初始值
+                // 找到数据，更新“最后已知值”
+                lastKnownValues[key] = dayData['总资产'];
             }
+            // 无论是否有数据，都累加“最后已知值” (实现 ffill)
+            dailySum += lastKnownValues[key];
         });
 
-        if (idx === 0) initialTotal = dailySum;
+        // 对应 Python: total_equity_curve[total_equity_curve > 0]
+        // 只有总资产 > 0 才开始记录，去除策略未开始前的 0 值
+        if (dailySum > 0) {
+            totalEquityCurve.push({
+                date: date,
+                value: dailySum
+            });
+        }
+    });
 
-        const cumRtn = (dailySum - initialTotal) / initialTotal;
-        
-        // 回撤计算
-        if (dailySum > globalPeak) globalPeak = dailySum;
-        const dd = globalPeak > 0 ? (dailySum - globalPeak) / globalPeak : 0;
-        if (Math.abs(dd) > maxDd) maxDd = Math.abs(dd);
+    if (totalEquityCurve.length === 0) return;
+
+    // --- 2. 核心指标计算 ---
+    const dailyDataList = [];
+    const dailyReturns = []; 
+    
+    let maxPeak = -Infinity; // 历史最高资产 (用于计算回撤)
+    let maxDdSoFar = 0;      // 至今最大回撤率 (绝对值)
+    const initialEquity = totalEquityCurve[0].value;
+    const days = totalEquityCurve.length;
+
+    totalEquityCurve.forEach((dayData, idx) => {
+        const currentEquity = dayData.value;
+        const prevEquity = idx === 0 ? initialEquity : totalEquityCurve[idx - 1].value;
+
+        // [每日收益率] 对应 pct_change().fillna(0)
+        let dailyRet = 0;
+        if (idx > 0) {
+            dailyRet = (currentEquity - prevEquity) / prevEquity;
+        }
+        dailyReturns.push(dailyRet); // 用于后续计算夏普
+
+        // [累计收益率]
+        const cumRet = (currentEquity - initialEquity) / initialEquity;
+
+        // [最大回撤率（至当日）] 对应 expanding().min().abs()
+        if (currentEquity > maxPeak) maxPeak = currentEquity;
+        // 回撤公式: (当前 - 峰值) / 峰值
+        const dd = maxPeak > 0 ? (currentEquity - maxPeak) / maxPeak : 0;
+        // 取绝对值并更新历史最大值
+        if (Math.abs(dd) > maxDdSoFar) maxDdSoFar = Math.abs(dd);
 
         dailyDataList.push({
-            "日期": date,
-            "累计收益率": cumRtn,
-            "总资产": dailySum,
-            "最大回撤率（至当日）": Math.abs(dd)
+            "日期": dayData.date,
+            "每日收益率": dailyRet,
+            "累计收益率": cumRet,
+            "最大回撤率（至当日）": maxDdSoFar
         });
     });
 
+    // --- 3. 统计性指标计算 ---
     const lastDay = dailyDataList[dailyDataList.length - 1];
-    
-    // 构建输出对象
+    const finalEquity = totalEquityCurve[days - 1].value;
+
+    // [年化收益率]
+    // Python: (end/start)**(252/days) - 1
+    let annRet = 0;
+    if (days > 1) {
+        annRet = Math.pow((finalEquity / initialEquity), (252 / days)) - 1;
+    }
+
+    // [夏普比率]
+    // Python: (mean / std) * sqrt(252)
+    // 注意：Pandas std() 默认 ddof=1 (样本标准差)，此处 JS 需保持一致 (除以 N-1)
+    let sharpe = 0;
+    if (dailyReturns.length > 1) {
+        const sumRet = dailyReturns.reduce((a, b) => a + b, 0);
+        const meanRet = sumRet / dailyReturns.length;
+        
+        // 计算样本方差
+        const sumSqDiff = dailyReturns.reduce((sum, val) => sum + Math.pow(val - meanRet, 2), 0);
+        const variance = sumSqDiff / (dailyReturns.length - 1); 
+        const stdDev = Math.sqrt(variance);
+
+        if (stdDev !== 0) {
+            sharpe = (meanRet / stdDev) * Math.sqrt(252);
+        }
+    }
+
+    // --- 4. 构建最终 JSON 对象 ---
     const outputData = {
-        "模型名称": "UserComposed",
+        "模型名称": "User模型",
         "总收益率": lastDay ? lastDay['累计收益率'] : 0,
-        "最大回撤率": maxDd,
+        "年化收益率": annRet,
+        "最大回撤率": maxDdSoFar, // 最后一天的“至今最大回撤”
+        "夏普比率": sharpe,
         "每日评估数据": dailyDataList
     };
 
-    // 上传到 OSS
-    const jsonString = JSON.stringify(outputData, null, 4);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    
-    // 复用全局 ossClient 上传
-    await ossClient.put(USER_REPORT_FILE, blob);
-    log(`✅ JSON 报告已上传至: ${USER_REPORT_FILE}`, "#0f0");
+    // --- 5. 上传 OSS ---
+    try {
+        const jsonString = JSON.stringify(outputData, null, 4);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        
+        await ossClient.put(USER_REPORT_FILE, blob);
+        log(`✅ [User模型] JSON 报告已上传至: ${USER_REPORT_FILE}`, "#0f0");
+        console.log("报告摘要:", JSON.stringify({
+            "总收益": outputData["总收益率"].toFixed(4),
+            "年化": outputData["年化收益率"].toFixed(4),
+            "夏普": outputData["夏普比率"].toFixed(4)
+        }));
+    } catch (e) {
+        console.error("OSS上传失败", e);
+        log(`❌ [User模型] JSON 报告上传失败`, "#f00");
+    }
 }
