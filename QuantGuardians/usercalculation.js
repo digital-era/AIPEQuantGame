@@ -328,145 +328,133 @@ class PortfolioBacktestEngine {
 }
 
 async function generateAndUploadJsonReport(resultsDict) {
-    console.log("Starting report generation (Date Logic Updated)...");
+    console.log("Starting report generation (Debug Mode)...");
 
-    // --- 辅助函数：将 202512181630 格式化为 2025-12-18 ---
-    // 目的：忽略时分秒，与 MaketMap 进行“天”级别的对齐
+    // ================= 配置区 =================
+    const MARKET_FILE_NAME = 'MarketMap.json'; 
+    const USER_REPORT_FILE = 'UserReport.json';
+    // ⚠️ 核心字段名设置：请确认你的流水表里代表“钱”的字段叫什么
+    // 常见可能：'总资产', '账户权益', '总权益', 'total_assets', 'equity'
+    const ASSET_FIELD_NAME = '总资产'; 
+    // ==========================================
+
+    // --- 辅助函数：标准化日期 ---
     function normalizeDate(dateStr) {
         if (!dateStr) return null;
-        // 如果已经是 YYYY-MM-DD 格式，直接返回
-        if (dateStr.includes("-") && dateStr.length === 10) return dateStr;
-        
-        // 处理 202512181630 (长字符串) 或 20251218
         const str = String(dateStr);
+        if (str.includes("-") && str.length === 10) return str;
         if (str.length >= 8) {
-            const yyyy = str.substring(0, 4);
-            const mm = str.substring(4, 6);
-            const dd = str.substring(6, 8);
-            return `${yyyy}-${mm}-${dd}`;
+            return `${str.substring(0, 4)}-${str.substring(4, 6)}-${str.substring(6, 8)}`;
         }
-        return str; // 无法识别的格式，原样返回防报错
+        return str; 
     }
 
     // --- 1. 日期收集与预处理 ---
     const dateSet = new Set();
     const strategies = Object.keys(resultsDict);
-    
-    // 用于快速查找策略某天数据的映射表: dailyMap[策略名][标准日期] = 数据对象
     const strategyDailyMap = {}; 
 
-    // 1.1 处理流水表 (Flow Table)
+    console.log(`检测到 ${strategies.length} 个策略: ${strategies.join(', ')}`);
+
+    // 1.1 处理流水表
     strategies.forEach(key => {
         strategyDailyMap[key] = {};
+        const records = resultsDict[key];
         
-        // 先按原本的字符串(含时间)排序，确保处理时是时间顺序
-        const sortedRecords = resultsDict[key].sort((a, b) => 
+        if (!records || records.length === 0) {
+            console.warn(`⚠️ 策略 [${key}] 没有流水记录`);
+            return;
+        }
+
+        // 排序
+        const sortedRecords = records.sort((a, b) => 
             String(a['修改日期']).localeCompare(String(b['修改日期']))
         );
 
+        // 打印第一条记录的字段，帮助排查字段名问题
+        console.log(`🔍 [DEBUG] 策略 [${key}] 的第一条数据字段预览:`, Object.keys(sortedRecords[0]));
+
         sortedRecords.forEach(h => {
-            const rawDate = h['修改日期']; // 格式: 202512181630
-            const stdDate = normalizeDate(rawDate); // 格式: 2025-12-18
-            
+            const stdDate = normalizeDate(h['修改日期']);
             if (stdDate) {
-                dateSet.add(stdDate); // 加入时间轴集合
-                
-                // 存入映射表。因为是按时间顺序遍历，同一天后出现的记录会覆盖前面的
-                // 从而实现了“取当天收盘/最后时刻的净值”
+                dateSet.add(stdDate); 
                 strategyDailyMap[key][stdDate] = h;
             }
         });
     });
 
-    // 1.2 处理 MarketMap.json (Market Map)
-    // 逻辑：如果日期在 MaketMap 中存在，也应纳入考量
+    // 1.2 处理 MarketMap
     try {
-        console.log("正在尝试读取 MarketMap.json 以对齐交易日...");
-        const result = await ossClient.get('MarketMap.json');
-        
-        let marketJsonStr = "";
-        if (result.content) {
-            if (typeof result.content === 'string') {
-                marketJsonStr = result.content;
-            } else {
-                marketJsonStr = new TextDecoder("utf-8").decode(result.content);
-            }
-        }
+        const result = await ossClient.get(MARKET_FILE_NAME);
+        const marketJsonStr = result.content ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) : "";
         
         if (marketJsonStr) {
             const marketData = JSON.parse(marketJsonStr);
-            let marketDates = [];
-
-            // 兼容数组 ["2025-01-01", ...] 或 对象 {"2025-01-01": ...}
-            if (Array.isArray(marketData)) {
-                marketDates = marketData;
-            } else if (typeof marketData === 'object') {
-                marketDates = Object.keys(marketData);
-            }
-
-            // 将市场日期加入 Set (实现 Union 并集)
-            // 只有这里和流水表里有的日期，才会进入 Set，从而自动剔除周末/非交易日
+            const marketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
+            
             marketDates.forEach(d => {
                 const stdDate = normalizeDate(d);
                 if (stdDate) dateSet.add(stdDate);
             });
-            console.log(`✅ MarketMap.json 读取成功，合并后日期总数: ${dateSet.size}`);
+            console.log(`✅ MarketMap 读取成功，当前日期池共 ${dateSet.size} 天`);
         }
     } catch (e) {
-        console.warn("⚠️ 读取 MarketMap.json 失败或文件不存在，将仅使用策略实际流水日期。", e);
+        console.warn(`⚠️ 读取 MarketMap 异常: ${e.message}`);
     }
 
-    // 1.3 排序得到最终时间轴 (标准日期格式)
     const sortedDates = Array.from(dateSet).sort();
-
     if (sortedDates.length === 0) {
-        console.warn("❌ [User模型] 无有效日期数据，跳过报告生成");
+        console.warn("❌ 无有效日期数据");
         return;
     }
 
-    // --- 2. 构建总资产曲线 (Concat & FFill) ---
+    // --- 2. 构建总资产曲线 (带详细调试) ---
     const totalEquityCurve = [];
-    // 记录各策略“最后已知总资产”，初始为0
     const lastKnownValues = {};
     strategies.forEach(key => lastKnownValues[key] = 0);
 
-    sortedDates.forEach(date => { // date 格式已经是 2025-12-18
+    // 标记是否已经打印过字段警告，避免刷屏
+    let hasWarnedField = false;
+
+    sortedDates.forEach(date => {
         let dailySum = 0;
-        let hasStarted = false; // 标记是否至少有一个策略已经开始产生数据
         
         strategies.forEach(key => {
-            // 从预处理好的 Map 中直接获取当日数据
             const dayRecord = strategyDailyMap[key][date];
-            
             if (dayRecord) {
-                // 当日有记录，更新最后已知值
-                // 注意：这里读取的是 '总资产'，请确保流水表里有这个字段，或者根据需求改为 '可用' + '市值'
-                lastKnownValues[key] = parseFloat(dayRecord['总资产'] || 0);
+                // [关键调试点] 获取资产数值
+                let val = dayRecord[ASSET_FIELD_NAME];
+
+                // 如果找不到 '总资产'，且还没警告过，打印出来
+                if (val === undefined && !hasWarnedField) {
+                    console.error(`❌ [严重错误] 在日期 ${date} 的数据里找不到字段 "${ASSET_FIELD_NAME}"！`);
+                    console.error("   >>> 实际存在的字段有:", Object.keys(dayRecord));
+                    console.error("   >>> 请修改代码顶部的 ASSET_FIELD_NAME 变量");
+                    hasWarnedField = true;
+                }
+
+                // 尝试解析数值（处理可能是字符串的情况）
+                lastKnownValues[key] = parseFloat(val) || 0;
             }
-            
-            // 累加当前策略的价值 (如果当日没交易，就用昨天的值 FFill)
             dailySum += lastKnownValues[key];
         });
 
-        // 简单的过滤：如果所有策略总和为0，通常意味着回测还没开始
-        // 也可以根据需求去掉这个判断，如果允许资产为0
+        // 只有大于0才记录，或者你可以暂时注释掉 >0 的判断来看看是不是数值太小
         if (dailySum > 0) {
-            totalEquityCurve.push({
-                date: date, // 2025-12-18
-                value: dailySum
-            });
+            totalEquityCurve.push({ date: date, value: dailySum });
         }
     });
 
+    console.log(`📊 计算完成，生成了 ${totalEquityCurve.length} 个有效资产点`);
+
     if (totalEquityCurve.length === 0) {
-        console.warn("❌ [User模型] 资产曲线生成为空 (可能是总资产数据均为0)");
+        console.warn("❌ [最终失败] 资产曲线为空。原因可能是：1.字段名不对(看上面红字) 2.所有数值解析后都是0 3.日期匹配完全失败");
         return;
     }
 
-    // --- 3. 核心指标计算 (收益、回撤、夏普) ---
+    // --- 3. 指标计算 ---
     const dailyDataList = [];
     const dailyReturns = []; 
-    
     let maxPeak = -Infinity; 
     let maxDdSoFar = 0;      
     const initialEquity = totalEquityCurve[0].value;
@@ -476,21 +464,16 @@ async function generateAndUploadJsonReport(resultsDict) {
         const currentEquity = dayData.value;
         const prevEquity = idx === 0 ? initialEquity : totalEquityCurve[idx - 1].value;
 
-        // [每日收益率]
         let dailyRet = 0;
         if (idx > 0 && prevEquity !== 0) {
             dailyRet = (currentEquity - prevEquity) / prevEquity;
         }
         dailyReturns.push(dailyRet);
 
-        // [累计收益率]
         const cumRet = (currentEquity - initialEquity) / initialEquity;
 
-        // [最大回撤率（至当日）]
         if (currentEquity > maxPeak) maxPeak = currentEquity;
         const dd = maxPeak > 0 ? (currentEquity - maxPeak) / maxPeak : 0;
-        // 回撤通常为负数，这里取绝对值表示幅度，或者保留负号根据前端需求
-        // 这里沿用之前的 Math.abs 逻辑
         if (Math.abs(dd) > maxDdSoFar) maxDdSoFar = Math.abs(dd);
 
         dailyDataList.push({
@@ -498,40 +481,32 @@ async function generateAndUploadJsonReport(resultsDict) {
             "每日收益率": dailyRet,
             "累计收益率": cumRet,
             "最大回撤率（至当日）": maxDdSoFar,
-            "总资产": currentEquity // 可选：输出每日总资产以便核对
+            "总资产": currentEquity
         });
     });
 
-    // --- 4. 统计性指标计算 ---
+    // --- 4. 统计 & 上传 ---
     const lastDay = dailyDataList[dailyDataList.length - 1];
     const finalEquity = totalEquityCurve[days - 1].value;
 
-    // [年化收益率]
     let annRet = 0;
     if (days > 1) {
         annRet = Math.pow((finalEquity / initialEquity), (252 / days)) - 1;
     }
 
-    // [夏普比率]
     let sharpe = 0;
     if (dailyReturns.length > 1) {
         const sumRet = dailyReturns.reduce((a, b) => a + b, 0);
         const meanRet = sumRet / dailyReturns.length;
-        
         const sumSqDiff = dailyReturns.reduce((sum, val) => sum + Math.pow(val - meanRet, 2), 0);
         const variance = sumSqDiff / (dailyReturns.length - 1); 
         const stdDev = Math.sqrt(variance);
-
-        // 避免除以0
-        if (stdDev > 0.0000001) {
-            sharpe = (meanRet / stdDev) * Math.sqrt(252);
-        }
+        if (stdDev > 1e-7) sharpe = (meanRet / stdDev) * Math.sqrt(252);
     }
 
-    // --- 5. 构建输出 JSON ---
     const outputData = {
         "模型名称": "User模型",
-        "更新时间": new Date().toISOString(), // 方便Debug
+        "更新时间": new Date().toISOString(),
         "总收益率": lastDay ? lastDay['累计收益率'] : 0,
         "年化收益率": annRet,
         "最大回撤率": maxDdSoFar,
@@ -539,19 +514,13 @@ async function generateAndUploadJsonReport(resultsDict) {
         "每日评估数据": dailyDataList
     };
 
-    // --- 6. 上传 OSS ---
     try {
         const jsonString = JSON.stringify(outputData, null, 4);
         const blob = new Blob([jsonString], { type: 'application/json' });
-        
         await ossClient.put(USER_REPORT_FILE, blob);
-        
-        // 简单的控制台日志，不依赖外部 log 函数
-        console.log(`✅ [User模型] JSON 报告已上传至: ${USER_REPORT_FILE} (包含 ${dailyDataList.length} 个交易日)`);
-        console.log("报告摘要:", JSON.stringify({
-            "总收益": (outputData["总收益率"] * 100).toFixed(2) + "%",
-            "年化": (outputData["年化收益率"] * 100).toFixed(2) + "%",
-            "最大回撤": (outputData["最大回撤率"] * 100).toFixed(2) + "%"
+        console.log(`✅ 成功上传报告至 ${USER_REPORT_FILE}`);
+        console.log("摘要:", JSON.stringify({
+            "TotalReturn": (outputData["总收益率"] * 100).toFixed(2) + "%"
         }));
     } catch (e) {
         console.error("OSS上传失败", e);
