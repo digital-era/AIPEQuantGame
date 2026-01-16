@@ -331,7 +331,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     console.log("Starting report generation (Date Logic Updated)...");
 
     // --- 辅助函数：将 202512181630 格式化为 2025-12-18 ---
-    // 目的：忽略时分秒，与 Maketmap 进行“天”级别的对齐
+    // 目的：忽略时分秒，与 MaketMap 进行“天”级别的对齐
     function normalizeDate(dateStr) {
         if (!dateStr) return null;
         // 如果已经是 YYYY-MM-DD 格式，直接返回
@@ -378,11 +378,11 @@ async function generateAndUploadJsonReport(resultsDict) {
         });
     });
 
-    // 1.2 处理 Maketmap.json (Market Map)
-    // 逻辑：如果日期在 Marketmap 中存在，也应纳入考量
+    // 1.2 处理 MaketMap.json (Market Map)
+    // 逻辑：如果日期在 MaketMap 中存在，也应纳入考量
     try {
-        console.log("正在尝试读取 Maketmap.json 以对齐交易日...");
-        const result = await ossClient.get('Maketmap.json');
+        console.log("正在尝试读取 MaketMap.json 以对齐交易日...");
+        const result = await ossClient.get('MaketMap.json');
         
         let marketJsonStr = "";
         if (result.content) {
@@ -410,10 +410,10 @@ async function generateAndUploadJsonReport(resultsDict) {
                 const stdDate = normalizeDate(d);
                 if (stdDate) dateSet.add(stdDate);
             });
-            console.log(`✅ Maketmap.json 读取成功，合并后日期总数: ${dateSet.size}`);
+            console.log(`✅ MaketMap.json 读取成功，合并后日期总数: ${dateSet.size}`);
         }
     } catch (e) {
-        console.warn("⚠️ 读取 Maketmap.json 失败或文件不存在，将仅使用策略实际流水日期。", e);
+        console.warn("⚠️ 读取 MaketMap.json 失败或文件不存在，将仅使用策略实际流水日期。", e);
     }
 
     // 1.3 排序得到最终时间轴 (标准日期格式)
