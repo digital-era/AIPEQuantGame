@@ -367,14 +367,11 @@ async function generateAndUploadJsonReport(resultsDict) {
         
         if (marketJsonStr) {
             const marketData = JSON.parse(marketJsonStr);
+            // 关键修改：确保 marketDates 是数组
             marketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
             
-            // 将所有MarketMap日期添加到日期池
-            marketDates.forEach(d => {
-                const stdDate = normalizeDate(d);
-                if (stdDate) dateSet.add(stdDate);
-            });
-            console.log(`✅ [Step 1] MarketMap 加载完成，添加了 ${marketDates.length} 个基准交易日`);
+            console.log(`✅ [Step 1] MarketMap 加载完成，有 ${marketDates.length} 个基准交易日`);
+            console.log(`   前5个交易日: ${JSON.stringify(marketDates.slice(0, 5))}`);
         } else {
             console.warn(`⚠️ MarketMap 文件内容为空`);
         }
@@ -382,7 +379,7 @@ async function generateAndUploadJsonReport(resultsDict) {
         console.warn(`⚠️ 读取 MarketMap 失败 (将仅使用策略流水日期): ${e.message}`);
     }
 
-    // --- 2. 提取策略流水具体日期 (与MarketMap日期取并集) ---
+    // --- 2. 提取策略流水具体日期 ---
     console.log(`📊 正在处理 ${strategies.length} 个策略的流水数据...`);
     
     strategies.forEach(key => {
@@ -400,52 +397,92 @@ async function generateAndUploadJsonReport(resultsDict) {
         );
 
         const validDatesForStrategy = [];  // 这个策略有流水的所有日期
-        let newDatesAdded = 0;  // 新添加到日期池的日期数量
         
         sortedRecords.forEach(h => {
             const rawDate = h[DATE_FIELD_NAME];
             const stdDate = normalizeDate(rawDate);
             
             if (stdDate) {
-                // 保存这个策略在这个日期的流水记录
-                strategyDailyMap[key][stdDate] = h;
-                validDatesForStrategy.push(stdDate);
-                flowDates.add(stdDate); // 添加到有流水的日期集合
+                // 关键修改：检查这个日期是否在 MarketMap 中（如果MarketMap存在）
+                let shouldAddToDateSet = false;
                 
-                // 如果这个日期不在日期池中，添加到日期池
-                if (!dateSet.has(stdDate)) {
-                    dateSet.add(stdDate);
-                    newDatesAdded++;
+                if (marketDates.length === 0) {
+                    // 如果没有MarketMap，直接添加
+                    shouldAddToDateSet = true;
+                } else {
+                    // 检查这个日期是否在MarketMap中
+                    const normalizedMarketDates = marketDates.map(md => normalizeDate(md));
+                    if (normalizedMarketDates.includes(stdDate)) {
+                        shouldAddToDateSet = true;
+                    } else {
+                        console.warn(`⚠️ 策略 [${key}] 的日期 ${stdDate} 不在 MarketMap 中，已跳过`);
+                        return; // 跳过这个日期
+                    }
+                }
+                
+                if (shouldAddToDateSet) {
+                    // 保存这个策略在这个日期的流水记录
+                    strategyDailyMap[key][stdDate] = h;
+                    validDatesForStrategy.push(stdDate);
+                    flowDates.add(stdDate); // 添加到有流水的日期集合
+                    
+                    // 如果这个日期不在日期池中，添加到日期池
+                    if (!dateSet.has(stdDate)) {
+                        dateSet.add(stdDate);
+                    }
                 }
             }
         });
         
-        console.log(`✅ 策略 [${key}] 处理完毕:`);
-        console.log(`   📊 有 ${validDatesForStrategy.length} 个流水日期`);
-        console.log(`   ➕ 新增了 ${newDatesAdded} 个日期到日期池`);
+        console.log(`✅ 策略 [${key}] 处理完毕: ${validDatesForStrategy.length} 个流水日期`);
         if (validDatesForStrategy.length > 0) {
             console.log(`   📅 流水日期范围: ${validDatesForStrategy[0]} 到 ${validDatesForStrategy[validDatesForStrategy.length - 1]}`);
+            console.log(`   📋 具体日期: ${JSON.stringify(validDatesForStrategy)}`);
         }
     });
 
-    // --- 3. 生成最终时间轴 (MarketMap日期 + 所有流水日期) ---
+    // --- 3. 现在，如果日期池为空，从MarketMap添加日期 ---
+    // 但只添加在有流水日期范围内的MarketMap日期
+    if (dateSet.size === 0 && marketDates.length > 0) {
+        console.log("📅 日期池为空，从MarketMap添加日期...");
+        marketDates.forEach(d => {
+            const stdDate = normalizeDate(d);
+            if (stdDate) dateSet.add(stdDate);
+        });
+    }
+    
+    // 生成最终时间轴
     const sortedDates = Array.from(dateSet).sort();
-    const sortedFlowDates = Array.from(flowDates).sort(); // 只有有流水的日期
     
     console.log(`📊 [最终合并结果]`);
     console.log(`   总日期数: ${sortedDates.length} 天`);
-    console.log(`   有流水的日期: ${sortedFlowDates.length} 天`);
     console.log(`   时间范围: ${sortedDates[0] || '无'} -> ${sortedDates[sortedDates.length-1] || '无'}`);
+    
+    // 检查是否有不应该出现的日期
+    const problemDates = [];
+    sortedDates.forEach(date => {
+        // 检查是否是周末
+        const d = new Date(date);
+        const dayOfWeek = d.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            problemDates.push(`${date}(周${dayOfWeek === 0 ? '日' : '六'})`);
+        }
+    });
+    
+    if (problemDates.length > 0) {
+        console.warn(`⚠️ 日期池中包含以下周末: ${problemDates.join(', ')}`);
+    }
+    
     console.log(`   📆 日期池完整列表: ${JSON.stringify(sortedDates)}`);
-    console.log(`   📆 有流水日期列表: ${JSON.stringify(sortedFlowDates)}`);
+    console.log(`   📆 有流水日期列表: ${JSON.stringify(Array.from(flowDates).sort())}`);
 
-    if (sortedFlowDates.length === 0) {
-        console.warn("❌ [严重] 没有找到任何有流水的日期，无法生成报告");
+    if (sortedDates.length === 0) {
+        console.warn("❌ [严重] 没有找到任何有效日期，无法生成报告");
         return;
     }
 
-    // --- 4. 构建总资产曲线（只基于有流水的日期）---
-    console.log("📈 开始构建总资产曲线（仅基于有流水的日期）...");
+    // --- 4. 构建总资产曲线（基于日期池中的日期）---
+    console.log("📈 开始构建总资产曲线...");
     const totalEquityCurve = [];
     const lastKnownValues = {};
     
@@ -458,8 +495,7 @@ async function generateAndUploadJsonReport(resultsDict) {
         lastKnownValues['default'] = INITIAL_CASH;
     }
 
-    // 关键修改：只遍历有流水的日期
-    sortedFlowDates.forEach((date, index) => {
+    sortedDates.forEach((date, index) => {
         let dailySum = 0;
         
         strategies.forEach(key => {
@@ -486,11 +522,9 @@ async function generateAndUploadJsonReport(resultsDict) {
 
         // 添加这个日期的数据到总资产曲线
         totalEquityCurve.push({ date: date, value: dailySum });
-        
-        console.log(`   ${date}: ${dailySum.toFixed(2)}`);
     });
 
-    // --- 5. 指标计算（修复除零问题）---
+    // --- 5. 指标计算 ---
     console.log("🧮 开始计算收益率指标...");
     
     const dailyDataList = [];
@@ -526,24 +560,31 @@ async function generateAndUploadJsonReport(resultsDict) {
             dailyReturns.push(dailyRet);
         }
 
-        const cumRet = prevEquity !== 0 ? (currentEquity - initialEquity) / initialEquity : 0;
+        const cumRet = (currentEquity - initialEquity) / initialEquity;
 
         if (currentEquity > maxPeak) maxPeak = currentEquity;
         const dd = maxPeak > 0 ? (currentEquity - maxPeak) / maxPeak : 0;
         if (Math.abs(dd) > maxDdSoFar) maxDdSoFar = Math.abs(dd);
 
         // 只添加有流水的日期到dailyDataList
-        dailyDataList.push({
-            "日期": dayData.date,
-            "每日收益率": dailyRet,
-            "累计收益率": cumRet,
-            "最大回撤率（至当日）": maxDdSoFar,
-            "总资产": currentEquity
-        });
+        if (flowDates.has(dayData.date)) {
+            dailyDataList.push({
+                "日期": dayData.date,
+                "每日收益率": dailyRet,
+                "累计收益率": cumRet,
+                "最大回撤率（至当日）": maxDdSoFar,
+                "总资产": currentEquity
+            });
+        }
     });
 
     // --- 6. 统计 & 上传 ---
     console.log("📊 生成最终报告...");
+    
+    if (dailyDataList.length === 0) {
+        console.warn("❌ 没有生成有效的每日数据");
+        return;
+    }
     
     const lastDay = dailyDataList[dailyDataList.length - 1];
     const finalEquity = totalEquityCurve[days - 1].value;
@@ -591,7 +632,7 @@ async function generateAndUploadJsonReport(resultsDict) {
     console.log(`初始资产: ${initialEquity.toFixed(2)}`);
     console.log(`最终资产: ${finalEquity.toFixed(2)}`);
     console.log(`日期池天数: ${sortedDates.length}`);
-    console.log(`有流水天数: ${sortedFlowDates.length}`);
+    console.log(`有流水天数: ${flowDates.size}`);
     console.log(`JSON输出天数: ${dailyDataList.length}`);
     console.log("=".repeat(50));
 
