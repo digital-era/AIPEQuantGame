@@ -162,37 +162,27 @@ function sheetToJsonEx(worksheet) {
 // ==================================================================================
 // 增强版回测引擎 (支持全量日期补全 + MarketMap行情结合)
 // ==================================================================================
-
 class PortfolioBacktestEngine {
-    /**
-     * @param {Array} flowData - 交易流水数组
-     * @param {Array} snapData - 持仓快照数组 (用于兜底初始化)
-     * @param {Object} marketMap - 全市场行情字典 { "YYYY-MM-DD": { "code": price, ... } }
-     */
     constructor(flowData, snapData, marketMap = {}) {
-        this.cash = 100000; // 默认初始资金
+        this.cash = 100000;
         this.positions = {}; 
         this.marketMap = marketMap;
         
-        // 1. 预处理流水数据
+        // ... (预处理逻辑保持不变) ...
         this.flows = flowData.map(r => {
-            // 兼容日期格式：Excel可能是 20230101 或 2023-01-01
             let dateRaw = String(r['修改时间'] || '');
             let dateFmt = null;
-            
-            // 简单处理两种常见格式
             if (dateRaw.length === 8 && !dateRaw.includes('-')) {
                 dateFmt = `${dateRaw.substring(0,4)}-${dateRaw.substring(4,6)}-${dateRaw.substring(6,8)}`;
             } else if (dateRaw.includes('-')) {
-                dateFmt = dateRaw.split(' ')[0]; // 去掉可能的时间部分
+                dateFmt = dateRaw.split(' ')[0];
             }
-
             return {
                 ...r,
                 code: String(r['股票代码']).trim(),
                 price: parseFloat(r['价格']),
                 qty: parseFloat(r['标的数量']),
-                type: r['操作类型'], // Buy / Sell
+                type: r['操作类型'],
                 dateFmt: dateFmt
             };
         }).filter(r => r.dateFmt).sort((a,b) => a.dateFmt.localeCompare(b.dateFmt));
@@ -203,28 +193,23 @@ class PortfolioBacktestEngine {
             weight: parseFloat(r['配置比例 (%)'] || 0)
         }));
 
-        // 2. 确定回测的时间范围 (从最早一笔交易 到 今天)
         this.timeline = [];
         if (this.flows.length > 0) {
             const startDate = this.flows[0].dateFmt;
-            const endDate = new Date().toISOString().split('T')[0]; // 今天
+            const endDate = new Date().toISOString().split('T')[0];
             this.timeline = this.generateDateRange(startDate, endDate);
         } else {
-            // 如果没有流水，默认生成最近30天用于展示 Snap 效果
             const endDate = new Date().toISOString().split('T')[0];
             const startDate = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
             this.timeline = this.generateDateRange(startDate, endDate);
         }
     }
 
-    /**
-     * 生成连续的日期数组字符串 ['2023-01-01', '2023-01-02', ...]
-     */
     generateDateRange(start, end) {
+        // ... (保持不变) ...
         const arr = [];
         let dt = new Date(start);
         const endDt = new Date(end);
-        
         while (dt <= endDt) {
             const y = dt.getFullYear();
             const m = String(dt.getMonth() + 1).padStart(2, '0');
@@ -236,21 +221,27 @@ class PortfolioBacktestEngine {
     }
 
     async run() {
-        let currentCash = this.cash;
-        let positions = {}; // { "600519": 100, ... }
-        let lastPrices = {}; // { "600519": 1700.00, ... } 记录每只股票最新的已知价格
+        console.log('====================================================');
+        console.log(`🚀 开始回测 | 时间范围: ${this.timeline[0]} -> ${this.timeline[this.timeline.length-1]}`);
+        console.log(`💰 初始资金: ${this.cash}`);
+        console.log('====================================================');
 
-        // --- 初始化阶段：如果没有任何流水，尝试从 Snap 加载初始持仓 ---
+        let currentCash = this.cash;
+        let positions = {}; 
+        let lastPrices = {}; 
+
+        // --- 初始化阶段兜底 ---
         if (this.flows.length === 0 && this.snap.length > 0) {
+            console.log('⚠️ 无流水，使用 Snap 快照初始化持仓...');
             this.snap.forEach(s => {
                 if (s.code !== '100000' && s.weight > 0 && s['收盘价格']) {
                     const p = parseFloat(s['收盘价格']);
-                    // 假设总仓位按权重分配
                     const qty = Math.floor((this.cash * (s.weight/100)) / p);
                     if(qty > 0) {
                         positions[s.code] = qty;
                         lastPrices[s.code] = p;
                         currentCash -= qty * p;
+                        console.log(`   + 初始化买入: [${s.code}] ${qty}股 @ ${p} (权重${s.weight}%)`);
                     }
                 }
             });
@@ -258,63 +249,71 @@ class PortfolioBacktestEngine {
 
         const history = [];
 
-        // --- 核心循环：遍历时间轴每一天 ---
+        // --- 核心循环 ---
         for (const date of this.timeline) {
-            // 1. 获取当日的外部行情数据 (MarketMap)
-            // 假设 marketMap 结构为: { "2023-01-01": { "600519": 100.5, ... } }
+            // 1. 获取行情
             const dailyMarketData = this.marketMap[date] || {};
 
-            // 2. 处理当日发生的交易流水
+            // 2. 处理当日交易
             const dailyFlows = this.flows.filter(f => f.dateFmt === date);
             
+            if (dailyFlows.length > 0) {
+                console.log(`\n📅 [${date}] 发现 ${dailyFlows.length} 笔交易:`);
+            }
+
             dailyFlows.forEach(f => {
-                // 交易发生，更新该股票的最新“交易价”作为价格基准
-                lastPrices[f.code] = f.price; 
+                lastPrices[f.code] = f.price; // 更新最新已知价格
+                const tradeAmt = f.price * f.qty;
                 
                 if (f.type === 'Buy') {
-                    currentCash -= f.price * f.qty;
+                    currentCash -= tradeAmt;
                     positions[f.code] = (positions[f.code] || 0) + f.qty;
+                    console.log(`   🟢 [买入] ${f.code} | 价格: ${f.price} | 数量: ${f.qty} | 金额: -${tradeAmt.toFixed(2)} | 剩余现金: ${currentCash.toFixed(2)}`);
                 } else if (f.type === 'Sell') {
-                    currentCash += f.price * f.qty;
+                    currentCash += tradeAmt;
                     if (positions[f.code]) {
                         positions[f.code] -= f.qty;
-                        // 清理微小碎股误差
                         if (positions[f.code] <= 0.001) delete positions[f.code];
                     }
+                    console.log(`   🔴 [卖出] ${f.code} | 价格: ${f.price} | 数量: ${f.qty} | 金额: +${tradeAmt.toFixed(2)} | 剩余现金: ${currentCash.toFixed(2)}`);
                 }
             });
 
-            // 3. 计算当日持仓市值 (Mark-to-Market)
+            // 3. 计算当日市值
             let stockMv = 0;
-            
-            // 遍历当前所有持仓
+            let logDetails = []; // 用于收集当日持仓计价详情，避免刷屏，只在有交易日或特定日期查看
+
             for (let code in positions) {
                 const qty = positions[code];
-                
-                // --- 价格获取优先级逻辑 ---
-                // Priority 1: MarketMap 中当日的收盘价 (最准确)
-                // Priority 2: 当日刚刚交易的价格 (如果 MarketMap 没数据，比如新股上市首日)
-                // Priority 3: 昨天或以前的 lastPrices (前向填充，用于周末或停牌)
-                
                 let currentPrice = 0;
-                
-                // 尝试从 MarketMap 获取
-                // 注意：这里需要确保 Excel 里的 code 和 MarketMap 里的 key 一致
-                // 如果 MarketMap 带后缀 (如 "600519.SH")，需要自行处理匹配逻辑，这里假设完全一致
+                let priceSource = '未知';
+
                 if (dailyMarketData[code] !== undefined) {
                     currentPrice = parseFloat(dailyMarketData[code]);
-                    // 更新历史价格缓存，供后续无行情日期使用
                     lastPrices[code] = currentPrice; 
+                    priceSource = 'MarketMap当日';
                 } else {
-                    // 如果没行情，使用缓存的最后价格
                     currentPrice = lastPrices[code] || 0;
+                    priceSource = '历史最后价';
                 }
                 
                 stockMv += qty * currentPrice;
+                
+                // 如果当天有交易发生，顺便打印一下持仓的计价逻辑，方便排查
+                if (dailyFlows.length > 0) {
+                    logDetails.push(`      - 持仓 ${code}: ${qty}股 * ${currentPrice.toFixed(2)} (${priceSource}) = ${(qty*currentPrice).toFixed(2)}`);
+                }
             }
 
             const totalEquity = currentCash + stockMv;
             
+            // 如果当天有交易，或者每隔 30 天，打印一次结算日志，避免日志太多
+            const isMonthEnd = date.endsWith('01'); // 简单用每月1号做心跳日志
+            if (dailyFlows.length > 0 || isMonthEnd) {
+                 if(logDetails.length > 0) console.log(logDetails.join('\n'));
+                 console.log(`   🏁 [${date} 结算] 总资产: ${totalEquity.toFixed(2)} (现金: ${currentCash.toFixed(2)} + 持仓: ${stockMv.toFixed(2)})`);
+            }
+
             history.push({
                 '日期': date,
                 '总资产': totalEquity,
@@ -323,9 +322,14 @@ class PortfolioBacktestEngine {
             });
         }
 
+        console.log('\n====================================================');
+        console.log(`✅ 回测结束. 最终资产: ${history[history.length-1]['总资产'].toFixed(2)}`);
+        console.log('====================================================');
+
         return history;
     }
 }
+
 
 async function generateAndUploadJsonReport(resultsDict) {
     console.log("Starting report generation (Detailed Analysis Mode)...");
