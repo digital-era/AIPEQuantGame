@@ -328,14 +328,16 @@ class PortfolioBacktestEngine {
 }
 
 async function generateAndUploadJsonReport(resultsDict) {
-    console.log("Starting report generation (Simple Union Mode)...");
+    console.log("Starting report generation (Detailed Analysis Mode)...");
 
     // ================= 配置区 =================
     const MARKET_FILE_NAME = 'MarketMap.json'; 
     const USER_REPORT_FILE = 'User模型综合评估.json';
     const ASSET_FIELD_NAME = '总资产'; 
     const DATE_FIELD_NAME  = '日期'; 
-    const INITIAL_CASH = 100000; // 初始资金
+    const POSITION_FIELD_NAME = '持仓明细'; // 新增：持仓明细字段
+    const TRADE_FIELD_NAME = '交易记录';   // 新增：交易记录字段
+    const INITIAL_CASH = 100000;
     // ==========================================
 
     // --- 辅助函数：标准化日期 ---
@@ -354,29 +356,30 @@ async function generateAndUploadJsonReport(resultsDict) {
 
     const dateSet = new Set();
     const strategyDailyMap = {}; 
+    const strategyPositionsMap = {}; // 新增：存储每日持仓明细
+    const strategyTradesMap = {};    // 新增：存储每日交易记录
     const strategies = Object.keys(resultsDict);
-    const flowDates = new Set(); // 专门记录有真实流水的日期
+    const flowDates = new Set();
     
-    // 在外部声明 marketDates，确保在整个函数中都可以访问
-    let marketDates = [];  // 在外部声明，初始化为空数组
+    let marketDates = [];
 
-    // --- 1. 首先读取 MarketMap (基准交易日) ---
+    // --- 1. 读取 MarketMap ---
     try {
         const result = await ossClient.get(MARKET_FILE_NAME);
         const marketJsonStr = result.content ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) : "";
         
         if (marketJsonStr) {
             const marketData = JSON.parse(marketJsonStr);
-            // 关键修改：确保 marketDates 是数组
             marketDates = Array.isArray(marketData) ? marketData : Object.keys(marketData);
             
-            console.log(`✅ [Step 1] MarketMap 加载完成，有 ${marketDates.length} 个基准交易日`);
-            console.log(`   前5个交易日: ${JSON.stringify(marketDates.slice(0, 5))}`);
-        } else {
-            console.warn(`⚠️ MarketMap 文件内容为空`);
+            marketDates.forEach(d => {
+                const stdDate = normalizeDate(d);
+                if (stdDate) dateSet.add(stdDate);
+            });
+            console.log(`✅ MarketMap 加载完成，${marketDates.length} 个交易日`);
         }
     } catch (e) {
-        console.warn(`⚠️ 读取 MarketMap 失败 (将仅使用策略流水日期): ${e.message}`);
+        console.warn(`⚠️ 读取 MarketMap 失败: ${e.message}`);
     }
 
     // --- 2. 提取策略流水具体日期 ---
@@ -384,6 +387,9 @@ async function generateAndUploadJsonReport(resultsDict) {
     
     strategies.forEach(key => {
         strategyDailyMap[key] = {};
+        strategyPositionsMap[key] = {}; // 初始化持仓明细
+        strategyTradesMap[key] = {};    // 初始化交易记录
+        
         const records = resultsDict[key];
         
         if (!records || records.length === 0) {
@@ -391,108 +397,54 @@ async function generateAndUploadJsonReport(resultsDict) {
             return;
         }
 
-        // 排序
         const sortedRecords = records.sort((a, b) => 
             String(a[DATE_FIELD_NAME]).localeCompare(String(b[DATE_FIELD_NAME]))
         );
 
-        const validDatesForStrategy = [];  // 这个策略有流水的所有日期
-        
         sortedRecords.forEach(h => {
             const rawDate = h[DATE_FIELD_NAME];
             const stdDate = normalizeDate(rawDate);
             
             if (stdDate) {
-                // 关键修改：检查这个日期是否在 MarketMap 中（如果MarketMap存在）
-                let shouldAddToDateSet = false;
+                // 保存总资产
+                strategyDailyMap[key][stdDate] = h;
+                flowDates.add(stdDate);
+                dateSet.add(stdDate);
                 
-                if (marketDates.length === 0) {
-                    // 如果没有MarketMap，直接添加
-                    shouldAddToDateSet = true;
-                } else {
-                    // 检查这个日期是否在MarketMap中
-                    const normalizedMarketDates = marketDates.map(md => normalizeDate(md));
-                    if (normalizedMarketDates.includes(stdDate)) {
-                        shouldAddToDateSet = true;
-                    } else {
-                        console.warn(`⚠️ 策略 [${key}] 的日期 ${stdDate} 不在 MarketMap 中，已跳过`);
-                        return; // 跳过这个日期
-                    }
+                // 保存持仓明细（如果有）
+                if (h[POSITION_FIELD_NAME]) {
+                    strategyPositionsMap[key][stdDate] = h[POSITION_FIELD_NAME];
                 }
                 
-                if (shouldAddToDateSet) {
-                    // 保存这个策略在这个日期的流水记录
-                    strategyDailyMap[key][stdDate] = h;
-                    validDatesForStrategy.push(stdDate);
-                    flowDates.add(stdDate); // 添加到有流水的日期集合
-                    
-                    // 如果这个日期不在日期池中，添加到日期池
-                    if (!dateSet.has(stdDate)) {
-                        dateSet.add(stdDate);
-                    }
+                // 保存交易记录（如果有）
+                if (h[TRADE_FIELD_NAME]) {
+                    strategyTradesMap[key][stdDate] = h[TRADE_FIELD_NAME];
                 }
             }
         });
         
-        console.log(`✅ 策略 [${key}] 处理完毕: ${validDatesForStrategy.length} 个流水日期`);
-        if (validDatesForStrategy.length > 0) {
-            console.log(`   📅 流水日期范围: ${validDatesForStrategy[0]} 到 ${validDatesForStrategy[validDatesForStrategy.length - 1]}`);
-            console.log(`   📋 具体日期: ${JSON.stringify(validDatesForStrategy)}`);
-        }
+        console.log(`✅ 策略 [${key}] 处理完毕`);
     });
 
-    // --- 3. 现在，如果日期池为空，从MarketMap添加日期 ---
-    // 但只添加在有流水日期范围内的MarketMap日期
-    if (dateSet.size === 0 && marketDates.length > 0) {
-        console.log("📅 日期池为空，从MarketMap添加日期...");
-        marketDates.forEach(d => {
-            const stdDate = normalizeDate(d);
-            if (stdDate) dateSet.add(stdDate);
-        });
-    }
-    
-    // 生成最终时间轴
+    // --- 3. 生成最终时间轴 ---
     const sortedDates = Array.from(dateSet).sort();
     
     console.log(`📊 [最终合并结果]`);
     console.log(`   总日期数: ${sortedDates.length} 天`);
     console.log(`   时间范围: ${sortedDates[0] || '无'} -> ${sortedDates[sortedDates.length-1] || '无'}`);
-    
-    // 检查是否有不应该出现的日期
-    const problemDates = [];
-    sortedDates.forEach(date => {
-        // 检查是否是周末
-        const d = new Date(date);
-        const dayOfWeek = d.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            problemDates.push(`${date}(周${dayOfWeek === 0 ? '日' : '六'})`);
-        }
-    });
-    
-    if (problemDates.length > 0) {
-        console.warn(`⚠️ 日期池中包含以下周末: ${problemDates.join(', ')}`);
-    }
-    
-    console.log(`   📆 日期池完整列表: ${JSON.stringify(sortedDates)}`);
-    console.log(`   📆 有流水日期列表: ${JSON.stringify(Array.from(flowDates).sort())}`);
 
-    if (sortedDates.length === 0) {
-        console.warn("❌ [严重] 没有找到任何有效日期，无法生成报告");
-        return;
-    }
-
-    // --- 4. 构建总资产曲线（基于日期池中的日期）---
+    // --- 4. 构建总资产曲线 ---
     console.log("📈 开始构建总资产曲线...");
     const totalEquityCurve = [];
     const lastKnownValues = {};
+    strategies.forEach(key => lastKnownValues[key] = INITIAL_CASH / Math.max(1, strategies.length));
+
+    // 专门分析 2026-01-09 的数据
+    const targetDate = "2026-01-09";
+    const targetDateIndex = sortedDates.indexOf(targetDate);
     
-    // 初始资金分配
-    if (strategies.length > 0) {
-        const initialPerStrategy = INITIAL_CASH / strategies.length;
-        strategies.forEach(key => lastKnownValues[key] = initialPerStrategy);
-    } else {
-        console.warn("⚠️ 没有策略数据，使用默认初始资金");
-        lastKnownValues['default'] = INITIAL_CASH;
+    if (targetDateIndex === -1) {
+        console.warn(`❌ 目标日期 ${targetDate} 不在日期列表中`);
     }
 
     sortedDates.forEach((date, index) => {
@@ -501,7 +453,6 @@ async function generateAndUploadJsonReport(resultsDict) {
         strategies.forEach(key => {
             const dayRecord = strategyDailyMap[key][date];
             if (dayRecord) {
-                // 这个策略在这个日期有流水
                 let valStr = dayRecord[ASSET_FIELD_NAME];
                 if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
                 const val = parseFloat(valStr);
@@ -510,21 +461,152 @@ async function generateAndUploadJsonReport(resultsDict) {
                     dailySum += val;
                 }
             } else {
-                // 这个策略在这个日期没有流水，使用上一次的值（资产保持不变）
                 dailySum += lastKnownValues[key];
             }
         });
 
-        // 如果没有策略（特殊情况），使用默认值
-        if (strategies.length === 0) {
-            dailySum = lastKnownValues['default'];
-        }
-
-        // 添加这个日期的数据到总资产曲线
         totalEquityCurve.push({ date: date, value: dailySum });
     });
 
-    // --- 5. 指标计算 ---
+    // --- 5. 专门分析 2026-01-09 的收益率来源 ---
+    console.log("\n" + "=".repeat(80));
+    console.log("🔍 2026-01-09 收益率详细来源分析");
+    console.log("=".repeat(80));
+    
+    if (targetDateIndex !== -1) {
+        const prevDate = sortedDates[targetDateIndex - 1];
+        const currentEquity = totalEquityCurve[targetDateIndex].value;
+        const prevEquity = totalEquityCurve[targetDateIndex - 1].value;
+        const dailyRet = prevEquity !== 0 ? (currentEquity - prevEquity) / prevEquity : 0;
+        
+        console.log(`📅 分析日期: ${targetDate}`);
+        console.log(`📊 总体情况:`);
+        console.log(`   前一日(${prevDate})总资产: ${prevEquity.toFixed(2)}`);
+        console.log(`   当日(${targetDate})总资产: ${currentEquity.toFixed(2)}`);
+        console.log(`   收益率: ${(dailyRet * 100).toFixed(2)}%`);
+        
+        // 分析每个策略的贡献
+        console.log("\n📊 各策略贡献分析:");
+        console.log("策略名称              前一日资产        当日资产        变化金额        贡献度");
+        console.log("-".repeat(80));
+        
+        let totalContribution = 0;
+        strategies.forEach(key => {
+            const prevDayRecord = strategyDailyMap[key][prevDate];
+            const currDayRecord = strategyDailyMap[key][targetDate];
+            
+            let prevValue = 0;
+            let currValue = 0;
+            
+            // 获取前一日资产
+            if (prevDayRecord) {
+                let valStr = prevDayRecord[ASSET_FIELD_NAME];
+                if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
+                prevValue = parseFloat(valStr) || lastKnownValues[key];
+            }
+            
+            // 获取当日资产
+            if (currDayRecord) {
+                let valStr = currDayRecord[ASSET_FIELD_NAME];
+                if (typeof valStr === 'string') valStr = valStr.replace(/,/g, '');
+                currValue = parseFloat(valStr) || lastKnownValues[key];
+            }
+            
+            const change = currValue - prevValue;
+            const contribution = prevEquity !== 0 ? change / prevEquity : 0;
+            totalContribution += contribution;
+            
+            console.log(
+                `${key.padEnd(20)} ` +
+                `${prevValue.toFixed(2).padStart(15)} ` +
+                `${currValue.toFixed(2).padStart(15)} ` +
+                `${change.toFixed(2).padStart(15)} ` +
+                `${(contribution * 100).toFixed(2)}%`.padStart(15)
+            );
+            
+            // 如果该策略有持仓明细，打印具体持仓变化
+            if (strategyPositionsMap[key][targetDate] || strategyPositionsMap[key][prevDate]) {
+                console.log(`   └─ 持仓分析:`);
+                
+                const prevPositions = strategyPositionsMap[key][prevDate] || [];
+                const currPositions = strategyPositionsMap[key][targetDate] || [];
+                
+                // 简单的持仓对比分析
+                const prevPosMap = new Map();
+                const currPosMap = new Map();
+                
+                prevPositions.forEach(pos => {
+                    if (pos.code && pos.marketValue) {
+                        prevPosMap.set(pos.code, parseFloat(pos.marketValue));
+                    }
+                });
+                
+                currPositions.forEach(pos => {
+                    if (pos.code && pos.marketValue) {
+                        currPosMap.set(pos.code, parseFloat(pos.marketValue));
+                    }
+                });
+                
+                // 找出变化的持仓
+                const allCodes = new Set([...prevPosMap.keys(), ...currPosMap.keys()]);
+                allCodes.forEach(code => {
+                    const prevVal = prevPosMap.get(code) || 0;
+                    const currVal = currPosMap.get(code) || 0;
+                    const changeVal = currVal - prevVal;
+                    
+                    if (Math.abs(changeVal) > 0.01) {
+                        console.log(`      ${code}: ${prevVal.toFixed(2)} → ${currVal.toFixed(2)} (${changeVal > 0 ? '+' : ''}${changeVal.toFixed(2)})`);
+                    }
+                });
+            }
+            
+            // 如果该策略有交易记录，打印交易详情
+            if (strategyTradesMap[key][targetDate]) {
+                const trades = strategyTradesMap[key][targetDate];
+                if (Array.isArray(trades) && trades.length > 0) {
+                    console.log(`   └─ 当日交易记录(${trades.length}笔):`);
+                    
+                    trades.forEach((trade, idx) => {
+                        const type = trade.type || (trade.amount > 0 ? '买入' : '卖出');
+                        const code = trade.code || '未知';
+                        const amount = parseFloat(trade.amount || 0);
+                        const price = parseFloat(trade.price || 0);
+                        const volume = parseFloat(trade.volume || 0);
+                        
+                        console.log(`      ${idx+1}. ${type} ${code}: ${volume}股 @ ${price.toFixed(2)} 金额:${amount.toFixed(2)}`);
+                    });
+                }
+            }
+        });
+        
+        console.log(`\n📊 贡献度验证:`);
+        console.log(`   各策略贡献度合计: ${(totalContribution * 100).toFixed(2)}%`);
+        console.log(`   实际日收益率: ${(dailyRet * 100).toFixed(2)}%`);
+        console.log(`   差异: ${Math.abs((totalContribution - dailyRet) * 100).toFixed(4)}%`);
+        
+        // 如果没有持仓和交易明细，给出建议
+        let hasDetailedData = false;
+        strategies.forEach(key => {
+            if (strategyPositionsMap[key][targetDate] || strategyTradesMap[key][targetDate]) {
+                hasDetailedData = true;
+            }
+        });
+        
+        if (!hasDetailedData) {
+            console.log("\n⚠️ 注意: 未找到持仓明细或交易记录数据");
+            console.log("   要分析收益率的具体来源，需要流水数据包含以下字段:");
+            console.log("   1. '持仓明细': 包含股票代码、数量、市值等信息");
+            console.log("   2. '交易记录': 包含买卖操作、股票代码、价格、数量等信息");
+            console.log("\n   请检查流水数据格式或修改字段名称配置。");
+        }
+        
+    } else {
+        console.log(`❌ 无法分析: 目标日期 ${targetDate} 不在日期列表中`);
+    }
+    
+    console.log("=".repeat(80) + "\n");
+
+    // --- 6. 继续原来的指标计算和报告生成 ---
     console.log("🧮 开始计算收益率指标...");
     
     const dailyDataList = [];
@@ -537,18 +619,8 @@ async function generateAndUploadJsonReport(resultsDict) {
         return;
     }
 
-    // 确保初始资产不为0
-    let initialEquity = totalEquityCurve[0].value;
-    if (initialEquity <= 0) {
-        console.warn(`⚠️ 初始资产为 ${initialEquity}，使用初始资金 ${INITIAL_CASH}`);
-        initialEquity = INITIAL_CASH;
-        totalEquityCurve[0].value = INITIAL_CASH;
-    }
-    
+    const initialEquity = totalEquityCurve[0].value;
     const days = totalEquityCurve.length;
-    
-    console.log(`   初始资产: ${initialEquity.toFixed(2)}`);
-    console.log(`   总分析天数: ${days}`);
 
     totalEquityCurve.forEach((dayData, idx) => {
         const currentEquity = dayData.value;
