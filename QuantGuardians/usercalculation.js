@@ -557,18 +557,15 @@ async function generateAndUploadJsonReport(resultsDict) {
 
     totalEquityCurve.forEach((dayData, idx) => {
         const currentEquity = dayData.value;
-        // 如果是第一天，用 initialEquity 对比；否则用前一天
         const prevEquity = idx === 0 ? initialEquity : totalEquityCurve[idx - 1].value;
 
         let dailyRet = 0;
         if (prevEquity !== 0) {
             dailyRet = (currentEquity - prevEquity) / prevEquity;
         }
-        
-        // 修正第一天的日收益率：如果第一天资产等于初始本金，收益为0
-        if (idx === 0 && currentEquity === initialEquity) dailyRet = 0;
 
-        if (idx > 0) dailyReturns.push(dailyRet); // 第一天通常不算波动，除非有特定初始日
+        // 修正点：总是记录收益率，包括第一天
+        dailyReturns.push(dailyRet);
 
         const cumRet = (currentEquity - initialEquity) / initialEquity;
 
