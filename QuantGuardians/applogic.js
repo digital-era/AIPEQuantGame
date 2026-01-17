@@ -583,23 +583,27 @@ async function loadStrategies() {
 // 3. 加载并标记 Sweet Points 的核心逻辑函数
 async function loadSweetPoints() {
     log("Scanning Sweet Points...", "#d8bfd8");
+    
     // --- 修改开始: 调用通用代理函数 ---
     const url = getResourceUrl(SWEET_POINT_FILE);
-    //const url = `https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${SWEET_POINT_FILE}?t=${Date.now()}`;
     // --- 修改结束 ---            
+    
     try {
-        // 【修改处】：增加 { cache: 'no-store' }
+        // 1. 发起请求
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error("SweetPoint fetch failed");
-        //后续代码保持不变
         
-        // 创建代码集合用于快速匹配
+        // 【核心修复点】：添加下面这一行，将响应解析为 JSON 数据赋值给 json 变量
+        const json = await res.json(); 
+
+        // 2. 这里的 json 变量现在定义好了，可以使用了
         const sweetCodes = new Set(json.map(item => item.代码));
 
         let count = 0;
         // 遍历所有守护者
         for (let key in gameState.guardians) {
             gameState.guardians[key].strategy.forEach(stock => {
+                // 注意：你的JSON里"代码"是字符串(如"001255")，请确保 stock.code 也是字符串格式
                 if (sweetCodes.has(stock.code)) {
                     stock.isSweet = true; // 标记为真
                     count++;
@@ -607,7 +611,9 @@ async function loadSweetPoints() {
             });
         }
         log(`Sweet Points Applied: ${count}`, "#d8bfd8");
-    } catch (e) { log("SweetPoint Err: " + e.message, "orange"); }
+    } catch (e) { 
+        log("SweetPoint Err: " + e.message, "orange"); 
+    }
 }
 
 async function loadCloudPortfolio() {
