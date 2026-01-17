@@ -1762,11 +1762,25 @@ function renderHistoryChart() {
     if (currentChartRange === 'ytd') {
         const currentYear = new Date().getFullYear();
         const startStr = `${currentYear}-01-01`;
+        
+        // 找到今年第一个交易日的索引
         const idx = allDates.findIndex(d => d >= startStr);
-        sliceStartIndex = idx >= 0 ? idx : 0;
+        
+        if (idx > 0) {
+            // 【关键修改】：如果历史数据足够，取今年第一天的"前一天"（去年最后一天）作为锚点
+            // 这样今年第一天就会显示出相对于去年的涨跌，而不是被强制为0
+            sliceStartIndex = idx - 1; 
+        } else {
+            // 如果历史数据就是从今年开始的（idx=0），或者没找到（idx=-1），则从头开始
+            sliceStartIndex = 0;
+        }
+
     } else if (currentChartRange === '1w') {
-        sliceStartIndex = Math.max(0, totalPoints - 5);
+        // 【关键修改】：Last 5 Days 需要 6 个点
+        // totalPoints - 6 意味着保留最后 6 个点：1个基准点 + 5个波动点
+        sliceStartIndex = Math.max(0, totalPoints - 6);
     } else {
+        // All History
         sliceStartIndex = 0;
     }
 
