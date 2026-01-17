@@ -606,31 +606,34 @@
 
             <!-- OSS Fields -->
             <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 10px;">
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <span class="switch-label" style="font-size: 0.7em; color:#aaa;">REGION:</span>
-                    <input type="text" id="oss_region" class="cmd-input" style="width: 250px; color:#fff;" value="oss-cn-hangzhou">
-                </div>
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <span class="switch-label" style="font-size: 0.7em; color:#aaa;">BUCKET:</span>
-                    <input type="text" id="oss_bucket" class="cmd-input" style="width: 250px; color:#fff;" value="aiep-users">
-                </div>
-                
-                <!-- 【修改点1】AccessKey ID 改为 password 类型 -->
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <span class="switch-label" style="font-size: 0.7em; color:#aaa;">AK ID:</span>
-                    <input type="password" id="oss_ak_id" class="cmd-input" style="width: 250px; color:#fff;" value="">
-                </div>
-                
-                <!-- AccessKey Secret 保持 password 类型 -->
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <span class="switch-label" style="font-size: 0.7em; color:#aaa;">SECRET:</span>
-                    <input type="password" id="oss_ak_secret" class="cmd-input" style="width: 250px; color:#fff;" value="">
+                <!-- REGION -->
+                <div style="display:flex; align-items: center;">
+                    <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">REGION:</span>
+                    <input type="text" id="oss_region" class="cmd-input" style="flex: 1; color:#fff;" value="cn-hangzhou">
                 </div>
 
-				<!-- STS Role ARN 保持 password 类型 -->
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <span class="switch-label" style="font-size: 0.7em; color:#aaa;">ARN:</span>
-                    <input type="password" id="oss_stc_rolearn" class="cmd-input" style="width: 250px; color:#fff;" value="">
+                <!-- BUCKET -->
+                <div style="display:flex; align-items: center;">
+                    <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">BUCKET:</span>
+                    <input type="text" id="oss_bucket" class="cmd-input" style="flex: 1; color:#fff;" value="aiep-users">
+                </div>
+                
+                <!-- AK ID -->
+                <div style="display:flex; align-items: center;">
+                    <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">AK ID:</span>
+                    <input type="password" id="oss_ak_id" class="cmd-input" style="flex: 1; color:#fff;" value="">
+                </div>
+                
+                <!-- SECRET -->
+                <div style="display:flex; align-items: center;">
+                    <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">SECRET:</span>
+                    <input type="password" id="oss_ak_secret" class="cmd-input" style="flex: 1; color:#fff;" value="">
+                </div>
+
+                <!-- ARN -->
+                <div style="display:flex; align-items: center;">
+                    <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">ARN:</span>
+                    <input type="password" id="oss_stc_rolearn" class="cmd-input" style="flex: 1; color:#fff;" value="">
                 </div>
             </div>
 
