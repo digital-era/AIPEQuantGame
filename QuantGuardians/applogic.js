@@ -17,7 +17,7 @@ const INITIAL_CAPITAL = 100000.0;
 window.OSS_CONFIG = {
   // 建议统一键名，这里保持原样，但下方的保存逻辑需要适配它
   OSS_REGION: 'cn-hangzhou', 
-  OSS_BUCKET: 'aiep-users',    
+  OSS_BUCKET: '',    
   ACCESS_KEY_ID: '', 
   ACCESS_KEY_SECRET: '',
   STS_ROLE_ARN: '',
