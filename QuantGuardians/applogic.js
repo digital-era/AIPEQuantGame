@@ -1610,17 +1610,47 @@ async function loadHistoryData() {
 
     // 3. 发起所有请求 (基础 + 变体)
     const basicKeys = Object.keys(basicFiles);
-    const basicPromises = basicKeys.map(key => {
-        const url = getResourceUrl(basicFiles[key]);
-        // 【修改处】：增加 { cache: 'no-store' }
-        return fetch(url, { cache: 'no-store' }).then(res => {
-            if (!res.ok) throw new Error(res.statusText);
-            return res.json();
-        }).catch(err => {
-            console.warn(`Failed to load base file for ${key}:`, err);
-            return null;
-        });
+
+   // 【修改开始】针对 'user' key 进行 OSS 获取处理，其他保持 fetch
+    const basicPromises = basicKeys.map(async key => {
+        if (key === 'user') {
+            // --- OSS 获取逻辑 ---
+            try {
+                // 防御性检查：确保 ossClient 存在 (通常 initSystem 中已初始化)
+                if (!ossClient) {
+                     const inited = await initOSS();
+                     if(!inited) throw new Error("OSS Client Init Failed");
+                }
+                
+                const filename = basicFiles[key]; // 即 'User模型综合评估.json'
+                
+                // 从 OSS 获取文件
+                const result = await ossClient.get(filename);
+                
+                // OSS SDK 在浏览器端返回的 content 通常是 Buffer/Uint8Array
+                // 需要解码为字符串再解析 JSON
+                const text = new TextDecoder("utf-8").decode(result.content);
+                const json = JSON.parse(text);
+                
+                console.log(`Loaded OSS file for ${key}`);
+                return json;
+            } catch (err) {
+                console.warn(`Failed to load OSS file for ${key}:`, err);
+                return null;
+            }
+        } else {
+            // --- 原有的 GitHub/Proxy 获取逻辑 ---
+            const url = getResourceUrl(basicFiles[key]);
+            return fetch(url, { cache: 'no-store' }).then(res => {
+                if (!res.ok) throw new Error(res.statusText);
+                return res.json();
+            }).catch(err => {
+                console.warn(`Failed to load base file for ${key}:`, err);
+                return null;
+            });
+        }
     });
+    // 【修改结束】
 
     const variantPromises = variantFiles.map(item => {
         const url = getResourceUrl(item.file);
