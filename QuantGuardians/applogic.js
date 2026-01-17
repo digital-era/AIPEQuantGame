@@ -1853,7 +1853,8 @@ function renderHistoryChart() {
         const datasets = [
             createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
             createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
-            createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
+           // 下面这行注释不显示标普500，为一段时间内固定收益率，只在Ranking模块显示，这里去掉
+            // createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
         ];
 
         const beasts = [
