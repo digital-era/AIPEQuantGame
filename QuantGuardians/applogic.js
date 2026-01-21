@@ -49,6 +49,13 @@ const EXTRA_HISTORY_FILES = {
     user: 'User模型综合评估.json'
 };
 
+// 用于存储当前选择的指标，默认为累计收益率
+let currentMetric = 'cumulative'; // 'cumulative' | 'drawdown' | 'sharpe'
+let showN2 = false;
+let showN3 = false;
+// 缓存图表实例
+let perfChart = null; 
+
 // [新增] 颜色映射和全局图表变量
 const GUARDIAN_COLORS = { 
     genbu: '#10B981', 
@@ -1575,71 +1582,49 @@ async function syncToCloud() {
 async function loadHistoryData() {
     log("Loading Historical Data...", "#88f");
 
-    // 1. 定义基础文件 (Main Lines)
     const basicFiles = { ...HISTORY_FILES, ...EXTRA_HISTORY_FILES };
-    
-    // 2. 定义变体文件映射 (N+2 和 N+3)
     const variantFiles = [];
     const variants = ['N+2', 'N+3'];
-    
-    // 【关键修复】：辅助函数确保 GENBU 返回 '低波稳健' 而不是 '低波'
+
     const getPrefix = (key) => {
         if (key === 'suzaku') return '大成';
         if (key === 'sirius') return '流入';
-        if (key === 'genbu') return '低波稳健'; // <--- 必须完全匹配文件名中的中文
+        if (key === 'genbu') return '低波稳健';
         if (key === 'kirin') return '大智';
         return '';
     };
 
-    // 构建待请求列表
-    // 最终生成的文件名示例：'低波稳健模型优化后评估_N+2.json'
     variants.forEach(v => {
         ['suzaku', 'sirius', 'genbu', 'kirin'].forEach(key => {
             const prefix = getPrefix(key);
-            // 只有当 v 是 'N+2' 时后缀为 'n2'，用于内部 dataKey (如 genbu_n2)
             const suffix = v === 'N+2' ? 'n2' : 'n3';
-            
             if (prefix) {
                 variantFiles.push({
-                    dataKey: `${key}_${suffix}`, // 这里的 key 必须对应 historyData.datasets 的索引
-                    file: `${prefix}模型优化后评估_${v}.json` // 这里必须对应实际 OSS/GitHub 文件名
+                    dataKey: `${key}_${suffix}`,
+                    file: `${prefix}模型优化后评估_${v}.json`
                 });
             }
         });
     });
 
-    // 3. 发起所有请求 (基础 + 变体)
     const basicKeys = Object.keys(basicFiles);
 
-   // 【修改开始】针对 'user' key 进行 OSS 获取处理，其他保持 fetch
+    // 1. 加载基础模型
     const basicPromises = basicKeys.map(async key => {
         if (key === 'user') {
-            // --- OSS 获取逻辑 ---
             try {
-                // 防御性检查：确保 ossClient 存在 (通常 initSystem 中已初始化)
                 if (!ossClient) {
                      const inited = await initOSS();
                      if(!inited) throw new Error("OSS Client Init Failed");
                 }
-                
-                const filename = basicFiles[key]; // 即 'User模型综合评估.json'
-                
-                // 从 OSS 获取文件
-                const result = await ossClient.get(filename);
-                
-                // OSS SDK 在浏览器端返回的 content 通常是 Buffer/Uint8Array
-                // 需要解码为字符串再解析 JSON
+                const result = await ossClient.get(basicFiles[key]);
                 const text = new TextDecoder("utf-8").decode(result.content);
-                const json = JSON.parse(text);
-                
-                console.log(`Loaded OSS file for ${key}`);
-                return json;
+                return JSON.parse(text);
             } catch (err) {
                 console.warn(`Failed to load OSS file for ${key}:`, err);
                 return null;
             }
         } else {
-            // --- 原有的 GitHub/Proxy 获取逻辑 ---
             const url = getResourceUrl(basicFiles[key]);
             return fetch(url, { cache: 'no-store' }).then(res => {
                 if (!res.ok) throw new Error(res.statusText);
@@ -1650,11 +1635,10 @@ async function loadHistoryData() {
             });
         }
     });
-    // 【修改结束】
 
+    // 2. 加载变体模型
     const variantPromises = variantFiles.map(item => {
         const url = getResourceUrl(item.file);
-        // 【修改处】：增加 { cache: 'no-store' }
         return fetch(url, { cache: 'no-store' }).then(res => {
             if (!res.ok) throw new Error(res.statusText);
             return res.json();
@@ -1669,7 +1653,7 @@ async function loadHistoryData() {
         Promise.all(variantPromises)
     ]);
 
-    // 4. 处理日期 (收集所有可能出现的日期，确保 N+2/N+3 的日期也被包含)
+    // 3. 收集所有日期
     let allDatesSet = new Set();
     const collectDates = (json) => {
         if (json && json.每日评估数据) {
@@ -1681,31 +1665,56 @@ async function loadHistoryData() {
 
     historyData.dates = Array.from(allDatesSet).sort();
 
-    // 5. 解析基础数据
+    // 4. 解析数据 (结构化存储：cumulative, drawdown, sharpe)
+    // 辅助函数：解析特定字段
+    const parseMetricSeries = (json, dates, fieldName) => {
+        if (!json || !json.每日评估数据) return [];
+        const map = new Map();
+        // 这里的 100 是将小数转换为百分比，仅对收益率和回撤有效，夏普比率单独处理
+        json.每日评估数据.forEach(d => {
+            // 确保数据存在，防止 undefined
+            const val = d[fieldName] !== undefined ? d[fieldName] * 100 : null;
+            map.set(d.日期, val);
+        });
+        return dates.map(date => map.has(date) ? map.get(date) : null);
+    };
+
+    // 5. 存储基础模型数据
     basicResults.forEach((json, index) => {
         const key = basicKeys[index];
-        historyData.datasets[key] = mapJsonToData(json, historyData.dates);
+        if (json) {
+            historyData.datasets[key] = {
+                cumulative: parseMetricSeries(json, historyData.dates, "累计收益率"),
+                drawdown: parseMetricSeries(json, historyData.dates, "最大回撤率（至当日）"),
+                sharpe: json["夏普比率"] !== undefined ? json["夏普比率"] : 0
+            };
+        } else {
+            historyData.datasets[key] = { cumulative: [], drawdown: [], sharpe: 0 };
+        }
         
-        // 特殊处理 Guardians 里的标普500
-        if (key === 'guardians' && json) {
-            let sp500Val = json["标普500收益率"] !== undefined ? json["标普500收益率"] * 100 : 0;
-            historyData.datasets['sp500'] = historyData.dates.map(() => sp500Val);
+        // 特殊处理 Guardians 里的标普500 (通常只包含收益率)
+        if (key === 'guardians' && json && json["标普500收益率"] !== undefined) {
+             // 标普500可能没有回撤和夏普数据，给默认值
+            let sp500Series = historyData.dates.map(() => json["标普500收益率"] * 100);
+            historyData.datasets['sp500'] = {
+                cumulative: sp500Series,
+                drawdown: [], // 暂无数据
+                sharpe: 0     // 暂无数据
+            };
         }
     });
 
-   // 6. 解析变体数据
+    // 6. 存储变体模型数据
     variantResults.forEach((json, index) => {
         const item = variantFiles[index];
-        
-        // 【修复点 1】：先判断 json 及其关键属性是否存在，再进行处理
-        if (json && Array.isArray(json.每日评估数据)) {
-            historyData.datasets[item.dataKey] = mapJsonToData(json, historyData.dates);
-            // 【修复点 2】：安全地访问 length
-            console.log(`Loaded ${item.file} -> ${item.dataKey}, points: ${json.每日评估数据.length}`);
+        if (json) {
+            historyData.datasets[item.dataKey] = {
+                cumulative: parseMetricSeries(json, historyData.dates, "累计收益率"),
+                drawdown: parseMetricSeries(json, historyData.dates, "最大回撤率（至当日）"),
+                sharpe: json["夏普比率"] !== undefined ? json["夏普比率"] : 0
+            };
         } else {
-            console.warn(`Data missing or invalid format for ${item.file}`);
-            // 【建议】：如果数据缺失，给一个空数组，防止图表渲染时报错
-            historyData.datasets[item.dataKey] = [];
+            historyData.datasets[item.dataKey] = { cumulative: [], drawdown: [], sharpe: 0 };
         }
     });
 
@@ -1729,30 +1738,36 @@ let showN3 = false;
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
 // ================= 修复与增强：renderHistoryChart =================
+// ================= MODIFIED: renderHistoryChart =================
 function renderHistoryChart() {
     const chartContainer = document.getElementById('settlementPanel');
     const canvas = document.getElementById('performanceChart');
     
-    // 1. 显示容器
     chartContainer.style.display = 'block';
-    
-    // [修改] 优化 Canvas 高度
     canvas.style.minHeight = "300px"; 
 
-    // 2. 插入控制开关 (修复焦点跳动问题的核心)
+    // 1. 插入/更新 UI 控制栏
     let controlsDiv = document.getElementById('chartVariantControls');
     
-    // 【修复点1】：只有当 controlsDiv 不存在时，才创建 DOM 和 innerHTML。
-    // 这样避免了每次 updateChartRange 刷新图表时，销毁下拉框导致手机焦点丢失/跳屏。
     if (!controlsDiv) {
         controlsDiv = document.createElement('div');
         controlsDiv.id = 'chartVariantControls';
         controlsDiv.style.cssText = "display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-bottom:10px; font-size:12px; color:#aaa;";
         canvas.parentNode.insertBefore(controlsDiv, canvas);
 
-        // 注意：给 select 和 input 加上 id，方便后续同步状态（如果需要）
         controlsDiv.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px; margin-right:auto;">
+            <!-- 指标选择 -->
+            <div style="display:flex; align-items:center; gap:5px; margin-right:auto;">
+                <span style="color:#888;">Metric:</span>
+                <select id="metricSelect" onchange="window.updateChartMetric(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
+                    <option value="cumulative">累计收益率 (Return)</option>
+                    <option value="drawdown">最大回撤 (Max Drawdown)</option>
+                    <option value="sharpe">夏普比率 (Sharpe Ratio)</option>
+                </select>
+            </div>
+
+            <!-- 时间范围 (仅对时间序列有效) -->
+            <div id="rangeControlGroup" style="display:flex; align-items:center; gap:5px;">
                 <span style="color:#888;">Range:</span>
                 <select id="chartRangeSelect" onchange="window.updateChartRange(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
                     <option value="all">All History</option>
@@ -1760,6 +1775,8 @@ function renderHistoryChart() {
                     <option value="1w">Last 5 Days</option>
                 </select>
             </div>
+
+            <!-- 变体开关 -->
             <label style="cursor:pointer; display:flex; align-items:center;">
                 <input type="checkbox" id="toggleN2" onchange="window.toggleVariantState('n2')" style="margin-right:5px;"> 
                 <span style="border-bottom: 2px dashed #888">N+2</span>
@@ -1771,68 +1788,168 @@ function renderHistoryChart() {
         `;
     }
 
-    // 【同步状态】：虽然不重建DOM，但我们要确保 UI 状态和变量一致
-    // (防止变量是通过代码改变的，而 UI 没变)
+    // 同步 UI 状态
+    const metricSelect = document.getElementById('metricSelect');
+    if (metricSelect) metricSelect.value = currentMetric;
+
     const rangeSelect = document.getElementById('chartRangeSelect');
-    if (rangeSelect && rangeSelect.value !== currentChartRange) {
-        rangeSelect.value = currentChartRange;
-    }
+    if (rangeSelect) rangeSelect.value = currentChartRange;
+
+    // 当选择夏普比率时，隐藏时间范围选择，因为它是单值
+    const rangeGroup = document.getElementById('rangeControlGroup');
+    if (rangeGroup) rangeGroup.style.display = currentMetric === 'sharpe' ? 'none' : 'flex';
+
     const chkN2 = document.getElementById('toggleN2');
-    if (chkN2) chkN2.checked = (typeof showN2 !== 'undefined' && showN2);
+    if (chkN2) chkN2.checked = showN2;
     
     const chkN3 = document.getElementById('toggleN3');
-    if (chkN3) chkN3.checked = (typeof showN3 !== 'undefined' && showN3);
+    if (chkN3) chkN3.checked = showN3;
 
-
-    // 3. 销毁旧图表
+    // 2. 销毁旧图表
     if (perfChart) {
         perfChart.destroy();
         perfChart = null;
     }
 
-    // 4. 计算数据切片索引
-    let sliceStartIndex = 0;
+    // 3. 数据准备逻辑
+    setTimeout(() => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const isMobile = window.innerWidth < 768;
+
+        // === 分支 A: 夏普比率 (柱状图) ===
+        if (currentMetric === 'sharpe') {
+            renderSharpeChart(ctx, isMobile);
+            return;
+        }
+
+        // === 分支 B: 时间序列 (收益率 / 回撤) ===
+        renderTimeSeriesChart(ctx, isMobile);
+
+    }, 50);
+}
+
+// 渲染柱状图 (夏普比率)
+function renderSharpeChart(ctx, isMobile) {
+    const beasts = [
+        { key: 'guardians', label: 'Guardians', color: '#FFD700' },
+        { key: 'user', label: 'User', color: '#00FFFF' },
+        { key: 'suzaku', label: 'SUZAKU', color: GUARDIAN_COLORS['suzaku'] },
+        { key: 'sirius', label: 'SIRIUS', color: GUARDIAN_COLORS['sirius'] },
+        { key: 'genbu',  label: 'GENBU',  color: GUARDIAN_COLORS['genbu'] },
+        { key: 'kirin',  label: 'KIRIN',  color: GUARDIAN_COLORS['kirin'] }
+    ];
+
+    // 构建 Label 和 Data
+    const labels = [];
+    const dataPoints = [];
+    const backgroundColors = [];
+    const borderColors = [];
+
+    beasts.forEach(b => {
+        // 主模型
+        const ds = historyData.datasets[b.key];
+        if (ds && ds.sharpe !== undefined) {
+            labels.push(b.label);
+            dataPoints.push(ds.sharpe);
+            backgroundColors.push(b.color + '66'); // 半透明填充
+            borderColors.push(b.color);
+        }
+
+        // 变体 (N+2)
+        if (showN2 && ['suzaku','sirius','genbu','kirin'].includes(b.key)) {
+            const ds2 = historyData.datasets[`${b.key}_n2`];
+            if (ds2) {
+                labels.push(`${b.label} (N+2)`);
+                dataPoints.push(ds2.sharpe);
+                backgroundColors.push(b.color + '33'); 
+                borderColors.push(b.color);
+            }
+        }
+        // 变体 (N+3)
+        if (showN3 && ['suzaku','sirius','genbu','kirin'].includes(b.key)) {
+            const ds3 = historyData.datasets[`${b.key}_n3`];
+            if (ds3) {
+                labels.push(`${b.label} (N+3)`);
+                dataPoints.push(ds3.sharpe);
+                backgroundColors.push(b.color + '1A');
+                borderColors.push(b.color);
+            }
+        }
+    });
+
+    perfChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Sharpe Ratio',
+                data: dataPoints,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Sharpe: ${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#333' },
+                    ticks: { color: '#888' },
+                    title: { display: true, text: 'Sharpe Ratio', color: '#666' }
+                },
+                x: {
+                    ticks: { color: '#aaa', autoSkip: false, maxRotation: 45, minRotation: 0 },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// 渲染时间序列 (收益率 / 回撤)
+function renderTimeSeriesChart(ctx, isMobile) {
     const allDates = historyData.dates || [];
     const totalPoints = allDates.length;
+    let sliceStartIndex = 0;
 
+    // 计算时间切片
     if (currentChartRange === 'ytd') {
         const currentYear = new Date().getFullYear();
         const startStr = `${currentYear}-01-01`;
-        
-        // 找到今年第一个交易日的索引
         const idx = allDates.findIndex(d => d >= startStr);
-        
-        if (idx > 0) {
-            // 【关键修改】：如果历史数据足够，取今年第一天的"前一天"（去年最后一天）作为锚点
-            // 这样今年第一天就会显示出相对于去年的涨跌，而不是被强制为0
-            sliceStartIndex = idx - 1; 
-        } else {
-            // 如果历史数据就是从今年开始的（idx=0），或者没找到（idx=-1），则从头开始
-            sliceStartIndex = 0;
-        }
-
+        sliceStartIndex = idx > 0 ? idx - 1 : 0;
     } else if (currentChartRange === '1w') {
-        // 【关键修改】：Last 5 Days 需要 6 个点
-        // totalPoints - 6 意味着保留最后 6 个点：1个基准点 + 5个波动点
         sliceStartIndex = Math.max(0, totalPoints - 6);
-    } else {
-        // All History
-        sliceStartIndex = 0;
     }
 
     const viewDates = allDates.slice(sliceStartIndex);
 
-    // 5. 延迟初始化图表
-    setTimeout(() => {
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+    // 数据处理函数
+    const processData = (fullDataObj, type) => {
+        // 从对象中取出对应的数组 (cumulative 或 drawdown)
+        const series = fullDataObj ? fullDataObj[currentMetric] : [];
+        if (!series || series.length === 0) return [];
+        
+        const sliced = series.slice(sliceStartIndex);
 
-        // 【修复点2】：检测是否为手机屏幕
-        const isMobile = window.innerWidth < 768;
-
-        const getNormalizedData = (fullData, startIndex) => {
-            const sliced = fullData.slice(startIndex);
+        // 如果是“累计收益率”，并且选择了特定的时间段，我们通常希望归一化（即起点为0）
+        // 如果是“最大回撤”，通常不归一化，直接显示当前的回撤深度
+        if (currentMetric === 'cumulative') {
             let anchor = null;
+            // 找到切片里的第一个有效值作为锚点
             for (let val of sliced) {
                 if (val !== null && val !== undefined) {
                     anchor = val;
@@ -1840,173 +1957,199 @@ function renderHistoryChart() {
                 }
             }
             if (anchor === null) return sliced;
-            return sliced.map(val => {
-                if (val === null || val === undefined) return null;
-                return val - anchor; 
-            });
+            return sliced.map(val => (val === null || val === undefined) ? null : val - anchor);
+        } else {
+            // 回撤直接返回原始值
+            return sliced;
+        }
+    };
+
+    const createDataset = (label, color, dataKey, groupKey, options = {}) => {
+        const processed = processData(historyData.datasets[dataKey]);
+        return {
+            label: label, 
+            borderColor: color, 
+            backgroundColor: color + '1A',
+            data: processed, 
+            tension: 0.3, 
+            pointRadius: 0, 
+            borderWidth: 2, 
+            spanGaps: true,
+            order: 1, 
+            isMain: true,
+            groupKey: groupKey, 
+            ...options
         };
+    };
 
-        const createDataset = (label, color, dataKey, groupKey, options = {}) => {
-            const fullData = historyData.datasets[dataKey] || [];
-            const normalizedData = getNormalizedData(fullData, sliceStartIndex);
-            return {
-                label: label, 
-                borderColor: color, 
-                backgroundColor: color + '1A',
-                data: normalizedData, 
-                tension: 0.3, 
-                pointRadius: 0, 
-                borderWidth: 2, 
-                spanGaps: true,
-                order: 1, 
-                isMain: true,
-                groupKey: groupKey, 
-                ...options
-            };
+    const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
+        const isN2 = type === 'n2';
+        const dataKey = `${parentKey}_${type}`;
+        const processed = processData(historyData.datasets[dataKey]);
+        
+        return {
+            label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
+            data: processed, 
+            borderColor: color,
+            borderWidth: 1.5,
+            borderDash: isN2 ? [6, 4] : [2, 3], 
+            pointRadius: 0,
+            tension: 0.3,
+            fill: false,
+            hidden: true, // 默认隐藏，除非 Checkbox 打开
+            order: 10,
+            variantType: type,
+            groupKey: groupKey,
+            isMain: false
         };
+    };
 
-        const createVariantDataset = (parentLabel, parentKey, type, color, groupKey) => {
-            const isN2 = type === 'n2';
-            const fullData = historyData.datasets[`${parentKey}_${type}`] || [];
-            const normalizedData = getNormalizedData(fullData, sliceStartIndex);
-            return {
-                label: `${parentLabel} ${isN2 ? '(N+2)' : '(N+3)'}`,
-                data: normalizedData, 
-                borderColor: color,
-                borderWidth: 1.5,
-                borderDash: isN2 ? [6, 4] : [2, 3], 
-                pointRadius: 0,
-                tension: 0.3,
-                fill: false,
-                hidden: true,
-                order: 10,
-                variantType: type,
-                groupKey: groupKey,
-                isMain: false
-            };
-        };
+    const datasets = [
+        createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
+        createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 })
+    ];
 
-        const datasets = [
-            createDataset('Guardians', '#FFD700', 'guardians', 'guardians', { borderWidth: 3, order: 0 }),
-            createDataset('User', '#00FFFF', 'user', 'user', { borderWidth: 2, order: 2 }),
-           // 下面这行注释不显示标普500，为一段时间内固定收益率，只在Ranking模块显示，这里去掉
-            // createDataset('S&P 500', '#666666', 'sp500', 'sp500', { borderDash: [5, 5], borderWidth: 1, order: 99 }),
-        ];
+    const beasts = [
+        { key: 'suzaku', label: 'SUZAKU' },
+        { key: 'sirius', label: 'SIRIUS' },
+        { key: 'genbu',  label: 'GENBU' },
+        { key: 'kirin',  label: 'KIRIN' }
+    ];
 
-        const beasts = [
-            { key: 'suzaku', label: 'SUZAKU' },
-            { key: 'sirius', label: 'SIRIUS' },
-            { key: 'genbu',  label: 'GENBU' },
-            { key: 'kirin',  label: 'KIRIN' }
-        ];
+    beasts.forEach(b => {
+        const color = GUARDIAN_COLORS[b.key];
+        datasets.push(createDataset(b.label, color, b.key, b.key));
+        datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
+        datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
+    });
 
-        beasts.forEach(b => {
-            const color = GUARDIAN_COLORS[b.key];
-            datasets.push(createDataset(b.label, color, b.key, b.key));
-            datasets.push(createVariantDataset(b.label, b.key, 'n2', color, b.key));
-            datasets.push(createVariantDataset(b.label, b.key, 'n3', color, b.key));
-        });
-
-        perfChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: viewDates, 
-                datasets: datasets
-            },
-            options: {
-                responsive: true, 
-                maintainAspectRatio: false, 
-                layout: {
-                    padding: { left: 0, right: 0, top: 10, bottom: 25 }
-                },
-                interaction: { mode: 'nearest', axis: 'x', intersect: false },
-                plugins: { 
-                    legend: { 
-                        display: true,
-                        labels: { 
-                            color: '#ccc',
-                            font: { size: 12 },
-                            boxWidth: 12,
-                            padding: 15,
-                            filter: function(item, chartData) {
-                                const ds = chartData.datasets[item.datasetIndex];
-                                return ds.isMain === true;
-                            }
-                        },
-                        onClick: function(e, legendItem, legend) {
-                            const chart = legend.chart;
-                            const clickedDatasetIndex = legendItem.datasetIndex;
-                            const dataset = chart.data.datasets[clickedDatasetIndex];
-                            
-                            if (!legendItem.datasetIndex && legendItem.datasetIndex !== 0) return;
-                            
-                            const meta = chart.getDatasetMeta(clickedDatasetIndex);
-                            const isCurrentlyVisible = !meta.hidden;
+    perfChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: viewDates, 
+            datasets: datasets
+        },
+        options: {
+            responsive: true, 
+            maintainAspectRatio: false, 
+            interaction: { mode: 'nearest', axis: 'x', intersect: false },
+            plugins: { 
+                legend: { 
+                    display: true,
+                    labels: { color: '#ccc', filter: (item, chartData) => chartData.datasets[item.datasetIndex].isMain },
+                    onClick: function(e, legendItem, legend) {
+                        // 保持原有的点击图例显示/隐藏变体的逻辑
+                        const chart = legend.chart;
+                        const clickedIndex = legendItem.datasetIndex;
+                        const dataset = chart.data.datasets[clickedIndex];
+                        const meta = chart.getDatasetMeta(clickedIndex);
+                        const isVisible = !meta.hidden;
                         
-                            chart.data.datasets.forEach((ds, idx) => {
-                                if (ds.groupKey === dataset.groupKey) {
-                                    if (isCurrentlyVisible) chart.hide(idx);
-                                    else chart.show(idx);
-                                }
-                            });
-                        
-                            legendItem.hidden = isCurrentlyVisible;
-                            chart.update();
-                        
-                            if (typeof window.updateVariantVisibility === 'function') {
-                                setTimeout(window.updateVariantVisibility, 50);
+                        chart.data.datasets.forEach((ds, idx) => {
+                            if (ds.groupKey === dataset.groupKey) {
+                                if (isVisible) chart.hide(idx);
+                                else chart.show(idx);
                             }
-                        }
-                    },       
-                    tooltip: {
-                        itemSort: (a, b) => {
-                            const A = a.dataset.isMain ? 0 : 1;
-                            const B = b.dataset.isMain ? 0 : 1;
-                            return A - B;
-                        },
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    const sign = context.parsed.y > 0 ? '+' : '';
-                                    label += sign + context.parsed.y.toFixed(2) + '%';
-                                }
-                                return label;
+                        });
+                        legendItem.hidden = isVisible;
+                        chart.update();
+                        if (typeof window.updateVariantVisibility === 'function') setTimeout(window.updateVariantVisibility, 50);
+                    }
+                },       
+                tooltip: {
+                    itemSort: (a, b) => (a.dataset.isMain ? 0 : 1) - (b.dataset.isMain ? 0 : 1),
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                // 夏普比率不用百分号，其他两个用
+                                label += context.parsed.y.toFixed(2) + '%';
                             }
+                            return label;
                         }
                     }
-                },
-                scales: { 
-                    y: { 
-                        ticks: { color: '#666' }, 
-                        grid: { color: '#333' } 
-                    }, 
-                    // 【修复点3】：针对 X 轴进行移动端适配
-                    x: { 
-                        ticks: { 
-                            color: '#666', 
-                            // 手机上减少显示的刻度数量，防止拥挤
-                            maxTicksLimit: isMobile ? 5 : 10, 
-                            // 手机上强制允许旋转，甚至强制旋转45度，以便显示更清晰
-                            maxRotation: isMobile ? 45 : 0, 
-                            minRotation: isMobile ? 45 : 0, 
-                            autoSkip: true
-                        }, 
-                        grid: { color: '#333' } 
-                    } 
                 }
+            },
+            scales: { 
+                y: { 
+                    ticks: { color: '#666' }, 
+                    grid: { color: '#333' },
+                    title: { 
+                        display: true, 
+                        text: currentMetric === 'drawdown' ? 'Drawdown (%)' : 'Return (%)',
+                        color: '#555'
+                    }
+                }, 
+                x: { 
+                    ticks: { 
+                        color: '#666', 
+                        maxTicksLimit: isMobile ? 5 : 10, 
+                        maxRotation: isMobile ? 45 : 0, 
+                        minRotation: isMobile ? 45 : 0, 
+                        autoSkip: true
+                    }, 
+                    grid: { color: '#333' } 
+                } 
             }
-        });
+        }
+    });
 
+    if (typeof window.updateVariantVisibility === 'function') {
+        window.updateVariantVisibility();
+    }
+}
+
+// ================= 新增全局辅助函数 =================
+window.updateChartMetric = function(metric) {
+    if (currentMetric === metric) return;
+    currentMetric = metric;
+    renderHistoryChart();
+};
+
+window.toggleVariantState = function(type) {
+    if (type === 'n2') showN2 = !showN2;
+    if (type === 'n3') showN3 = !showN3;
+    
+    // 更新 checkbox 状态
+    const chk = document.getElementById(type === 'n2' ? 'toggleN2' : 'toggleN3');
+    if (chk) chk.checked = (type === 'n2' ? showN2 : showN3);
+
+    // 如果是柱状图，需要完全重绘才能增删柱子
+    if (currentMetric === 'sharpe') {
+        renderHistoryChart();
+    } else {
+        // 如果是折线图，可以调用现有的可见性更新函数（如果存在）
         if (typeof window.updateVariantVisibility === 'function') {
             window.updateVariantVisibility();
+        } else {
+            renderHistoryChart(); // fallback
         }
+    }
+};
 
-    }, 50);
-}
+// 确保 updateVariantVisibility 能够处理新逻辑
+window.updateVariantVisibility = function() {
+    if (!perfChart || currentMetric === 'sharpe') return; // 夏普图在 render 中处理了
+
+    perfChart.data.datasets.forEach((ds, index) => {
+        if (!ds.isMain) {
+            const isN2 = ds.variantType === 'n2';
+            const isN3 = ds.variantType === 'n3';
+            
+            // 找到主数据集的状态
+            const mainDsIndex = perfChart.data.datasets.findIndex(d => d.groupKey === ds.groupKey && d.isMain);
+            const mainMeta = perfChart.getDatasetMeta(mainDsIndex);
+            const isMainVisible = !mainMeta.hidden;
+
+            const shouldShow = isMainVisible && ((isN2 && showN2) || (isN3 && showN3));
+            
+            const meta = perfChart.getDatasetMeta(index);
+            meta.hidden = !shouldShow;
+        }
+    });
+    perfChart.update();
+};
 
 async function initSystem() {
     if (gameState.active) return;
