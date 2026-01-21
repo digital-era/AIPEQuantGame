@@ -1740,17 +1740,7 @@ function renderHistoryChart() {
     const canvas = document.getElementById('performanceChart');
     
     chartContainer.style.display = 'block';
-
-    // 【关键修改点 1】：根据屏幕宽度动态设置高度
-    // 手机屏幕窄，图例会换行，且X轴文字旋转，因此需要更高的高度来容纳，否则图表会被压扁
-    const isMobile = window.innerWidth < 768;
-    const chartHeight = isMobile ? "500px" : "400px"; 
-    
-    // 强制设置 style 高度，确保容器被撑开
-    canvas.style.height = chartHeight;
-    canvas.style.minHeight = chartHeight;
-    // 同时也建议设置容器的最大高度，防止无限拉伸（可选）
-    canvas.style.maxHeight = "80vh"; 
+    canvas.style.minHeight = "300px"; 
 
     // 1. 插入/更新 UI 控制栏
     let controlsDiv = document.getElementById('chartVariantControls');
@@ -1899,14 +1889,6 @@ function renderSharpeChart(ctx, isMobile) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            layout: {
-                  padding: { 
-                      top: 20, 
-                      bottom: 20, 
-                      left: 10, 
-                      right: 10 
-                  }
-            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -1925,10 +1907,7 @@ function renderSharpeChart(ctx, isMobile) {
                     title: { display: true, text: 'Sharpe Ratio', color: '#666' }
                 },
                 x: {
-                    ticks: { color: '#aaa', autoSkip: false,  
-                              // 确保柱状图标签在手机上也能看清
-                              maxRotation: isMobile ? 45 : 0, 
-                              minRotation: isMobile ? 45 : 0  },
+                    ticks: { color: '#aaa', autoSkip: false, maxRotation: 45, minRotation: 0 },
                     grid: { display: false }
                 }
             }
@@ -2049,25 +2028,11 @@ function renderTimeSeriesChart(ctx, isMobile) {
         options: {
             responsive: true, 
             maintainAspectRatio: false, 
-            layout: { // 【关键修改点 2】：增加内边距，防止最高点或最低点贴着边框，也给底部X轴文字留出空间
-                padding: { 
-                    left: 10, 
-                    right: 10, 
-                    top: 20, 
-                    bottom: isMobile ? 30 : 10 // 手机上底部留更多空间给旋转的日期文字
-                }
-            },          
             interaction: { mode: 'nearest', axis: 'x', intersect: false },
             plugins: { 
                 legend: { 
                     display: true,
-                    // 调整图例位置和边距
-                    labels: { 
-                        boxWidth: 12,
-                        padding: 15, // 图例行间距
-                        color: '#ccc', 
-                        filter: (item, chartData) => chartData.datasets[item.datasetIndex].isMain 
-                    },
+                    labels: { color: '#ccc', filter: (item, chartData) => chartData.datasets[item.datasetIndex].isMain },
                     onClick: function(e, legendItem, legend) {
                         // 保持原有的点击图例显示/隐藏变体的逻辑
                         const chart = legend.chart;
