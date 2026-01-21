@@ -1740,6 +1740,8 @@ function renderHistoryChart() {
     const canvas = document.getElementById('performanceChart');
     
     chartContainer.style.display = 'block';
+    // 建议：给容器也加一个最小高度，防止 destroy 时 canvas 瞬间变小导致页面滚动条跳动
+    chartContainer.style.minHeight = "340px"; 
     canvas.style.minHeight = "300px"; 
 
     // 1. 插入/更新 UI 控制栏
@@ -1784,12 +1786,29 @@ function renderHistoryChart() {
         `;
     }
 
-    // 同步 UI 状态
+     // ================= 核心修复开始：同步 UI 状态 =================
+    // 只有当 DOM 的值与 JS 变量不一致时才赋值
+    // 这样避免了在手机上打断用户的交互焦点，解决了焦点跳动问题
     const metricSelect = document.getElementById('metricSelect');
-    if (metricSelect) metricSelect.value = currentMetric;
+    if (metricSelect && metricSelect.value !== currentMetric) {
+        metricSelect.value = currentMetric;
+    }
 
     const rangeSelect = document.getElementById('chartRangeSelect');
-    if (rangeSelect) rangeSelect.value = currentChartRange;
+    if (rangeSelect && rangeSelect.value !== currentChartRange) {
+        rangeSelect.value = currentChartRange;
+    }
+
+    const chkN2 = document.getElementById('toggleN2');
+    if (chkN2 && chkN2.checked !== showN2) {
+        chkN2.checked = showN2;
+    }
+    
+    const chkN3 = document.getElementById('toggleN3');
+    if (chkN3 && chkN3.checked !== showN3) {
+        chkN3.checked = showN3;
+    }
+    // ================= 核心修复结束 =================
 
     // 当选择夏普比率时，隐藏时间范围选择，因为它是单值
     const rangeGroup = document.getElementById('rangeControlGroup');
