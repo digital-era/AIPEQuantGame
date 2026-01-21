@@ -1814,12 +1814,6 @@ function renderHistoryChart() {
     const rangeGroup = document.getElementById('rangeControlGroup');
     if (rangeGroup) rangeGroup.style.display = currentMetric === 'sharpe' ? 'none' : 'flex';
 
-    const chkN2 = document.getElementById('toggleN2');
-    if (chkN2) chkN2.checked = showN2;
-    
-    const chkN3 = document.getElementById('toggleN3');
-    if (chkN3) chkN3.checked = showN3;
-
     // 2. 销毁旧图表
     if (perfChart) {
         perfChart.destroy();
