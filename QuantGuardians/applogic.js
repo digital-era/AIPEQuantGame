@@ -1889,6 +1889,13 @@ function renderSharpeChart(ctx, isMobile) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            // ============ 修改开始：增加底部内边距 ============
+            layout: {
+              padding: {
+                  bottom: 15  // 这里设置 10-20 像素通常足够解决文字截断问题
+              }
+            },
+            // ============ 修改结束 ============
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -2028,6 +2035,13 @@ function renderTimeSeriesChart(ctx, isMobile) {
         options: {
             responsive: true, 
             maintainAspectRatio: false, 
+            // ============ 修改开始：增加底部内边距 ============
+            layout: {
+              padding: {
+                  bottom: 15  // 这里设置 10-20 像素通常足够解决文字截断问题
+              }
+            },
+            // ============ 修改结束 ============
             interaction: { mode: 'nearest', axis: 'x', intersect: false },
             plugins: { 
                 legend: { 
