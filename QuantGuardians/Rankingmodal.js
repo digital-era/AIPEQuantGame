@@ -42,7 +42,10 @@
 		
 		    // 提取数值并构建数组
 		    let rankingData = entities.map(e => {
-		        let val = historyData.datasets[e.key] ? historyData.datasets[e.key][lastIdx] : -999;
+				// 【修改点1】数据结构变了，需要访问 .cumulative 数组
+		        // 旧代码: let val = historyData.datasets[e.key] ? historyData.datasets[e.key][lastIdx] : -999;
+		        const dataset = historyData.datasets[e.key];
+		        let val = (dataset && dataset.cumulative) ? dataset.cumulative[lastIdx] : -999;
 		        // 处理可能为null的情况
 		        if (val === null || val === undefined) val = -999; 
 		        return { ...e, value: val };
@@ -50,9 +53,13 @@
 		
 		    // 3. 获取标普500基准值 (用来判断冠军奖杯条件2)
 		    let sp500Val = -999;
-		    if (historyData.datasets['sp500'] && historyData.datasets['sp500'].length > lastIdx) {
-		        sp500Val = historyData.datasets['sp500'][lastIdx];
+			// 【修改点2】标普500同样需要访问 .cumulative
+		    // 旧代码: if (historyData.datasets['sp500'] && historyData.datasets['sp500'].length > lastIdx)
+		    const spData = historyData.datasets['sp500'];
+		    if (spData && spData.cumulative && spData.cumulative.length > lastIdx) {
+		        sp500Val = spData.cumulative[lastIdx];
 		    }
+
 		    // 护卫队整体战绩
 		    const guardiansVal = rankingData.find(e => e.key === 'guardians').value;
 		
