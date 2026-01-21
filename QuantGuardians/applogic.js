@@ -1730,10 +1730,7 @@ function mapJsonToData(json, sortedDates) {
 }
 
 // ================= MODIFIED: renderHistoryChart =================
-// 1. 定义全局变量存储 Checkbox 状态，避免每次去 DOM 读取
-let showN2 = false;
-let showN3 = false;
-
+//  1. 定义全局变量存储 Checkbox 状态，避免每次去 DOM 读取，已经在开头定义
 // ================= FIXED: renderHistoryChart =================
 // ================= 修复：使用ResizeObserver确保DOM稳定 =================
 // ================= 修复与增强：renderHistoryChart =================
