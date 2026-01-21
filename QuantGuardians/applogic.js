@@ -78,7 +78,6 @@ let gameState = {
 };
 let memoryFlows = []; 
 let ossClient = null;
-let perfChart = null; 
 
 let historyData = { dates: [], datasets: {} };
 
