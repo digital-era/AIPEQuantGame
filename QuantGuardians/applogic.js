@@ -1835,7 +1835,7 @@ function renderHistoryChart() {
         // === 分支 B: 时间序列 (收益率 / 回撤) ===
         renderTimeSeriesChart(ctx, isMobile);
 
-    }, 50);
+   }, 0); // 这里的延时从50ms改为了 0，提升响应速度
 }
 
 // 渲染柱状图 (夏普比率)
