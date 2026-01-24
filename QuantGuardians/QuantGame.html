@@ -450,6 +450,21 @@
 		    padding: 10px 15px; 
 		    border-radius: 0 4px 4px 0;
 		}
+
+		/* --- 修复：小说内容中的超链接样式 --- */
+		#novelContent a {
+		    color: var(--cyber-blue); /* 使用和标题一致的青蓝色 (#00E5FF) */
+		    text-decoration: underline; /* 保留下划线，表明这是链接 */
+		    text-underline-offset: 3px; /* 下划线稍微往下挪一点，更美观 */
+		    transition: all 0.3s ease;
+		}
+		
+		/* 鼠标悬停时的效果：变白并发光 */
+		#novelContent a:hover {
+		    color: #ffffff; 
+		    text-shadow: 0 0 8px var(--cyber-blue);
+		    text-decoration-color: #ffffff;
+		}
         #novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
 
         .loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
