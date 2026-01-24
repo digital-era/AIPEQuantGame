@@ -334,10 +334,17 @@
             background: #111; padding: 10px 20px; border-bottom: 1px solid #333;
             display: flex; justify-content: space-between; align-items: center; height: 60px;
         }
-        .novel-title {
-            font-family: 'Press Start 2P', cursive; font-size: 0.8em; color: var(--genbu-color);
-            text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
-        }
+		/* --- 修改处 1：标题放大并改为金色 --- */
+		.novel-title {
+		    font-family: 'Press Start 2P', cursive; 
+		    font-size: 1.4em; /* 原来是 0.7em，放大 2 倍 */
+		    color: #FFD700;   /* 改为金色 (User Gold)，原来是绿色 */
+		    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); /* 增加一点微光效果 */
+		    letter-spacing: 1px;
+		    white-space: nowrap; 
+		    overflow: hidden;
+		    text-overflow: ellipsis;
+		}
         .novel-controls { display: flex; gap: 10px; }
 
         .novel-body { display: flex; flex: 1; overflow: hidden; position: relative; }
@@ -362,7 +369,7 @@
         #novelContent {
             flex: 1; padding: 40px 60px; overflow-y: auto;
             font-family: 'Georgia', 'Times New Roman', serif; /* 优雅的衬线字体 */
-            font-size: 1.1em; line-height: 1.8; color: #ccc;
+            font-size: 1.1em; line-height: 1.8; color: #ffffff; 
             max-width: 900px; margin: 0 auto; width: 100%;
         }
         
@@ -370,7 +377,32 @@
         #novelContent h1, #novelContent h2, #novelContent h3 { color: #e0e0e0; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: bold; }
         #novelContent h1 { border-bottom: 1px solid #444; padding-bottom: 10px; text-align: center; color: var(--user-gold); }
         #novelContent p { margin-bottom: 1.2em; text-align: justify; }
-        #novelContent blockquote { border-left: 4px solid #444; padding-left: 15px; color: #777; font-style: italic; }
+		
+        /* --- 修改处 3：修复截图中灰色看不清的引用块和列表 --- */
+		#novelContent blockquote { 
+		    border-left: 4px solid var(--genbu-color); /* 保持左侧绿色竖条装饰 */
+		    padding-left: 15px; 
+		    
+		    /* 核心修改：引用块文字颜色改为亮白，不再是暗灰(#777) */
+		    color: #f0f0f0; 
+		    
+		    font-style: italic; 
+		    margin: 20px 0; 
+		    background: rgba(255, 255, 255, 0.05); /* 增加极淡的背景增加对比度 */
+		    padding: 10px 15px; /* 增加一点内边距 */
+		    border-radius: 0 4px 4px 0;
+		}
+		#novelContent ul, 
+		#novelContent li,
+		#novelContent p {
+		    color: #ffffff; /* 强制列表和段落为白色 */
+		}
+		
+		/* 保持标题的高亮颜色 */
+		#novelContent h1 { color: #FFD700; border-bottom: 1px solid #444; }
+		#novelContent h2, #novelContent h3 { color: #fff; font-weight: bold; }
+		#novelContent strong { color: #FFD700; } /* 加粗字体也用金色高亮 */
+		
         #novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
 
         .loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
