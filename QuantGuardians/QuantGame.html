@@ -323,202 +323,200 @@
 		    }
 		}
 
-		/* --- 【NEW】小说阅读器专用样式 --- */
-        .novel-reader-container {
-            background: #1a1a1a; /* 深色阅读背景 */
-            width: 95%; max-width: 1200px; height: 85vh;
-            padding: 0; overflow: hidden; display: flex; flex-direction: column;
-            border: 1px solid #444; box-shadow: 0 0 50px rgba(0,0,0,0.9);
-        }
-
-        .novel-header {
-            background: #111; padding: 10px 20px; border-bottom: 1px solid #333;
-            display: flex; justify-content: space-between; align-items: center; height: 60px;
-        }
-		/* --- 修改处 1：标题放大并改为金色 --- */
-		/* --- 2. 修改左上角小说主标题 --- */
+		/* =================================================================
+		   【修复版】小说阅读器完整样式 (请替换原有相关代码)
+		   ================================================================= */
+		
+		/* 1. 外层容器：固定高度，Flex 布局 */
+		.novel-reader-container {
+		    background: #1a1a1a;
+		    width: 95%; 
+		    max-width: 1200px; 
+		    height: 85vh; /* 固定高度 */
+		    padding: 0; 
+		    overflow: hidden; 
+		    display: flex; 
+		    flex-direction: column;
+		    border: 1px solid #444; 
+		    box-shadow: 0 0 50px rgba(0,0,0,0.9);
+		}
+		
+		/* 2. 顶部 Header */
+		.novel-header {
+		    background: #111; 
+		    padding: 10px 20px; 
+		    border-bottom: 1px solid #333;
+		    display: flex; 
+		    justify-content: space-between; 
+		    align-items: center; 
+		    height: 60px;
+		    flex-shrink: 0; /* 防止头部被压缩 */
+		}
+		
 		.novel-title {
-		    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; /* 改为截图字体 */
+		    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
 		    font-size: 1.4em;
 		    font-weight: bold;
-		    color: var(--cyber-blue); /* 【修改点】改为青蓝色 */
-		    text-shadow: 0 0 10px rgba(0, 229, 255, 0.4); /* 调整光晕颜色匹配 */
+		    color: var(--cyber-blue);
+		    text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
 		    letter-spacing: 1px;
 		    white-space: nowrap; 
 		    overflow: hidden;
 		    text-overflow: ellipsis;
 		}
-        .novel-controls { display: flex; gap: 10px; }
-
-        .novel-body { display: flex; flex: 1; overflow: hidden; position: relative; }
-
-        /* 侧边栏/目录 */
-        .novel-sidebar {
-            width: 250px; background: #0f0f15; border-right: 1px solid #333;
-            display: flex; flex-direction: column; transition: transform 0.3s ease;
-            z-index: 10;
-        }
-        .sidebar-title { padding: 15px; font-weight: bold; color: #666; font-size: 0.8em; border-bottom: 1px solid #222; }
-        .chapter-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
-        .chapter-list li {
-            padding: 12px 15px; border-bottom: 1px solid #222; cursor: pointer; color: #888; font-size: 0.85em; transition: all 0.2s;
-        }
-        .chapter-list li:hover { background: #222; color: #ddd; }
-        .chapter-list li.active { background: #1a1a2e; color: var(--user-gold); border-left: 3px solid var(--user-gold); }
-
-        /* 正文区域 */
-        .novel-viewport { flex: 1; display: flex; flex-direction: column; background: #181818; position: relative; }
-        
-		/* --- 3. 修改正文区域：字体与颜色 --- */
-		* 1. 正文容器：去掉顶部多余空间 */
+		.novel-controls { display: flex; gap: 10px; }
+		
+		/* 3. 中间主体结构 (包含侧边栏和正文) */
+		.novel-body { 
+		    display: flex; 
+		    flex: 1;           /* 占据剩余空间 */
+		    overflow: hidden;  /* 关键：防止外层出现滚动条 */
+		    position: relative; 
+		    min-height: 0;     /* 关键：Flex子元素滚动的必要属性 */
+		}
+		
+		/* 4. 侧边栏 */
+		.novel-sidebar {
+		    width: 250px; 
+		    background: #0f0f15; 
+		    border-right: 1px solid #333;
+		    display: flex; 
+		    flex-direction: column; 
+		    transition: transform 0.3s ease;
+		    z-index: 10;
+		}
+		.sidebar-title { padding: 15px; font-weight: bold; color: #666; font-size: 0.8em; border-bottom: 1px solid #222; }
+		.chapter-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+		.chapter-list li {
+		    padding: 12px 15px; border-bottom: 1px solid #222; cursor: pointer; color: #888; font-size: 0.85em; transition: all 0.2s;
+		}
+		.chapter-list li:hover { background: #222; color: #ddd; }
+		.chapter-list li.active { background: #1a1a2e; color: var(--user-gold); border-left: 3px solid var(--user-gold); }
+		
+		/* 5. 右侧视口容器 */
+		.novel-viewport { 
+		    flex: 1; 
+		    display: flex; 
+		    flex-direction: column; 
+		    background: #181818; 
+		    position: relative; 
+		    min-width: 0; /* 防止内容撑破 Flex 容器 */
+		}
+		
+		/* 6. 正文滚动区域 (修复滚动条问题的核心) */
 		#novelContent {
-			flex: 1; 
-			/* 【核心修改】padding-top 改为 0，让内容能顶到最上面 */
-			padding: 0 80px 40px 80px; 
-			
-			overflow-y: auto; 
-			scroll-behavior: smooth;
-			
-			/* 字体保持您要求的无衬线体 */
-			font-family: "Microsoft YaHei", "PingFang SC", "Heiti SC", sans-serif; 
-			font-size: 1.15em; 
-			line-height: 1.8; 
-			color: #ffffff; 
-			max-width: 900px; 
-			margin: 0 auto; 
-			width: 100%;
-		}
-
-        
-        /* Markdown 样式微调 */
-        #novelContent h1, #novelContent h2, #novelContent h3 { color: #e0e0e0; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: bold; }
-        #novelContent h1 { border-bottom: 1px solid #444; padding-bottom: 10px; text-align: center; color: var(--user-gold); }
-        #novelContent p { margin-bottom: 1.2em; text-align: justify; }
-		
-        /* --- 修改处 3：修复截图中灰色看不清的引用块和列表 --- */
-		#novelContent blockquote { 
-		    border-left: 4px solid var(--genbu-color); /* 保持左侧绿色竖条装饰 */
-		    padding-left: 15px; 
+		    flex: 1;                /* 自动填充高度 */
+		    overflow-y: auto;       /* 开启垂直滚动 */
+		    padding: 0 80px 40px 80px; /* 顶部 padding 设为 0，让标题顶上去 */
 		    
-		    /* 核心修改：引用块文字颜色改为亮白，不再是暗灰(#777) */
-		    color: #f0f0f0; 
-		    
-		    font-style: italic; 
-		    margin: 20px 0; 
-		    background: rgba(255, 255, 255, 0.05); /* 增加极淡的背景增加对比度 */
-		    padding: 10px 15px; /* 增加一点内边距 */
-		    border-radius: 0 4px 4px 0;
-		}
-		#novelContent ul, 
-		#novelContent li,
-		#novelContent p {
-		    color: #ffffff; /* 强制列表和段落为白色 */
+		    font-family: "Microsoft YaHei", "PingFang SC", "Heiti SC", sans-serif; 
+		    font-size: 1.15em; 
+		    line-height: 1.8; 
+		    color: #ffffff; 
+		    max-width: 900px; 
+		    margin: 0 auto; 
+		    width: 100%;
+		    scroll-behavior: smooth;
 		}
 		
-		/* 保持标题的高亮颜色 */
-		/* --- 4. 修改文章内标题 (H1, H2, H3) 为青蓝色 --- */
+		/* --- 正文排版样式 --- */
+		
+		/* 章节总标题 (H1) - 居中，大字号 */
 		#novelContent h1 { 
 		    color: var(--cyber-blue); 
-		    
-		    /* 【核心修改】强制居中 */
-		    text-align: center !important; 
-		    
+		    text-align: center !important;  /* 强制居中 */
 		    font-weight: bold;
-		    font-size: 2.2em; /* 字体放大 */
+		    font-size: 2.4em;               /* 放大字号 */
 		    
-		    /* 【核心修改】控制顶部距离 */
-		    margin-top: 30px; /* 仅留 30px 缓冲，解决顶部空间过大问题 */
+		    margin-top: 30px;               /* 顶部仅留少量空间 */
 		    margin-bottom: 40px; 
-		    
 		    border-bottom: 2px solid #333; 
 		    padding-bottom: 20px;
 		    line-height: 1.3;
 		}
 		
-		/* 3. 章节内部小标题 (H2, H3, H4) */
-		/* 对应 Markdown 中的 ## 或 ###，保持左对齐 */
+		/* 章节内部小标题 (H2, H3) - 左对齐 */
 		#novelContent h2, 
 		#novelContent h3, 
 		#novelContent h4 { 
 		    color: var(--cyber-blue); 
-		    
-		    /* 内部标题左对齐 */
-		    text-align: left; 
-		    
+		    text-align: left;               /* 内部标题左对齐 */
 		    font-weight: bold;
 		    margin-top: 1.5em; 
 		    margin-bottom: 0.8em;
 		}
-		/* 4. 强制修正：如果正文第一个元素不是 H1，也要消除顶部大间距 */
+		
+		/* 强制修正：如果正文第一个元素不是 H1，也消除顶部大间距 */
 		#novelContent > :first-child {
 		    margin-top: 30px !important;
 		}
-
 		
-		/* --- 5. 修改加粗/高亮文字 (原黄色) 为青蓝色 --- */
+		/* 段落与列表 */
+		#novelContent p { margin-bottom: 1.2em; text-align: justify; color: #fff; }
+		#novelContent ul, #novelContent li { color: #fff; }
+		
+		/* 加粗文字 */
 		#novelContent strong { 
-		    color: var(--cyber-blue); /* 【修改点】跟随标题颜色 */
-		    font-weight: bold;
+		    color: var(--cyber-blue); 
+		    font-weight: bold; 
+		    font-size: 1em; /* 保持与正文一致大小 */
 		}
 		
-		/* --- 6. 引用块微调 (保持白色文字，左边框改为青色) --- */
+		/* 引用块 */
 		#novelContent blockquote { 
-		    border-left: 4px solid var(--cyber-blue); /* 左侧竖条也改为青色 */
+		    border-left: 4px solid var(--cyber-blue); 
 		    padding-left: 15px; 
 		    color: #f0f0f0; 
-		    font-style: italic; /* 引用保持斜体以示区别，也可去掉 */
+		    font-style: italic; 
 		    margin: 20px 0; 
-		    background: rgba(0, 229, 255, 0.05); /* 极淡的青色背景 */
+		    background: rgba(0, 229, 255, 0.05); 
 		    padding: 10px 15px; 
 		    border-radius: 0 4px 4px 0;
 		}
-
-		/* --- 修复：小说内容中的超链接样式 --- */
+		
+		/* 链接 */
 		#novelContent a {
-		    color: var(--cyber-blue); /* 使用和标题一致的青蓝色 (#00E5FF) */
-		    text-decoration: underline; /* 保留下划线，表明这是链接 */
-		    text-underline-offset: 3px; /* 下划线稍微往下挪一点，更美观 */
+		    color: var(--cyber-blue);
+		    text-decoration: underline;
+		    text-underline-offset: 3px;
 		    transition: all 0.3s ease;
 		}
-		
-		/* 鼠标悬停时的效果：变白并发光 */
 		#novelContent a:hover {
 		    color: #ffffff; 
 		    text-shadow: 0 0 8px var(--cyber-blue);
-		    text-decoration-color: #ffffff;
 		}
-        #novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
-
-        .loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
-
-        /* 底部导航 */
-        .novel-footer-nav {
-            height: 50px; background: #111; border-top: 1px solid #333;
-            display: flex; justify-content: center; align-items: center; gap: 20px;
-        }
-        .nav-btn {
-            background: transparent; border: 1px solid #444; color: #aaa; padding: 5px 15px;
-            cursor: pointer; font-family: 'Roboto Mono'; font-size: 0.8em; border-radius: 4px;
-        }
-        .nav-btn:hover { border-color: #fff; color: #fff; }
-        .curr-chap { font-size: 0.7em; color: #666; }
-
-        /* 移动端适配 */
-        @media (max-width: 768px) {
-            .novel-sidebar {
-                position: absolute; left: 0; top: 0; bottom: 0;
-                transform: translateX(-100%); /* 默认隐藏 */
-                width: 80%; box-shadow: 2px 0 10px rgba(0,0,0,0.5);
-            }
-            .novel-sidebar.show { transform: translateX(0); }
-            #novelContent { padding: 20px 20px; font-size: 1em; }
-        }
-
-		/* --- 移动端适配 --- */
+		
+		/* 分割线 */
+		#novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
+		.loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
+		
+		/* 7. 底部导航 */
+		.novel-footer-nav {
+		    height: 50px; 
+		    background: #111; 
+		    border-top: 1px solid #333;
+		    display: flex; 
+		    justify-content: center; 
+		    align-items: center; 
+		    gap: 20px;
+		    flex-shrink: 0; /* 防止底部导航被压缩 */
+		}
+		.nav-btn {
+		    background: transparent; border: 1px solid #444; color: #aaa; padding: 5px 15px;
+		    cursor: pointer; font-family: 'Roboto Mono'; font-size: 0.8em; border-radius: 4px;
+		}
+		.nav-btn:hover { border-color: #fff; color: #fff; }
+		.curr-chap { font-size: 0.7em; color: #666; }
+		
+		/* 8. 移动端适配 */
 		@media (max-width: 768px) {
-		    #novelContent { 
-		        padding: 0 20px 40px 20px; 
+		    .novel-sidebar {
+		        position: absolute; left: 0; top: 0; bottom: 0;
+		        transform: translateX(-100%);
+		        width: 80%; box-shadow: 2px 0 10px rgba(0,0,0,0.5);
 		    }
+		    .novel-sidebar.show { transform: translateX(0); }
+		    #novelContent { padding: 0 20px 40px 20px; } /* 移动端边距 */
 		}
     </style>
 </head>
