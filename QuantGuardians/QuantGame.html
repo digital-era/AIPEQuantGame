@@ -324,7 +324,7 @@
 		}
 
 		/* =================================================================
-		   【修复版】小说阅读器完整样式 (请替换原有相关代码)
+		   小说阅读器完整样式 (请替换原有相关代码)
 		   ================================================================= */
 		
 		/* 1. 外层容器：固定高度，Flex 布局 */
@@ -341,30 +341,76 @@
 		    box-shadow: 0 0 50px rgba(0,0,0,0.9);
 		}
 		
-		/* 2. 顶部 Header */
+		/* 2. 顶部 Header (升级版：流动标题) */
 		.novel-header {
 		    background: #111; 
-		    padding: 10px 20px; 
+		    padding: 0 20px; /* 调整内边距 */
 		    border-bottom: 1px solid #333;
 		    display: flex; 
 		    justify-content: space-between; 
 		    align-items: center; 
 		    height: 60px;
-		    flex-shrink: 0; /* 防止头部被压缩 */
+		    flex-shrink: 0; 
+		    overflow: hidden; /* 关键：防止动画溢出头部 */
 		}
 		
+		/* 标题容器：作为“视窗” */
 		.novel-title {
+		    flex: 1;               /* 自动占据剩余空间 */
+		    margin-right: 30px;    /* 与右侧按钮保持距离 */
+		    height: 100%;
+		    display: flex;
+		    align-items: center;   /* 垂直居中 */
+		    
 		    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
 		    font-size: 1.4em;
 		    font-weight: bold;
 		    color: var(--cyber-blue);
-		    text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
 		    letter-spacing: 1px;
-		    white-space: nowrap; 
-		    overflow: hidden;
-		    text-overflow: ellipsis;
+		    
+		    /* 关键属性：隐藏溢出内容 */
+		    overflow: hidden; 
+		    white-space: nowrap;
+		    
+		    /* 视觉特效：两侧添加透明渐变遮罩，让文字流动更自然（类似弹幕进出效果） */
+		    mask-image: linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
+		    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 5%, #000 95%, transparent 100%);
 		}
-		.novel-controls { display: flex; gap: 10px; }
+		
+		/* 动感核心：文字滚动动画 */
+		/* 注意：为了最佳效果，HTML中标题文字最好包裹在 <span> 标签内 */
+		/* 例如：<div class="novel-title"><span>你的超长标题...</span></div> */
+		.novel-title span {
+		    display: inline-block;
+		    padding-left: 100%;    /* 初始位置：从容器最右侧外部开始 */
+		    
+		    /* 动画配置：20秒匀速循环 */
+		    animation: title-scroll 20s linear infinite;
+		    
+		    /* 增强动感：更强的霓虹光晕 */
+		    text-shadow: 0 0 10px rgba(0, 229, 255, 0.6), 
+		                 0 0 20px rgba(0, 229, 255, 0.3);
+		}
+		
+		/* 交互设计：鼠标悬停时暂停滚动，方便阅读 */
+		.novel-title span:hover {
+		    animation-play-state: paused;
+		    cursor: default;
+		    /* 悬停时高亮一下 */
+		    text-shadow: 0 0 15px rgba(0, 229, 255, 0.9); 
+		}
+		
+		.novel-controls { display: flex; gap: 10px; flex-shrink: 0; }
+		
+		/* 定义滚动关键帧 */
+		@keyframes title-scroll {
+		    0% {
+		        transform: translateX(0);
+		    }
+		    100% {
+		        transform: translateX(-100%); /* 向左移动自身宽度的100% */
+		    }
+		}
 		
 		/* 3. 中间主体结构 (包含侧边栏和正文) */
 		.novel-body { 
