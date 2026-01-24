@@ -39,7 +39,8 @@
             --suzaku-color: #EF4444;
             --sirius-color: #8B5CF6;
             --kirin-color: #3B82F6;
-            --user-gold: #FFD700;
+            --user-gold: #FFD700;			   
+   			--cyber-blue: #00E5FF;  /* 小说霓虹青色 */
         }
         * { box-sizing: border-box; }
 
@@ -335,11 +336,13 @@
             display: flex; justify-content: space-between; align-items: center; height: 60px;
         }
 		/* --- 修改处 1：标题放大并改为金色 --- */
+		/* --- 2. 修改左上角小说主标题 --- */
 		.novel-title {
-		    font-family: 'Press Start 2P', cursive; 
-		    font-size: 1.4em; /* 原来是 0.7em，放大 2 倍 */
-		    color: #FFD700;   /* 改为金色 (User Gold)，原来是绿色 */
-		    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); /* 增加一点微光效果 */
+		    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; /* 改为截图字体 */
+		    font-size: 1.4em;
+		    font-weight: bold;
+		    color: var(--cyber-blue); /* 【修改点】改为青蓝色 */
+		    text-shadow: 0 0 10px rgba(0, 229, 255, 0.4); /* 调整光晕颜色匹配 */
 		    letter-spacing: 1px;
 		    white-space: nowrap; 
 		    overflow: hidden;
@@ -366,12 +369,24 @@
         /* 正文区域 */
         .novel-viewport { flex: 1; display: flex; flex-direction: column; background: #181818; position: relative; }
         
-        #novelContent {
-            flex: 1; padding: 40px 60px; overflow-y: auto;
-            font-family: 'Georgia', 'Times New Roman', serif; /* 优雅的衬线字体 */
-            font-size: 1.1em; line-height: 1.8; color: #ffffff; 
-            max-width: 900px; margin: 0 auto; width: 100%;
-        }
+		/* --- 3. 修改正文区域：字体与颜色 --- */
+		#novelContent {
+		    flex: 1; 
+		    padding: 40px 80px; 
+		    overflow-y: auto; 
+		    scroll-behavior: smooth;
+		    
+		    /* 【修改点】字体改为无衬线体 (微软雅黑/苹方)，由 Serif 改为 Sans-Serif */
+		    font-family: "Microsoft YaHei", "PingFang SC", "Heiti SC", sans-serif; 
+		    
+		    font-size: 1.15em; 
+		    line-height: 1.8; 
+		    color: #ffffff; /* 正文普通文字保持白色 */
+		    max-width: 900px; 
+		    margin: 0 auto; 
+		    width: 100%;
+		}
+
         
         /* Markdown 样式微调 */
         #novelContent h1, #novelContent h2, #novelContent h3 { color: #e0e0e0; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: bold; }
@@ -399,10 +414,42 @@
 		}
 		
 		/* 保持标题的高亮颜色 */
-		#novelContent h1 { color: #FFD700; border-bottom: 1px solid #444; }
-		#novelContent h2, #novelContent h3 { color: #fff; font-weight: bold; }
-		#novelContent strong { color: #FFD700; } /* 加粗字体也用金色高亮 */
+		/* --- 4. 修改文章内标题 (H1, H2, H3) 为青蓝色 --- */
+		#novelContent h1 { 
+		    color: var(--cyber-blue); /* 【修改点】第一节... */
+		    text-align: center; 
+		    font-size: 1.8em; 
+		    margin-bottom: 1em; 
+		    border-bottom: 1px solid #333; 
+		    padding-bottom: 20px;
+		    font-weight: bold;
+		}
 		
+		#novelContent h2, 
+		#novelContent h3, 
+		#novelContent h4 { 
+		    color: var(--cyber-blue); /* 【修改点】楔子... 等子标题 */
+		    margin-top: 1.5em; 
+		    font-weight: bold;
+		}
+		
+		/* --- 5. 修改加粗/高亮文字 (原黄色) 为青蓝色 --- */
+		#novelContent strong { 
+		    color: var(--cyber-blue); /* 【修改点】跟随标题颜色 */
+		    font-weight: bold;
+		}
+		
+		/* --- 6. 引用块微调 (保持白色文字，左边框改为青色) --- */
+		#novelContent blockquote { 
+		    border-left: 4px solid var(--cyber-blue); /* 左侧竖条也改为青色 */
+		    padding-left: 15px; 
+		    color: #f0f0f0; 
+		    font-style: italic; /* 引用保持斜体以示区别，也可去掉 */
+		    margin: 20px 0; 
+		    background: rgba(0, 229, 255, 0.05); /* 极淡的青色背景 */
+		    padding: 10px 15px; 
+		    border-radius: 0 4px 4px 0;
+		}
         #novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
 
         .loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
