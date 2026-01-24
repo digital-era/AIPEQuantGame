@@ -370,21 +370,23 @@
         .novel-viewport { flex: 1; display: flex; flex-direction: column; background: #181818; position: relative; }
         
 		/* --- 3. 修改正文区域：字体与颜色 --- */
+		* 1. 正文容器：去掉顶部多余空间 */
 		#novelContent {
-		    flex: 1; 
-		    padding: 40px 80px; 
-		    overflow-y: auto; 
-		    scroll-behavior: smooth;
-		    
-		    /* 【修改点】字体改为无衬线体 (微软雅黑/苹方)，由 Serif 改为 Sans-Serif */
-		    font-family: "Microsoft YaHei", "PingFang SC", "Heiti SC", sans-serif; 
-		    
-		    font-size: 1.15em; 
-		    line-height: 1.8; 
-		    color: #ffffff; /* 正文普通文字保持白色 */
-		    max-width: 900px; 
-		    margin: 0 auto; 
-		    width: 100%;
+			flex: 1; 
+			/* 【核心修改】padding-top 改为 0，让内容能顶到最上面 */
+			padding: 0 80px 40px 80px; 
+			
+			overflow-y: auto; 
+			scroll-behavior: smooth;
+			
+			/* 字体保持您要求的无衬线体 */
+			font-family: "Microsoft YaHei", "PingFang SC", "Heiti SC", sans-serif; 
+			font-size: 1.15em; 
+			line-height: 1.8; 
+			color: #ffffff; 
+			max-width: 900px; 
+			margin: 0 auto; 
+			width: 100%;
 		}
 
         
@@ -416,22 +418,42 @@
 		/* 保持标题的高亮颜色 */
 		/* --- 4. 修改文章内标题 (H1, H2, H3) 为青蓝色 --- */
 		#novelContent h1 { 
-		    color: var(--cyber-blue); /* 【修改点】第一节... */
-		    text-align: center; 
-		    font-size: 1.8em; 
-		    margin-bottom: 1em; 
-		    border-bottom: 1px solid #333; 
-		    padding-bottom: 20px;
+		    color: var(--cyber-blue); 
+		    
+		    /* 【核心修改】强制居中 */
+		    text-align: center !important; 
+		    
 		    font-weight: bold;
+		    font-size: 2.2em; /* 字体放大 */
+		    
+		    /* 【核心修改】控制顶部距离 */
+		    margin-top: 30px; /* 仅留 30px 缓冲，解决顶部空间过大问题 */
+		    margin-bottom: 40px; 
+		    
+		    border-bottom: 2px solid #333; 
+		    padding-bottom: 20px;
+		    line-height: 1.3;
 		}
 		
+		/* 3. 章节内部小标题 (H2, H3, H4) */
+		/* 对应 Markdown 中的 ## 或 ###，保持左对齐 */
 		#novelContent h2, 
 		#novelContent h3, 
 		#novelContent h4 { 
-		    color: var(--cyber-blue); /* 【修改点】楔子... 等子标题 */
-		    margin-top: 1.5em; 
+		    color: var(--cyber-blue); 
+		    
+		    /* 内部标题左对齐 */
+		    text-align: left; 
+		    
 		    font-weight: bold;
+		    margin-top: 1.5em; 
+		    margin-bottom: 0.8em;
 		}
+		/* 4. 强制修正：如果正文第一个元素不是 H1，也要消除顶部大间距 */
+		#novelContent > :first-child {
+		    margin-top: 30px !important;
+		}
+
 		
 		/* --- 5. 修改加粗/高亮文字 (原黄色) 为青蓝色 --- */
 		#novelContent strong { 
@@ -491,6 +513,13 @@
             .novel-sidebar.show { transform: translateX(0); }
             #novelContent { padding: 20px 20px; font-size: 1em; }
         }
+
+		/* --- 移动端适配 --- */
+		@media (max-width: 768px) {
+		    #novelContent { 
+		        padding: 0 20px 40px 20px; 
+		    }
+		}
     </style>
 </head>
 <body>	
