@@ -507,7 +507,31 @@
 		}
 		.nav-btn:hover { border-color: #fff; color: #fff; }
 		.curr-chap { font-size: 0.7em; color: #666; }
+
+		/* ============================================
+		   【修复】桌面端侧边栏收缩逻辑
+		============================================ */
+		@media (min-width: 769px) {
+		    .novel-sidebar {
+		        /* 增加宽度的过渡动画，让收缩更平滑 */
+		        transition: width 0.3s ease, opacity 0.2s ease, transform 0.3s ease;
+		        width: 250px;      /* 默认宽度 */
+		        overflow: hidden;  /* 关键：收起时隐藏内部文字 */
+		        opacity: 1;
+		    }
 		
+		    /* 
+		       利用现有的 JS 逻辑：
+		       手机端 .show 代表“显示出来”
+		       电脑端 .show 代表“被点击了” -> 我们让它“收起来”
+		    */
+		    .novel-sidebar.show {
+		        width: 0 !important;       /* 宽度变 0 */
+		        opacity: 0;                /* 透明度变 0 */
+		        border-right: none;        /* 去掉右边框 */
+		        padding: 0;                /* 去掉内边距防止撑开 */
+		    }
+		}
 		/* 8. 移动端适配 */
 		@media (max-width: 768px) {
 		    .novel-sidebar {
