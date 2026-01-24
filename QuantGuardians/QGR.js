@@ -39,30 +39,56 @@ const QGR = (function() {
     }
 
     /**
-     * 【核心修改】通用地址生成函数 (适配小说路径)
-     * 逻辑参考用户提供的 getResourceUrl
+     * 【修复版】通用地址生成函数
+     * 1. 修复了全局变量(gitproxy/PROXY_BASE_URL)可能无法读取的问题
+     * 2. 增加了控制台日志，方便排查生成的 URL 对不对
      */
     function _generateUrl(filename) {
-        // 处理路径中的空格 (Quantum Guardians -> Quantum%20Guardians)
-        const safeFolder = encodeURIComponent(CONFIG.folder);
+        // 1. 获取全局配置的代理状态
+        // 尝试读取全局变量 gitproxy，如果未定义则默认为 false
+        let useProxy = false;
+        try {
+            if (typeof gitproxy !== 'undefined') useProxy = gitproxy;
+            else if (typeof window.gitproxy !== 'undefined') useProxy = window.gitproxy;
+        } catch(e) {}
+
+        // 2. 处理文件夹路径中的空格
+        // 大多数代理支持 encoded 路径，但如果您的代理报 404，
+        // 可以尝试把下一行改为: const safeFolder = CONFIG.folder; (即不转义)
+        const safeFolder = encodeURIComponent(CONFIG.folder); 
         
-        // 构造完整的文件路径: User/Repo/Branch/Folder/File
+        // 3. 构造路径: User/Repo/Branch/Folder/File
         const filePath = `${CONFIG.user}/${CONFIG.repo}/${CONFIG.branch}/${safeFolder}/${filename}`;
 
         let finalUrl;
         
-        // 检查全局代理开关 (兼容 window.gitproxy 定义)
-        if (typeof window.gitproxy !== 'undefined' && window.gitproxy === true) {
-            // 走代理: PROXY_BASE_URL/filePath
-            // 假设 window.PROXY_BASE_URL 已在主程序定义
-            const proxyBase = window.PROXY_BASE_URL || ''; 
-            finalUrl = `${proxyBase}/${filePath}`;
+        if (useProxy) {
+            // --- 代理模式 ---
+            // 尝试获取全局定义的代理地址
+            let proxyBase = '';
+            try {
+                if (typeof PROXY_BASE_URL !== 'undefined') proxyBase = PROXY_BASE_URL;
+                else if (typeof window.PROXY_BASE_URL !== 'undefined') proxyBase = window.PROXY_BASE_URL;
+            } catch(e) {
+                console.warn("QGR: 检测到代理开启，但找不到 PROXY_BASE_URL 变量");
+            }
+            
+            // 拼接代理地址
+            // 注意：有些代理需要在后面加 /, 这里做了防重复处理
+            const separator = proxyBase.endsWith('/') ? '' : '/';
+            finalUrl = `${proxyBase}${separator}${filePath}`;
+            
         } else {
-            // 走原生: raw.githubusercontent.com
+            // --- 原生模式 ---
             finalUrl = `https://raw.githubusercontent.com/${filePath}`;
         }
 
-        // 添加时间戳防止缓存
+        // 4. [调试] 在控制台打印生成的地址，请按 F12 查看
+        console.log(`[QGR] Loading: ${filename}`);
+        console.log(`[QGR] Mode: ${useProxy ? 'Proxy' : 'Raw'}`);
+        console.log(`[QGR] URL: ${finalUrl}`);
+
+        // 5. 添加时间戳防缓存
         return `${finalUrl}?t=${Date.now()}`;
     }
 
