@@ -13,6 +13,11 @@
 
 	<!-- 引入 ExcelJS，用于处理复杂回测计算 -->
 	<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+
+	<!-- 引入 Marked.js 用于解析 Markdown -->
+	<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+	<!-- 引入 新增的小说逻辑 -->
+	<script src="QGR.js"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
 	<script>
@@ -316,6 +321,82 @@
                 top: 0;
 		    }
 		}
+
+		/* --- 【NEW】小说阅读器专用样式 --- */
+        .novel-reader-container {
+            background: #1a1a1a; /* 深色阅读背景 */
+            width: 95%; max-width: 1200px; height: 85vh;
+            padding: 0; overflow: hidden; display: flex; flex-direction: column;
+            border: 1px solid #444; box-shadow: 0 0 50px rgba(0,0,0,0.9);
+        }
+
+        .novel-header {
+            background: #111; padding: 10px 20px; border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center; height: 60px;
+        }
+        .novel-title {
+            font-family: 'Press Start 2P', cursive; font-size: 0.8em; color: var(--genbu-color);
+            text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+        }
+        .novel-controls { display: flex; gap: 10px; }
+
+        .novel-body { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+        /* 侧边栏/目录 */
+        .novel-sidebar {
+            width: 250px; background: #0f0f15; border-right: 1px solid #333;
+            display: flex; flex-direction: column; transition: transform 0.3s ease;
+            z-index: 10;
+        }
+        .sidebar-title { padding: 15px; font-weight: bold; color: #666; font-size: 0.8em; border-bottom: 1px solid #222; }
+        .chapter-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+        .chapter-list li {
+            padding: 12px 15px; border-bottom: 1px solid #222; cursor: pointer; color: #888; font-size: 0.85em; transition: all 0.2s;
+        }
+        .chapter-list li:hover { background: #222; color: #ddd; }
+        .chapter-list li.active { background: #1a1a2e; color: var(--user-gold); border-left: 3px solid var(--user-gold); }
+
+        /* 正文区域 */
+        .novel-viewport { flex: 1; display: flex; flex-direction: column; background: #181818; position: relative; }
+        
+        #novelContent {
+            flex: 1; padding: 40px 60px; overflow-y: auto;
+            font-family: 'Georgia', 'Times New Roman', serif; /* 优雅的衬线字体 */
+            font-size: 1.1em; line-height: 1.8; color: #ccc;
+            max-width: 900px; margin: 0 auto; width: 100%;
+        }
+        
+        /* Markdown 样式微调 */
+        #novelContent h1, #novelContent h2, #novelContent h3 { color: #e0e0e0; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: bold; }
+        #novelContent h1 { border-bottom: 1px solid #444; padding-bottom: 10px; text-align: center; color: var(--user-gold); }
+        #novelContent p { margin-bottom: 1.2em; text-align: justify; }
+        #novelContent blockquote { border-left: 4px solid #444; padding-left: 15px; color: #777; font-style: italic; }
+        #novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
+
+        .loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
+
+        /* 底部导航 */
+        .novel-footer-nav {
+            height: 50px; background: #111; border-top: 1px solid #333;
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+        }
+        .nav-btn {
+            background: transparent; border: 1px solid #444; color: #aaa; padding: 5px 15px;
+            cursor: pointer; font-family: 'Roboto Mono'; font-size: 0.8em; border-radius: 4px;
+        }
+        .nav-btn:hover { border-color: #fff; color: #fff; }
+        .curr-chap { font-size: 0.7em; color: #666; }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .novel-sidebar {
+                position: absolute; left: 0; top: 0; bottom: 0;
+                transform: translateX(-100%); /* 默认隐藏 */
+                width: 80%; box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            }
+            .novel-sidebar.show { transform: translateX(0); }
+            #novelContent { padding: 20px 20px; font-size: 1em; }
+        }
     </style>
 </head>
 <body>	
@@ -351,6 +432,9 @@
 				<!-- 【NEW】5. 新增：点击驱动计算收益按钮 -->
                 <!-- 使用 🧮 (算盘/计算) 或 💹 (收益图表) 作为图标 -->
                 <button class="icon-btn" onclick="triggerCalculation()" title="Calculate Returns">🧮</button>
+
+				<!-- 【NEW】6. 新增：Novel Creation 按钮 -->
+                <button class="icon-btn" onclick="QGR.openReader()" title="Novel Creation">✒️</button>
 				
             </div>
         </div>
@@ -663,6 +747,43 @@
             </div>
             <div id="rankingList" class="rank-list">
                 <!-- 动态生成的内容 -->
+            </div>
+        </div>
+    </div>
+
+	<!-- 【NEW】小说阅读器模态框 -->
+    <div id="novelModal" class="modal-overlay">
+        <div class="modal-content novel-reader-container">
+            <div class="novel-header">
+                <div class="novel-title">量子护卫 - 文艺复兴沉浮录</div>
+                <div class="novel-controls">
+                    <button class="icon-btn" onclick="QGR.toggleSidebar()" id="tocBtn" title="Table of Contents">☰</button>
+                    <button class="close-btn" onclick="QGR.closeReader()">CLOSE</button>
+                </div>
+            </div>
+            
+            <div class="novel-body">
+                <!-- 左侧目录 (移动端为抽屉，PC端为侧边栏) -->
+                <div class="novel-sidebar" id="novelSidebar">
+                    <div class="sidebar-title">目录 / Directory</div>
+                    <ul class="chapter-list" id="chapterList">
+                        <!-- JS 自动生成列表 -->
+                    </ul>
+                </div>
+
+                <!-- 右侧正文区域 -->
+                <div class="novel-viewport" id="novelViewport">
+                    <div id="novelContent" class="markdown-body">
+                        <div class="loading-text">正在从量子网络下载数据...</div>
+                    </div>
+                    
+                    <!-- 底部翻页导航 -->
+                    <div class="novel-footer-nav">
+                        <button class="nav-btn" onclick="QGR.prevChapter()">← Prev</button>
+                        <span id="currentChapterLabel" class="curr-chap">Chapter --</span>
+                        <button class="nav-btn" onclick="QGR.nextChapter()">Next →</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
