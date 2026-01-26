@@ -384,6 +384,24 @@
                 top: 0;
 		    }
 		}
+		
+		/* --- 修改后 --- */
+		@media (max-width: 768px) {
+		    .manifesto-modal .modal-content {
+		        padding: 30px 20px;
+		    }
+		    .manifesto-text h2 {
+		        font-size: 1.1em;       /* 1. 移动端标题再小一点 */
+		        margin-top: 15px;       /* 2. 新增：顶部外边距，让标题下沉，彻底避开右上角的关闭按钮 */
+		    }
+		    .manifesto-text .conclusion {
+		        font-size: 1.1em;       /* 3. 新增：移动端 Conclusion 字体也要跟随标题变小，保持一致 */
+		    }
+		    .manifesto-text p {
+		        font-size: 1em;
+		        line-height: 1.8;
+		    }
+		}
 
 		/* =================================================================
 		   小说阅读器完整样式 (请替换原有相关代码)
@@ -679,21 +697,23 @@
 		
 		/* 关闭按钮样式优化 */
 		.manifesto-modal .close-button {
-		    position: absolute;
-		    top: 15px;
-		    right: 20px;
-		    font-size: 30px;
-		    color: #444;
-		    cursor: pointer;
-		    font-family: 'Roboto Mono', sans-serif; /* 保持关闭符号的现代感 */
-		    font-weight: 100;
+		    position: absolute;  /* 绝对定位，相对于模态框内容容器 */
+		    top: 15px;           /* 距离顶部 15px */
+		    right: 20px;         /* 距离右侧 20px */
+		    font-size: 30px;     /* 字体大小，即叉号的大小 */
+		    color: #444;         /* 默认颜色（深灰） */
+		    cursor: pointer;     /* 鼠标悬停变手型 */
+		    font-family: 'Roboto Mono', sans-serif; 
+		    font-weight: 100;    /* 字体变细，显得更精致 */
 		    line-height: 1;
 		    transition: color 0.3s;
 		}
-		.manifesto-modal .close-button:hover {
-		    color: var(--cyber-blue);
-		}
 		
+		/* 鼠标悬停时的变色效果 */
+		.manifesto-modal .close-button:hover {
+		    color: var(--cyber-blue); /* 悬停变成赛博青色 */
+		}
+				
 		/* 文本排版 */
 		.manifesto-text {
 		    color: #d0d0d0;
