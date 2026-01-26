@@ -384,24 +384,6 @@
                 top: 0;
 		    }
 		}
-		
-		/* --- 修改后 --- */
-		@media (max-width: 768px) {
-		    .manifesto-modal .modal-content {
-		        padding: 30px 20px;
-		    }
-		    .manifesto-text h2 {
-		        font-size: 1.1em;       /* 1. 移动端标题再小一点 */
-		        margin-top: 15px;       /* 2. 新增：顶部外边距，让标题下沉，彻底避开右上角的关闭按钮 */
-		    }
-		    .manifesto-text .conclusion {
-		        font-size: 1.1em;       /* 3. 新增：移动端 Conclusion 字体也要跟随标题变小，保持一致 */
-		    }
-		    .manifesto-text p {
-		        font-size: 1em;
-		        line-height: 1.8;
-		    }
-		}
 
 		/* =================================================================
 		   小说阅读器完整样式 (请替换原有相关代码)
@@ -721,7 +703,8 @@
 		
 		.manifesto-text h2 {
 		    color: var(--cyber-blue); /* 赛博青色，连接未来 */
-		    font-size: 1.5em;
+		    font-size: 1.3em;         /* 【修改点1：PC端字体改小 (原1.5em -> 1.3em)】 */
+            padding-right: 40px;      /* 【修改点1：新增右边距，防止文字和按钮重叠】 */
 		    line-height: 1.6;
 		    margin-top: 0;
 		    margin-bottom: 30px;
@@ -753,7 +736,7 @@
 		    text-align: center;
 		    text-indent: 0;
 		    color: var(--cyber-blue); /* 赛博青色结尾，连接未来 */
-		    font-size: 1.2em;
+		    font-size: 1.3em;         /* 【修改点2：强制与 h2 大小一致 (原1.2em -> 1.3em)】 */
 		    padding-top: 20px;
 		    border-top: 1px dashed #333;
 		}
@@ -763,13 +746,29 @@
 		    .manifesto-modal .modal-content {
 		        padding: 30px 20px;
 		    }
+            
+            /* 【修改点3：移动端标题再次调小，并增加顶部距离避开按钮】 */
 		    .manifesto-text h2 {
-		        font-size: 1.2em;
+		        font-size: 1.1em;
+                margin-top: 20px; /* 让标题下沉 */
 		    }
+
+            /* 【修改点3：移动端 Conclusion 字体保持一致】 */
+            .manifesto-text .conclusion {
+                font-size: 1.1em;
+            }
+
 		    .manifesto-text p {
 		        font-size: 1em;
 		        line-height: 1.8;
 		    }
+
+            /* 【修改点4：优化移动端关闭按钮点击区域】 */
+            .manifesto-modal .close-button {
+                font-size: 40px; /* 更大 */
+                top: 10px;       /* 微调位置 */
+                right: 15px;
+            }
 		}
     </style>
 </head>
