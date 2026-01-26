@@ -588,6 +588,107 @@
 		    .novel-sidebar.show { transform: translateX(0); }
 		    #novelContent { padding: 0 20px 40px 20px; } /* 移动端边距 */
 		}
+
+		/* --- Manifesto Modal Styles --- */
+		/* 复用 modal-overlay 的基础定位，但添加专用类以便覆盖 */
+		.manifesto-modal {
+		    display: none; /* 默认隐藏 */
+		    /* 继承 modal-overlay 的定位属性，这里再次声明确保层级 */
+		    position: fixed;
+		    z-index: 10000;
+		}
+		
+		.manifesto-modal .modal-content {
+		    background: linear-gradient(135deg, #0f0f12 0%, #1a1a20 100%);
+		    border: 1px solid #555;
+		    box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(0,0,0,0.5);
+		    width: 90%;
+		    max-width: 750px;
+		    height: auto;
+		    max-height: 85vh;
+		    padding: 40px 50px;
+		    position: relative;
+		    overflow-y: auto;
+		    border-radius: 4px;
+		    
+		    /* 字体设置：使用衬线体体现人文与哲学的厚重感 */
+		    font-family: "Songti SC", "SimSun", "Times New Roman", Serif; 
+		}
+		
+		/* 关闭按钮样式优化 */
+		.manifesto-modal .close-button {
+		    position: absolute;
+		    top: 15px;
+		    right: 20px;
+		    font-size: 30px;
+		    color: #444;
+		    cursor: pointer;
+		    font-family: 'Roboto Mono', sans-serif; /* 保持关闭符号的现代感 */
+		    font-weight: 100;
+		    line-height: 1;
+		    transition: color 0.3s;
+		}
+		.manifesto-modal .close-button:hover {
+		    color: var(--user-gold);
+		}
+		
+		/* 文本排版 */
+		.manifesto-text {
+		    color: #d0d0d0;
+		}
+		
+		.manifesto-text h2 {
+		    color: var(--user-gold); /* 金色标题 */
+		    font-size: 1.5em;
+		    line-height: 1.6;
+		    margin-top: 0;
+		    margin-bottom: 30px;
+		    text-align: center;
+		    font-weight: bold;
+		    letter-spacing: 1px;
+		    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+		    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+		    padding-bottom: 20px;
+		}
+		
+		.manifesto-text p {
+		    font-size: 1.15em;
+		    line-height: 2; /* 宽松行高增加阅读仪式感 */
+		    margin-bottom: 25px;
+		    text-align: justify; /* 两端对齐 */
+		    text-indent: 2em;    /* 首行缩进 */
+		    color: #bbb;
+		}
+		
+		/* 强调段落 */
+		.manifesto-text p:nth-child(2) {
+		    font-weight: bold;
+		    color: #e0e0e0;
+		}
+		
+		.manifesto-text .conclusion {
+		    margin-top: 50px;
+		    text-align: center;
+		    text-indent: 0;
+		    color: var(--cyber-blue); /* 赛博青色结尾，连接未来 */
+		    font-size: 1.25em;
+		    padding-top: 20px;
+		    border-top: 1px dashed #333;
+		}
+		
+		/* 移动端适配 */
+		@media (max-width: 768px) {
+		    .manifesto-modal .modal-content {
+		        padding: 30px 20px;
+		    }
+		    .manifesto-text h2 {
+		        font-size: 1.2em;
+		    }
+		    .manifesto-text p {
+		        font-size: 1em;
+		        line-height: 1.8;
+		    }
+		}
     </style>
 </head>
 <body>	
@@ -604,17 +705,20 @@
             <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Intelligent Quant Platform</div>
             <!-- 新增的按钮组容器 -->
             <div class="header-controls">
-                <!-- 1. 设置图标按钮 (最左) -->
+				<!-- 1. 了解我们：去掉文字 span，只留图标，增加 title 提示 -->
+	            <button class="icon-btn" onclick="openManifestoModal()" title="About Us"><i class="fas fa-circle-info"></i> </button>
+				
+                <!-- 2. 设置图标按钮 (最左) -->
                 <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
                 
-                <!-- 2. 排序图标按钮 -->
+                <!-- 3. 排序图标按钮 -->
                 <button class="icon-btn" onclick="openRanking()" title="Battle Ranking">🏆</button>
 				 <!-- 【NEW】3. 新增 MP3 播放/停止按钮 -->
                 <!-- 使用 icon-btn 类确保高度和样式一致 -->
                 <button class="icon-btn" onclick="toggleMusic()" id="musicBtn" title="Play Music">🎼</button>
 				
                 
-                <!-- 3. 原有的 SYNC CLOUD 按钮 -->
+                <!-- 4. 原有的 SYNC CLOUD 按钮 -->
 				<button class="icon-btn" onclick="syncToCloud()" title="Sync Cloud" style="position: relative;">
                     ☁️
                     <span class="oss-status" id="ossStatusDot"></span>
@@ -980,6 +1084,24 @@
             </div>
         </div>
     </div>
+
+
+	<!-- [新增] 宣言模态框 -->
+	<div id="manifestoModal" class="modal-overlay manifesto-modal">
+	    <div class="modal-content">
+	        <span class="close-button" onclick="closeManifestoModal()">×</span>
+	        <div class="manifesto-text">
+	            <h2>以以AI原生智慧，护卫人文和财富，在传统投资荒原上，重燃文艺复兴的篝火，书写市场旋律</h2>
+	            <p>财富无法被简化为K线，伟大的投资组合也无法被压缩成冰冷的收益率。人类的远见绝非商品。</p>
+	            <p>你无法从噪音中发现信号，即便穷尽所有数据。</p>
+	            <p>达·芬奇、巴菲特、马斯克为何卓越？是他们对世界运转的深刻洞察：物理的第一性原理、商业的护城河、人性的贪婪与恐惧。他们理解的系统与未理解的混沌，每一次的远见与修正都教会他们某些东西，从而塑造了他们的时代。</p>
+	            <p>数据之于投资，犹如灵感之于达·芬奇——将其升华为一种洞见，能够预见产业的兴衰、洞察人性的周期、绘制通往未来的蓝图。</p>
+	            <p>我们建造的AI将在算力、广度和不知疲倦上超越我们。但它将是人类智慧的伙伴，由我们对世界的深刻好奇和我们在无数抉择中沉淀的哲学所引导。</p>
+	            <p>我们是想建造在数据噪音中迷航、为市场情绪优化、追逐短期热点的投资机器，还是想建造能够与我们一同探索商业本质、激发创作灵感、与未来进行深度对话的智慧伙伴？</p>
+	            <p class="conclusion"><em>投资，本应是一场与未来最深刻的对话，敏锐、深刻、富有想象力，充满构建未来的力量</em></p>
+	        </div>
+	    </div>
+</div>
    
     <script src="adhoc-manager.js"></script>
     <script src="applogic.js"></script>
