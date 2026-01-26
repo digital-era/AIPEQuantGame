@@ -67,78 +67,70 @@
         h1, .pixel-font { font-family: 'Press Start 2P', cursive; text-transform: uppercase; }
         
         /* --- Header --- */
-		/* --- 方案一：Header 样式优化 --- */
-		.header {
-		    text-align: center;
-		    margin-bottom: 30px;
-		    border-bottom: 1px solid rgba(255, 215, 0, 0.2); /* 改为淡金色底边 */
-		    padding-bottom: 25px;
-		    width: 100%;
-		    max-width: 1400px;
-		    position: relative;
-		    display: flex;
-		    flex-direction: column;
-		    align-items: center;
-		    justify-content: center;
-		    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(17, 17, 34, 0.5) 100%); /* 增加背景层次 */
-		}
-		
-		/* 主标题容器 */
-		.title-wrapper {
-		    position: relative;
-		    margin-bottom: 10px;
-		}
-		
-		/* 主标题样式 */
-		.main-title {
-		    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; /* 中文不建议用像素字体，改用黑体 */
-		    font-weight: 900;
-		    font-size: 2.2em;
-		    margin: 0;
-		    letter-spacing: 2px;
-		    text-transform: uppercase;
-		    
-		    /* 核心：金蓝渐变文字 */
-		    background: linear-gradient(135deg, #00E5FF 20%, #e0e0e0 50%, #FFD700 80%);
-		    -webkit-background-clip: text;
-		    -webkit-text-fill-color: transparent;
-		    
-		    /* 光晕效果 */
-		    filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.5));
-		    animation: shine 5s infinite linear; /* 流光动画 */
-		}
-		
-		/* 次标题样式 */
-		.sub-title {
-		    font-family: 'Roboto Mono', monospace;
-		    font-size: 1.6em;
-		    color: #888;
-		    letter-spacing: 0.8em; /* 极宽间距，增加电影感 */
-		    text-transform: uppercase;
-		    margin-top: 8px;
-		    text-indent: 0.8em; /* 修正因为宽间距导致的居中偏移 */
-		    position: relative;
-		    display: inline-block;
-		}
-		
-		/* 次标题两侧装饰线 */
-		.sub-title::before, .sub-title::after {
-		    content: '';
-		    position: absolute;
-		    top: 50%;
-		    width: 30px;
-		    height: 1px;
-		    background: #444;
-		}
-		.sub-title::before { left: -45px; }
-		.sub-title::after { right: -45px; }
-		
-		/* 简单的流光动画 */
-		@keyframes shine {
-		    0% { filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.3)); }
-		    50% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3)); }
-		    100% { filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.3)); }
-		}
+	    /* --- Header 样式重构 (更紧凑) --- */
+	    .header {
+	        width: 100%;
+	        display: flex;
+	        flex-direction: column;
+	        align-items: center;
+	        padding: 20px 0 25px 0;
+	        margin-bottom: 20px;
+	        position: relative;
+	        background: radial-gradient(ellipse at top, rgba(0, 229, 255, 0.1) 0%, transparent 70%);
+	    }
+	
+	    .title-wrapper { text-align: center; margin-bottom: 15px; }
+	
+	    .main-title {
+	        font-family: 'Microsoft YaHei', sans-serif;
+	        font-weight: 900;
+	        font-size: 2em; /* 稍微调小 */
+	        letter-spacing: 2px;
+	        background: linear-gradient(135deg, #00E5FF 0%, #fff 50%, #FFD700 100%);
+	        -webkit-background-clip: text;
+	        -webkit-text-fill-color: transparent;
+	        text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+	        margin: 0;
+	    }
+	
+	    .sub-title {
+	        font-size: 0.85em;
+	        color: var(--text-muted);
+	        letter-spacing: 0.6em;
+	        text-transform: uppercase;
+	        margin-top: 5px;
+	        display: block;
+	        opacity: 0.8;
+	    }
+	
+	    /* 按钮组优化 */
+	    .header-controls {
+	        display: flex;
+	        gap: 12px;
+	        background: rgba(255,255,255,0.05);
+	        padding: 8px 15px;
+	        border-radius: 50px;
+	        border: 1px solid rgba(255,255,255,0.1);
+	        backdrop-filter: blur(5px);
+	        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+	    }
+	
+	    .icon-btn {
+	        background: transparent;
+	        border: none;
+	        color: #aaa;
+	        width: 32px; height: 32px;
+	        display: flex; justify-content: center; align-items: center;
+	        font-size: 1.2em;
+	        cursor: pointer;
+	        transition: all 0.2s;
+	        border-radius: 50%;
+	        position: relative;
+	    }
+	    .icon-btn:hover { color: #fff; background: rgba(255,255,255,0.1); transform: scale(1.1); text-shadow: 0 0 8px #fff; }
+	    .oss-status { width: 6px; height: 6px; position: absolute; top: 2px; right: 2px; border-radius: 50%; border:1px solid #000; }
+	    .oss-status.syncing { background: #ff0; animation: blink 0.5s infinite; }
+	    .oss-status.done { background: #0f0; box-shadow: 0 0 4px #0f0; }
 		
         .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
         
