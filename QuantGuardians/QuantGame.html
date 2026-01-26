@@ -705,8 +705,12 @@
             <div class="pixel-font" style="font-size: 0.7em; color: #666; margin-top:5px;">Intelligent Quant Platform</div>
             <!-- 新增的按钮组容器 -->
             <div class="header-controls">
-				<!-- 1. 了解我们：去掉文字 span，只留图标，增加 title 提示 -->
 	            <button class="icon-btn" onclick="openManifestoModal()" title="About Us"><i class="fas fa-circle-info"></i> </button>
+				<!--1. About Us 按钮：使用衬线体 italic 'i'，呼应文艺复兴主题 -->
+				<button class="icon-btn" onclick="openManifestoModal()" title="About Us" 
+				        style="font-family: 'Times New Roman', serif; font-weight: bold; font-style: italic; font-size: 1.3em;">
+				    i
+				</button>
 				
                 <!-- 2. 设置图标按钮 (最左) -->
                 <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
@@ -1102,7 +1106,9 @@
 	        </div>
 	    </div>
 </div>
-   
+
+	
+	<script src="manifest.js"></script>
     <script src="adhoc-manager.js"></script>
     <script src="applogic.js"></script>
     <script src="Rankingmodal.js"></script>
