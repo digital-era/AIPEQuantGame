@@ -1425,6 +1425,11 @@ async function loadAdhocFromCloud() {
 }
 
 async function syncToCloud() {
+      // 【新增保护功能】检查系统是否在线
+    if (!gameState.active) {
+        log(" >> ACCESS DENIED: System Offline. Please Engage System first. <<", "#EF4444");
+        return; // 终止后续处理
+    }
     if (!await initOSS()) return;
     const dot = document.getElementById('ossStatusDot');
     dot.className = "oss-status syncing";
