@@ -80,10 +80,6 @@ function openDetailChart(item, color) {
     const code = rawCode;  // 按您当前写法，不补零
     console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
-    // 永远不显示 ( -- )
-    const modalPct = document.getElementById('modalPct');
-    if (modalPct) modalPct.style.display = 'none';
-
     // 初始化状态
     if (!modalState[code]) {
         modalState[code] = {
@@ -191,24 +187,11 @@ function openDetailChart(item, color) {
                 labels = recent30.map(r => r['日期']);
                 switch (state.metric) {
                     case '30d_price':
-                        console.log("[getData] 进入 30d_price 分支");
                         values = recent30.map(r => Number(r['收盘价']));
-                        refValue = values[0] || 0;  // 保持原有，用于线条颜色判断
+                        refValue = values[0] || 0;
                         yLabel = '收盘价';
                         lineColor = values[values.length-1] >= refValue ? '#EF4444' : '#10B981';
-                    
-                        // 获取最新一天的原始涨跌幅（不计算）
-                        const latestRow = recent30[recent30.length - 1];
-                        const latestChange = Number(latestRow['涨跌幅'] || 0);                    
-                        // 返回时附加涨跌幅字段
-                        return {
-                            labels,
-                            values,
-                            refValue,
-                            yLabel,
-                            lineColor,
-                            latestChangePercent: latestChange   // 直接带出去
-                        };
+                        break;
                     case '30d_pot':
                         values = recent30.map(r => Number(r['PotScore']));
                         refValue = 0;
@@ -387,26 +370,21 @@ function openDetailChart(item, color) {
     function updateHeaderInfo(val, ref) {
         const pctEl = document.getElementById('modalPct');
         if (!pctEl) return;
-    
-        if (state.metric === '30d_price' && val != null) {
-            const allData = eeiFlow30DaysData?.[code] || [];
-            if (allData.length === 0) {
-                pctEl.innerText = val.toFixed(2);
-                pctEl.style.color = '#ffffff';
-                return;
-            }
-    
-            const latestRow = allData[allData.length - 1];
-            const changePercent = Number(latestRow['涨跌幅'] || 0);
-            const chg = changePercent.toFixed(2);
-            const sign = changePercent >= 0 ? '+' : '';
-    
+
+        // 只在 30d_price 时显示价格 + 涨跌幅，其他情况清空
+        if (state.metric === '30d_price' && val != null && ref != null) {
+            const chg = ((val - ref) / ref * 100).toFixed(2);
+            const sign = chg >= 0 ? '+' : '';
             pctEl.innerText = `${val.toFixed(2)} (${sign}${chg}%)`;
-            pctEl.style.color = changePercent >= 0 ? '#EF4444' : '#10B981';
+            pctEl.style.color = val >= ref ? '#EF4444' : '#10B981';
         } else {
+            // 其他所有情况（包括 1min、pot、super、main）都不显示任何内容
             pctEl.innerText = '';
+            // 如果你想彻底隐藏这个元素，可以加：
+            // pctEl.style.display = 'none';
         }
     }
+
     // 首次渲染
     renderContent();
 }
