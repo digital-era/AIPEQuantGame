@@ -2081,10 +2081,11 @@ async function initSystem() {
         loadCloudPortfolio()
     ]);
 
-    // 2. 并行获取市场数据和全量股票数据（如果它们不互相依赖）
-    const [marketDataResult, allStocksData] = await Promise.allSettled([
+    // 2. 并行获取市场数据、全量股票数据和30天数据（如果它们不互相依赖）
+    const [marketDataResult, allStocksData, eeiFlowData] = await Promise.allSettled([
         updateMarketData(true),
-        fetchAllStocksData()
+        fetchAllStocksData(),
+        loadEEIFlow30DaysData()
     ]);
 
     // 处理市场数据结果，启动定时器
@@ -2099,11 +2100,8 @@ async function initSystem() {
         console.error("Market data update failed:", marketDataResult.reason);
     }
 
-    // 3. 并行执行数据加载和UI设置
-    await Promise.all([
-        loadEEIFlow30DaysData(),
-        setupAllAdhocAutoCompletes()
-    ]);
+    // 3. 设置自动补全（可能依赖于 fetchAllStocksData 的结果）
+    setupAllAdhocAutoCompletes();
 
     gameState.active = true;
     btn.innerText = "SYSTEM ONLINE";
