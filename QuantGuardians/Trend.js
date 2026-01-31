@@ -72,8 +72,7 @@ async function loadEEIFlow30DaysData() {
     }
 }
 
-// ================= 图表详情函数 =================
-// ================= 图表详情函数 (完整优化版) =================
+// ================= 图表详情函数 =================/
 function openDetailChart(item, color) {
     const rawCode = item.code;
     const code = rawCode; 
@@ -160,103 +159,142 @@ function openDetailChart(item, color) {
     const titleEl = document.getElementById('modalTitle');
     titleEl.innerHTML = ''; // 清空原有内容
 
-    const headerDiv = document.createElement('div');
-    // 移动端标题栏布局优化
+    // 【问题2修复】：移动端使用两行布局
     if (isMobile) {
-        headerDiv.style.cssText = 'display:flex; align-items:flex-start; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;';
-    } else {
-        headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%;';
-    }
-
-    // 2.1 左侧信息 (名称+代码)
-    const infoDiv = document.createElement('div');
-    if (isMobile) {
-        infoDiv.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; overflow:hidden; white-space:nowrap; min-width:0;';
-    } else {
-        infoDiv.style.cssText = 'display:flex; align-items:center; gap:5px; flex:1; overflow:hidden; white-space:nowrap;';
-    }
-
-    const nameSpan = document.createElement('span');
-    if (isMobile) {
-        nameSpan.style.cssText = 'font-size:0.95em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:40vw;';
-    } else {
-        nameSpan.style.cssText = 'font-size:1.1em; font-weight:bold; text-overflow:ellipsis; overflow:hidden;';
-    }
-    nameSpan.textContent = item.name;
-    infoDiv.appendChild(nameSpan);
-
-    const codeSpan = document.createElement('span');
-    if (isMobile) {
-        codeSpan.style.cssText = 'font-size:0.8em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
-    } else {
-        codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
-    }
-    codeSpan.textContent = `(${code})`;
-    infoDiv.appendChild(codeSpan);
-    headerDiv.appendChild(infoDiv);
-
-    // 2.2 右侧操作区 (下拉框) - 重点修复右边界问题
-    const actionDiv = document.createElement('div');
-    if (isMobile) {
-        actionDiv.style.cssText = 'display:flex; align-items:center; gap:4px; flex-shrink:0; min-width:0; flex-wrap:nowrap;';
-    } else {
-        actionDiv.style.cssText = 'display:flex; align-items:center; gap:8px; flex-shrink:0;';
-    }
-
-    const select = document.createElement('select');
-    select.id = 'metricSelect';
-    
-    // 【重要修复】：移动端下拉框右边界问题
-    if (isMobile) {
-        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 6px; border-radius:4px; font-size:11px; cursor:pointer; max-width: 45vw; box-sizing:border-box; width:auto; flex-shrink:1; min-width: 0; overflow:hidden; text-overflow:ellipsis;';
+        // 移动端：第一行显示名称、代码和关闭按钮
+        const firstRow = document.createElement('div');
+        firstRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:8px;';
         
-        // 创建包装容器，确保下拉框不会溢出
+        // 左侧信息
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; overflow:hidden; white-space:nowrap;';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-size:0.95em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:50vw;';
+        nameSpan.textContent = item.name;
+        infoDiv.appendChild(nameSpan);
+
+        const codeSpan = document.createElement('span');
+        codeSpan.style.cssText = 'font-size:0.8em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+        codeSpan.textContent = `(${code})`;
+        infoDiv.appendChild(codeSpan);
+        firstRow.appendChild(infoDiv);
+        
+        titleEl.appendChild(firstRow);
+        
+        // 移动端：第二行显示数值和下拉框
+        const secondRow = document.createElement('div');
+        secondRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px;';
+        
+        // 数值显示区域（左侧）
+        const valueDiv = document.createElement('div');
+        valueDiv.id = 'modalPct';
+        valueDiv.style.cssText = 'font-size:0.95em; font-weight:bold; color:#fff; text-align:left; flex-shrink:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:50%;';
+        secondRow.appendChild(valueDiv);
+        
+        // 下拉框容器（右侧）
         const selectWrapper = document.createElement('div');
-        selectWrapper.style.cssText = 'position:relative; max-width:45vw; flex-shrink:1;';
+        selectWrapper.style.cssText = 'display:flex; align-items:center; justify-content:flex-end; flex-shrink:0; max-width:50%;';
+        
+        const select = document.createElement('select');
+        select.id = 'metricSelect';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 6px; border-radius:4px; font-size:11px; cursor:pointer; width:100%; max-width:150px; box-sizing:border-box;';
         selectWrapper.appendChild(select);
-        actionDiv.appendChild(selectWrapper);
-    } else {
-        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; max-width: 100%; box-sizing:border-box; width:auto;';
-        actionDiv.appendChild(select);
-    }
-
-    const optionsList = [
-        { value: '1min',      label: '1分价格' },
-        { value: '30d_price', label: '30天价格' },
-        { value: '30d_pot',   label: 'PotScore' },
-        { value: '30d_super', label: '超大单%' },
-        { value: '30d_main',  label: '主力%'  }
-    ];
-
-    optionsList.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt.value;
-        // 移动端选项文字缩短
-        if (isMobile && opt.label.length > 4) {
+        secondRow.appendChild(selectWrapper);
+        
+        titleEl.appendChild(secondRow);
+        
+        // 为移动端添加选项
+        const optionsList = [
+            { value: '1min',      label: '1分价格' },
+            { value: '30d_price', label: '30天价格' },
+            { value: '30d_pot',   label: 'PotScore' },
+            { value: '30d_super', label: '超大单%' },
+            { value: '30d_main',  label: '主力%'  }
+        ];
+        
+        optionsList.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
             option.textContent = opt.label.replace('价格', '价').replace('占比', '占');
-        } else {
+            if (opt.value === state.metric) option.selected = true;
+            select.appendChild(option);
+        });
+        
+        // 绑定事件
+        select.addEventListener('change', (e) => {
+            const newMetric = e.target.value;
+            state.metric = newMetric;
+            state.progress = 0;
+            state.playing = true;
+            state.view = 'chart';
+            renderContent();
+        });
+        
+    } else {
+        // 桌面端：保持原有单行布局
+        const headerDiv = document.createElement('div');
+        headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px;';
+        
+        // 左侧信息
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'display:flex; align-items:center; gap:5px; flex:1; overflow:hidden; white-space:nowrap;';
+        
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-size:1.1em; font-weight:bold; text-overflow:ellipsis; overflow:hidden;';
+        nameSpan.textContent = item.name;
+        infoDiv.appendChild(nameSpan);
+
+        const codeSpan = document.createElement('span');
+        codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+        codeSpan.textContent = `(${code})`;
+        infoDiv.appendChild(codeSpan);
+        headerDiv.appendChild(infoDiv);
+        
+        // 中间数值显示
+        const valueDiv = document.createElement('div');
+        valueDiv.id = 'modalPct';
+        valueDiv.style.cssText = 'font-size:1.1em; font-weight:bold; color:#fff; text-align:center; flex-shrink:0; padding:0 10px;';
+        headerDiv.appendChild(valueDiv);
+        
+        // 右侧下拉框
+        const actionDiv = document.createElement('div');
+        actionDiv.style.cssText = 'display:flex; align-items:center; gap:8px; flex-shrink:0;';
+        
+        const select = document.createElement('select');
+        select.id = 'metricSelect';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; width:auto;';
+        actionDiv.appendChild(select);
+        
+        const optionsList = [
+            { value: '1min',      label: '1分价格' },
+            { value: '30d_price', label: '30天价格' },
+            { value: '30d_pot',   label: 'PotScore' },
+            { value: '30d_super', label: '超大单%' },
+            { value: '30d_main',  label: '主力%'  }
+        ];
+        
+        optionsList.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
             option.textContent = opt.label;
-        }
-        if (opt.value === state.metric) option.selected = true;
-        select.appendChild(option);
-    });
-    
-    // 注意：这里不再创建关闭按钮，使用HTML中原有的关闭按钮
-
-    headerDiv.appendChild(actionDiv);
-    titleEl.appendChild(headerDiv);
-
-    // 绑定 change 事件
-    const handleMetricChange = (e) => {
-        const newMetric = e.target.value;
-        state.metric = newMetric;
-        state.progress = 0;
-        state.playing = true;
-        state.view = 'chart';
-        renderContent();
-    };
-    select.removeEventListener('change', handleMetricChange);
-    select.addEventListener('change', handleMetricChange);
+            if (opt.value === state.metric) option.selected = true;
+            select.appendChild(option);
+        });
+        
+        headerDiv.appendChild(actionDiv);
+        titleEl.appendChild(headerDiv);
+        
+        // 绑定事件
+        select.addEventListener('change', (e) => {
+            const newMetric = e.target.value;
+            state.metric = newMetric;
+            state.progress = 0;
+            state.playing = true;
+            state.view = 'chart';
+            renderContent();
+        });
+    }
 
     // 确保控制栏存在
     let controlsContainer = document.getElementById('chartControls');
@@ -279,6 +317,7 @@ function openDetailChart(item, color) {
         let refValue = 0;
         let yLabel = '';
         let lineColor = color;
+        let currentValue = 0; // 当前数值
 
         if (state.metric === '1min') {
             if (item.history && item.history.length > 0) {
@@ -289,6 +328,7 @@ function openDetailChart(item, color) {
                     refValue = item.currentPrice / (1 + item.officialChangePercent / 100);
                 }
                 yLabel = '价格';
+                currentValue = values[values.length - 1] || 0;
             }
         } else {
             const d30 = eeiFlow30DaysData?.[code] || [];
@@ -302,26 +342,30 @@ function openDetailChart(item, color) {
                         refValue = values[0] || 0;
                         yLabel = '收盘价';
                         lineColor = values[values.length-1] >= refValue ? '#EF4444' : '#10B981';
+                        currentValue = values[values.length - 1] || 0;
                         break;
                     case '30d_pot':
                         values = recent30.map(r => Number(r['PotScore']));
                         yLabel = 'PotScore';
                         lineColor = '#FFD700';
+                        currentValue = values[values.length - 1] || 0;
                         break;
                     case '30d_super':
                         values = recent30.map(r => Number(r['超大单净流入-净占比']));
                         yLabel = '超大单占比(%)';
                         lineColor = '#FF6B6B';
+                        currentValue = values[values.length - 1] || 0;
                         break;
                     case '30d_main':
                         values = recent30.map(r => Number(r['主力净流入-净占比']));
                         yLabel = '主力占比(%)';
                         lineColor = '#4ECDC4';
+                        currentValue = values[values.length - 1] || 0;
                         break;
                 }
             }
         }
-        return { labels, values, pctChanges, refValue, yLabel, lineColor };
+        return { labels, values, pctChanges, refValue, yLabel, lineColor, currentValue };
     }
 
     // --- 4. 渲染内容 ---
@@ -403,8 +447,8 @@ function openDetailChart(item, color) {
             container.appendChild(tableDiv);
         }
 
-        const pctEl = document.getElementById('modalPct');
-        if(pctEl) pctEl.innerText = '';
+        // 【问题1修复】：立即更新头部数值显示
+        updateHeaderInfo(dataObj);
 
         if (dataObj.values.length === 0) {
             canvas.style.display = 'none';
@@ -453,9 +497,6 @@ function openDetailChart(item, color) {
             }
             html += `</tbody></table>`;
             tableDiv.innerHTML = html;
-
-            const lastIdx = dataObj.values.length - 1;
-            updateHeaderInfo(dataObj.values[lastIdx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[lastIdx] : null);
         } 
         // --- 图表视图逻辑 ---
         else {
@@ -542,7 +583,8 @@ function openDetailChart(item, color) {
         if (!state.playing) {
             updateChartData(dataObj.values.slice(0, state.progress));
             const idx = Math.max(0, state.progress - 1);
-            updateHeaderInfo(dataObj.values[idx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[idx] : null);
+            // 更新头部信息
+            updateHeaderInfo(dataObj);
             return;
         }
 
@@ -560,8 +602,8 @@ function openDetailChart(item, color) {
             const currentSlice = dataObj.values.slice(0, state.progress);
             updateChartData(currentSlice);
 
-            const idx = state.progress - 1;
-            updateHeaderInfo(currentSlice[idx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[idx] : null);
+            // 更新头部信息
+            updateHeaderInfo(dataObj);
 
             if (state.progress >= total) {
                 state.playing = false;
@@ -578,45 +620,78 @@ function openDetailChart(item, color) {
         }
     }
 
-    // --- 更新头部数字 ---
-    function updateHeaderInfo(val, ref, directPct) {
+    // --- 【问题1修复】：更新头部数字 ---
+    function updateHeaderInfo(dataObj) {
         const pctEl = document.getElementById('modalPct');
-        if (!pctEl) return;
-        pctEl.innerText = ''; 
-        pctEl.style.color = '#fff';
+        if (!pctEl || dataObj.values.length === 0) return;
+        
+        const val = dataObj.currentValue;
+        const lastIdx = dataObj.values.length - 1;
+        const currentPct = dataObj.pctChanges ? dataObj.pctChanges[lastIdx] : null;
         
         // 移动端调整字体大小
         if (isMobile) {
-            pctEl.style.fontSize = '1.1em';
+            pctEl.style.fontSize = '0.95em';
         }
 
         if (val == null) return;
 
-        if (state.metric === '30d_price') {
-            if (directPct !== null && directPct !== undefined) {
-                const sign = directPct >= 0 ? '+' : '';
-                const color = directPct >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = isMobile ? 
-                    `${val.toFixed(2)} (${sign}${directPct.toFixed(1)}%)` : 
-                    `${val.toFixed(2)} (${sign}${directPct.toFixed(2)}%)`;
-                pctEl.style.color = color;
-            } else {
-                pctEl.innerText = `${val.toFixed(2)}`;
-            }
-        } 
-        else if (state.metric === '1min') {
-            if (ref && ref !== 0) {
-                const chg = ((val - ref) / ref * 100);
-                const sign = chg >= 0 ? '+' : '';
-                const color = chg >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = isMobile ? 
-                    `${val.toFixed(2)} (${sign}${chg.toFixed(1)}%)` : 
-                    `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
-                pctEl.style.color = color;
-            } else {
-                pctEl.innerText = `${val.toFixed(2)}`;
-            }
+        let displayText = '';
+        let displayColor = '#fff';
+
+        switch(state.metric) {
+            case '30d_price':
+                if (currentPct !== null && currentPct !== undefined) {
+                    const sign = currentPct >= 0 ? '+' : '';
+                    displayColor = currentPct >= 0 ? '#EF4444' : '#10B981';
+                    displayText = isMobile ? 
+                        `${val.toFixed(2)} (${sign}${currentPct.toFixed(1)}%)` : 
+                        `${val.toFixed(2)} (${sign}${currentPct.toFixed(2)}%)`;
+                } else {
+                    displayText = `${val.toFixed(2)}`;
+                }
+                break;
+                
+            case '1min':
+                if (dataObj.refValue && dataObj.refValue !== 0) {
+                    const chg = ((val - dataObj.refValue) / dataObj.refValue * 100);
+                    const sign = chg >= 0 ? '+' : '';
+                    displayColor = chg >= 0 ? '#EF4444' : '#10B981';
+                    displayText = isMobile ? 
+                        `${val.toFixed(2)} (${sign}${chg.toFixed(1)}%)` : 
+                        `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
+                } else {
+                    displayText = `${val.toFixed(2)}`;
+                }
+                break;
+                
+            case '30d_pot':
+                displayText = isMobile ? 
+                    `Pot: ${val.toFixed(1)}` : 
+                    `PotScore: ${val.toFixed(2)}`;
+                displayColor = val >= 0 ? '#EF4444' : '#10B981';
+                break;
+                
+            case '30d_super':
+                displayText = isMobile ? 
+                    `超大单: ${val.toFixed(1)}%` : 
+                    `超大单: ${val.toFixed(2)}%`;
+                displayColor = val >= 0 ? '#EF4444' : '#10B981';
+                break;
+                
+            case '30d_main':
+                displayText = isMobile ? 
+                    `主力: ${val.toFixed(1)}%` : 
+                    `主力: ${val.toFixed(2)}%`;
+                displayColor = val >= 0 ? '#EF4444' : '#10B981';
+                break;
+                
+            default:
+                displayText = `${val.toFixed(2)}`;
         }
+        
+        pctEl.innerText = displayText;
+        pctEl.style.color = displayColor;
     }
 
     // 首次渲染
