@@ -79,6 +79,9 @@ function openDetailChart(item, color) {
     const code = rawCode; 
     console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
+    // 移动端检测
+    const isMobile = window.innerWidth <= 768;
+
     // 初始化状态
     if (!modalState[code]) {
         modalState[code] = {
@@ -98,10 +101,44 @@ function openDetailChart(item, color) {
     // 【布局修复】：使用 Flex 列布局，限制最大高度，防止模态框溢出屏幕
     modalContent.style.display = 'flex';
     modalContent.style.flexDirection = 'column';
-    modalContent.style.maxHeight = '90vh'; 
+    modalContent.style.maxHeight = isMobile ? '95vh' : '90vh';
     modal.style.display = 'flex';
+    
+    // 移动端调整模态框宽度
+    if (isMobile) {
+        modalContent.style.width = '95vw';
+        modalContent.style.margin = 'auto';
+    }
 
-    // --- 2. 标题栏重构 (含关闭按钮修复 & 下拉框适配) ---
+    // 修改原有关闭按钮的点击事件，确保能停止播放
+    const originalCloseBtn = modal.querySelector('.close-btn');
+    if (originalCloseBtn) {
+        // 保存原有的点击事件（如果有的话）
+        const originalOnClick = originalCloseBtn.onclick;
+        
+        // 设置新的点击事件
+        originalCloseBtn.onclick = (e) => {
+            // 停止播放
+            state.playing = false;
+            if (currentPlaybackTimer) {
+                clearInterval(currentPlaybackTimer);
+                currentPlaybackTimer = null;
+            }
+            
+            // 执行原有的关闭函数
+            if (typeof originalOnClick === 'function') {
+                originalOnClick.call(originalCloseBtn, e);
+            } else {
+                // 如果没有原有函数，则默认关闭模态框
+                modal.style.display = 'none';
+            }
+            
+            // 阻止事件冒泡
+            e.stopPropagation();
+        };
+    }
+
+    // --- 2. 标题栏重构 (含移动端适配) ---
     const titleEl = document.getElementById('modalTitle');
     titleEl.innerHTML = ''; // 清空原有内容
 
@@ -118,19 +155,27 @@ function openDetailChart(item, color) {
     infoDiv.appendChild(nameSpan);
 
     const codeSpan = document.createElement('span');
-    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+    // 普通字体，白色，适中的透明度
+    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; opacity:0.9; margin-left:5px;';
     codeSpan.textContent = `(${code})`;
     infoDiv.appendChild(codeSpan);
     headerDiv.appendChild(infoDiv);
 
-    // 2.2 右侧操作区 (下拉框 + 关闭按钮)
+    // 2.2 右侧操作区 (下拉框)
     const actionDiv = document.createElement('div');
     actionDiv.style.cssText = 'display:flex; align-items:center; gap:8px; flex-shrink:0;';
 
     const select = document.createElement('select');
     select.id = 'metricSelect';
-    // 【布局修复】：限制下拉框最大宽度，防止撑开手机屏
-    select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 2px; border-radius:4px; font-size:12px; cursor:pointer; max-width: 110px;';
+    // 【移动端优化】：使用响应式宽度
+    select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; max-width: 100%; box-sizing:border-box; width:auto;';
+
+    // 移动端特定样式
+    if (isMobile) {
+        select.style.fontSize = '12px';
+        select.style.padding = '4px 6px';
+        select.style.maxWidth = '90%';
+    }
 
     const optionsList = [
         { value: '1min',      label: '1分价格' },
@@ -148,17 +193,8 @@ function openDetailChart(item, color) {
         select.appendChild(option);
     });
     actionDiv.appendChild(select);
-
-    // 【布局修复】：显式添加关闭按钮
-    const closeBtn = document.createElement('div');
-    closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = 'font-size:28px; color:#aaa; cursor:pointer; line-height:20px; padding:0 5px; margin-left:5px;';
-    closeBtn.onclick = () => {
-        modal.style.display = 'none';
-        state.playing = false;
-        if (currentPlaybackTimer) clearInterval(currentPlaybackTimer);
-    };
-    actionDiv.appendChild(closeBtn);
+    
+    // 注意：这里不再创建关闭按钮，使用HTML中原有的关闭按钮
 
     headerDiv.appendChild(actionDiv);
     titleEl.appendChild(headerDiv);
@@ -292,8 +328,9 @@ function openDetailChart(item, color) {
         if (!tableDiv) {
             tableDiv = document.createElement('div');
             tableDiv.id = 'detailTableContainer';
-            // 【布局修复】：高度自适应 + 滚动条
-            tableDiv.style.cssText = "flex:1; width:100%; max-height:45vh; overflow-y:auto; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px;";
+            // 【移动端优化】：更好的高度控制和滚动
+            const tableMaxHeight = isMobile ? 'calc(80vh - 150px)' : '45vh';
+            tableDiv.style.cssText = `flex:1; width:100%; max-height: ${tableMaxHeight}; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px; -webkit-overflow-scrolling: touch;`;
             container.appendChild(tableDiv);
         }
 
@@ -315,12 +352,16 @@ function openDetailChart(item, color) {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
 
-            let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+            // 移动端表格字体更小
+            const tableFontSize = isMobile ? '11px' : '13px';
+            const cellPadding = isMobile ? '4px 3px' : '6px 8px';
+            
+            let html = `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
                 <thead style="background:#2d2d2d; position:sticky; top:0; z-index:1;">
                     <tr>
-                        <th style="padding:8px; text-align:left;">日期</th>
-                        <th style="padding:8px; text-align:right;">${dataObj.yLabel}</th>
-                        ${state.metric === '30d_price' ? '<th style="padding:8px; text-align:right;">涨跌幅</th>' : ''}
+                        <th style="padding:${cellPadding}; text-align:left;">日期</th>
+                        <th style="padding:${cellPadding}; text-align:right;">${dataObj.yLabel}</th>
+                        ${state.metric === '30d_price' ? `<th style="padding:${cellPadding}; text-align:right;">涨跌幅</th>` : ''}
                     </tr>
                 </thead>
                 <tbody>`;
@@ -336,9 +377,9 @@ function openDetailChart(item, color) {
                 }
 
                 html += `<tr style="border-bottom:1px solid #333;">
-                    <td style="padding:6px 8px; color:#aaa;">${dataObj.labels[i]}</td>
-                    <td style="padding:6px 8px; text-align:right; color:${colorStyle}; font-family:monospace;">${Number(val).toFixed(2)}</td>
-                    ${state.metric === '30d_price' ? renderTablePctCell(dataObj.pctChanges[i]) : ''}
+                    <td style="padding:${cellPadding}; color:#aaa;">${dataObj.labels[i]}</td>
+                    <td style="padding:${cellPadding}; text-align:right; color:${colorStyle}; font-family:monospace;">${Number(val).toFixed(2)}</td>
+                    ${state.metric === '30d_price' ? renderTablePctCell(dataObj.pctChanges[i], cellPadding) : ''}
                 </tr>`;
             }
             html += `</tbody></table>`;
@@ -351,7 +392,7 @@ function openDetailChart(item, color) {
         else {
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
-            canvas.style.maxHeight = '50vh'; 
+            canvas.style.maxHeight = isMobile ? '45vh' : '50vh'; 
 
             const ctx = canvas.getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -420,11 +461,11 @@ function openDetailChart(item, color) {
     }
 
     // 辅助函数：渲染表格中的涨跌幅单元格
-    function renderTablePctCell(pct) {
-        if (pct === null || pct === undefined) return '<td style="padding:6px 8px;"></td>';
+    function renderTablePctCell(pct, padding) {
+        if (pct === null || pct === undefined) return `<td style="padding:${padding};"></td>`;
         const color = pct >= 0 ? '#ff4444' : '#00cc00';
         const sign = pct >= 0 ? '+' : '';
-        return `<td style="padding:6px 8px; text-align:right; color:${color}; font-family:monospace;">${sign}${pct.toFixed(2)}%</td>`;
+        return `<td style="padding:${padding}; text-align:right; color:${color}; font-family:monospace;">${sign}${pct.toFixed(2)}%</td>`;
     }
 
     // --- 动画逻辑 ---
