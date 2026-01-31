@@ -379,116 +379,156 @@ function onSparkClick(event, key, type, idx) {
 // [新增] 替换原来的 openDetailChart 函数（核心逻辑带涨跌幅量化）
 function openDetailChart(item, color) {
     if (!item.history || item.history.length === 0) return;
-    
-    // ================== 核心修改开始 ==================
-    // 默认使用 Excel/策略中的基准价
-    let calcRefPrice = item.refPrice;
 
-    // 特殊处理：如果存在官方涨跌幅（说明已收盘或API数据有效），
-    // 无论 Excel 中的 refPrice 是否被更新为今日收盘价，我们都利用涨跌幅反推“真正的昨日收盘价”
-    // 公式：昨日收盘价 = 当前价格 / (1 + 涨跌幅%)
-    if (item.officialChangePercent !== null && item.officialChangePercent !== undefined && item.currentPrice) {
-        calcRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
-    }
-    
-    // 兜底：如果算出来是 NaN 或者 0（新股），就用历史第一笔数据
-    if (!calcRefPrice) {
-        calcRefPrice = item.history[0];
-    }
-    // ================== 核心修改结束 ==================
+    const code = item.code;
+    if (!code) return;
 
-    const pctEl = document.getElementById('modalPct');
-    
-    document.getElementById('modalTitle').innerText = item.name;
-    document.getElementById('modalCode').innerText = `(${item.code})`;
+    // Initialize preferences for this stock (default to 1-minute price on first open)
+    if (!modalSelectedMetric[code]) {
+        modalSelectedMetric[code] = '1min_price';
+    }
+    if (!modalPlaybackState[code]) {
+        modalPlaybackState[code] = { playing: true, timer: null };
+    }
+    if (!modalDisplayMode[code]) {
+        modalDisplayMode[code] = 'chart';
+    }
+
+    const currentMetric = modalSelectedMetric[code];
+    const playback = modalPlaybackState[code];
+    const displayMode = modalDisplayMode[code];
+
+    // Title area: Display name + indicator selection dropdown
+    document.getElementById('modalTitle').innerHTML = `
+        ${item.name}
+        <select id="modalMetricSelect" style="margin-left:20px; font-size:14px; padding:4px 8px; background:#1e1e1e; color:#ddd; border:1px solid #444; border-radius:4px;">
+            <option value="1min_price" ${currentMetric==='1min_price'?'selected':''}>1分钟价格</option>
+            <option value="30d_price"  ${currentMetric==='30d_price'?'selected':''}>30天价格变化</option>
+            <option value="30d_pot"    ${currentMetric==='30d_pot'?'selected':''}>30天 PotScore</option>
+            <option value="30d_super"  ${currentMetric==='30d_super'?'selected':''}>30天超大单净占比</option>
+            <option value="30d_main"   ${currentMetric==='30d_main'?'selected':''}>30天主力净占比</option>
+        </select>
+    `;
+
+    document.getElementById('modalCode').innerText = `(${code})`;
     document.getElementById('chartModal').style.display = 'flex';
     document.querySelector('.modal-content').style.borderColor = color;
 
-    const ctx = document.getElementById('detailChartCanvas').getContext('2d');
-    if (detailChart) detailChart.destroy();
-    if (playbackTimer) clearInterval(playbackTimer);
+    const canvas = document.getElementById('detailChartCanvas');
+    const ctx = canvas.getContext('2d');
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, 450);
-    gradient.addColorStop(0, color + '55');
-    gradient.addColorStop(1, color + '00');
+    // Clean up previous chart and timer
+    if (detailChart) {
+        detailChart.destroy();
+        detailChart = null;
+    }
+    if (playback.timer) {
+        clearInterval(playback.timer);
+        playback.timer = null;
+    }
 
-    detailChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: item.history.map((_, i) => i),
-            datasets: [
-                {
-                    label: 'Price',
-                    data: [], 
-                    borderColor: color,
-                    borderWidth: 3,
-                    pointRadius: 0,
-                    fill: true,
-                    backgroundColor: gradient,
-                    tension: 0.3,
-                    yAxisID: 'y'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    callbacks: {
-                        label: function(context) {
-                            const val = context.parsed.y;
-                            // 使用反算出来的 calcRefPrice 进行计算
-                            const chg = ((val - calcRefPrice) / calcRefPrice * 100).toFixed(2);
-                            return ` Price: ${val.toFixed(2)} (${chg > 0 ? '+' : ''}${chg}%)`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { display: false },
-                y: {
-                    position: 'left',
-                    grid: { color: '#222' },
-                    ticks: { color: '#888' }
-                },
-                y1: {
-                    position: 'right',
-                    grid: { display: false },
-                    ticks: { display: false } 
-                }
+    // Prepare data based on selected indicator
+    let chartData = [];
+    let labels = [];
+    let baseValue = item.refPrice || (item.history[0] || 0);
+    let lineColor = color;
+    let yAxisTitle = '价格';
+
+    if (currentMetric === '1min_price') {
+        chartData = item.history;
+        labels = item.history.map((_, i) => i + 1);
+        baseValue = item.refPrice || chartData[0] || 0;
+        lineColor = color;
+    } else if (eeiFlow30DaysData && eeiFlow30DaysData[code]) {
+        // Retrieve last 30 days, sorted ascending by date (oldest to newest)
+        const rows = eeiFlow30DaysData[code]
+            .slice(0, 30)
+            .sort((a, b) => a['日期'].localeCompare(b['日期']));
+
+        labels = rows.map(r => r['日期']);
+
+        if (currentMetric === '30d_price') {
+            chartData = rows.map(r => Number(r['收盘价'] || 0));
+            baseValue = chartData[0] || 0;
+            lineColor = chartData[chartData.length - 1] >= baseValue ? '#EF4444' : '#10B981';
+            yAxisTitle = '收盘价';
+        } else if (currentMetric === '30d_pot') {
+            chartData = rows.map(r => Number(r['PotScore'] || 0));
+            baseValue = chartData[0] || 0;
+            lineColor = '#FFD700';
+            yAxisTitle = 'PotScore';
+        } else if (currentMetric === '30d_super') {
+            chartData = rows.map(r => Number(r['超大单净流入-净占比'] || 0));
+            baseValue = 0;
+            lineColor = '#FF6B6B';
+            yAxisTitle = '超大单净占比 (%)';
+        } else if (currentMetric === '30d_main') {
+            chartData = rows.map(r => Number(r['主力净流入-净占比'] || 0));
+            baseValue = 0;
+            lineColor = '#4ECDC4';
+            yAxisTitle = '主力净占比 (%)';
+        }
+    }
+
+    // Handle no valid data case
+    if (chartData.length === 0 || chartData.every(v => v == null || v === 0)) {
+        document.getElementById('modalPct').innerText = '无数据';
+        return;
+    }
+
+    // Render chart or table
+    if (displayMode === 'table') {
+        renderModalTable(labels, chartData, yAxisTitle);
+    } else {
+        renderModalChart(ctx, labels, chartData, baseValue, lineColor, yAxisTitle);
+    }
+
+    // Listener for indicator change
+    document.getElementById('modalMetricSelect').onchange = (e) => {
+        modalSelectedMetric[code] = e.target.value;
+        modalDisplayMode[code] = 'chart';           // Default to chart on indicator switch
+        modalPlaybackState[code].playing = true;    // Default to playing
+        openDetailChart(item, color);               // Re-render
+    };
+
+    // Controls container (playback and mode switch buttons)
+    const controlsContainer = document.getElementById('modalControls') || createModalControls();
+    controlsContainer.innerHTML = '';
+
+    if (displayMode === 'chart') {
+        const playBtn = document.createElement('button');
+        playBtn.textContent = playback.playing ? '暂停' : '播放';
+        playBtn.style.marginRight = '12px';
+        playBtn.onclick = () => {
+            playback.playing = !playback.playing;
+            if (playback.playing) {
+                animateModalChart(code, labels, chartData, baseValue, lineColor);
+            } else if (playback.timer) {
+                clearInterval(playback.timer);
+                playback.timer = null;
             }
-        }
-    });
+            openDetailChart(item, color); // Refresh button text
+        };
+        controlsContainer.appendChild(playBtn);
+    }
 
-    let step = 0;
-    const fullHistory = item.history;
-    
-    playbackTimer = setInterval(() => {
-        step++;
-        if (step > fullHistory.length + 10) step = 0;
+    const modeBtn = document.createElement('button');
+    modeBtn.textContent = displayMode === 'chart' ? '显示表格' : '显示图表';
+    modeBtn.onclick = () => {
+        modalDisplayMode[code] = displayMode === 'chart' ? 'table' : 'chart';
+        modalPlaybackState[code].playing = false; // Pause playback on mode switch
+        if (playback.timer) clearInterval(playback.timer);
+        openDetailChart(item, color);
+    };
+    controlsContainer.appendChild(modeBtn);
 
-        const currentSlice = fullHistory.slice(0, step);
-        const lastPrice = currentSlice[currentSlice.length - 1];
-
-        detailChart.data.datasets[0].data = currentSlice;
-        detailChart.update('none');
-
-        if (lastPrice) {
-            // 使用反算出来的 calcRefPrice 计算顶部的动态百分比
-            const currentChg = ((lastPrice - calcRefPrice) / calcRefPrice * 100).toFixed(2);
-            pctEl.innerText = (currentChg > 0 ? '+' : '') + currentChg + '%';
-            // 颜色逻辑：涨跌对比基准
-            pctEl.style.color = lastPrice >= calcRefPrice ? '#EF4444' : '#10B981';
-        } else {
-            pctEl.innerText = '0.00%';
-        }
-    }, 30);
+    // Start playback if enabled
+    if (displayMode === 'chart' && playback.playing) {
+        animateModalChart(code, labels, chartData, baseValue, lineColor);
+    }
 }
+
+
 // ================= LOGIC =================
 async function initOSS() {
     if (ossClient) return true;
