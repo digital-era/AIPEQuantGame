@@ -2071,40 +2071,40 @@ async function initSystem() {
     const btn = document.getElementById('engageBtn');
     btn.innerText = "INITIALIZING...";
     
-    await initOSS();
-    
-    // 加载策略和历史数据
+    // 1. 并行执行所有独立初始化任务
     await Promise.all([
+        initOSS(),
         loadStrategies(),
-        loadHistoryData()
+        loadHistoryData(),
+        loadSweetPoints(),
+        loadAdhocFromCloud(),
+        loadCloudPortfolio()
     ]);
 
-    // 5. 在系统初始化流程中，策略加载后立即调用加载函数
-    await loadSweetPoints(); 
+    // 2. 并行获取市场数据和全量股票数据（如果它们不互相依赖）
+    const [marketDataResult, allStocksData] = await Promise.allSettled([
+        updateMarketData(true),
+        fetchAllStocksData()
+    ]);
 
-    //  【新增】从云端导入 ADHOC 标的到 Strategy Suggestions
-    await loadAdhocFromCloud();
-    
-    await loadCloudPortfolio();
-    
-    // 首次获取市场数据，强制获取一次，因为这是系统启动，需要确定初始价格和市场状态
-    await updateMarketData(true); 
-
-    // 根据首次获取后的状态，决定是否启动定时器
-    if (hasClosedPrices) { 
-        // 如果市场已关闭且价格已锁定，则不再启动定时器
-        log("Market currently closed on init. Price polling will not start.", "yellow");
+    // 处理市场数据结果，启动定时器
+    if (marketDataResult.status === 'fulfilled') {
+        if (hasClosedPrices) { 
+            log("Market currently closed on init. Price polling will not start.", "yellow");
+        } else {
+            priceUpdateInterval = setInterval(() => updateMarketData(false), 300000);
+            log("Market is open. Price polling started every 5 minutes.", "#0f0");
+        }
     } else {
-        // 市场开放，启动定时器，每 5 分钟更新一次（非强制获取）
-        priceUpdateInterval = setInterval(() => updateMarketData(false), 300000); // 5 minutes = 300000 ms
-        log("Market is open. Price polling started every 5 minutes.", "#0f0");
+        console.error("Market data update failed:", marketDataResult.reason);
     }
 
-    await fetchAllStocksData(); // 新增：获取全量搜索数据
-    setupAllAdhocAutoCompletes(); // 新增：设置自动补全
+    // 3. 并行执行数据加载和UI设置
+    await Promise.all([
+        loadEEIFlow30DaysData(),
+        setupAllAdhocAutoCompletes()
+    ]);
 
-    await loadEEIFlow30DaysData(); // 新增：30天市场关键字段
-        
     gameState.active = true;
     btn.innerText = "SYSTEM ONLINE";
     btn.style.boxShadow = "0 0 20px #0f0";
