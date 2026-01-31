@@ -75,10 +75,9 @@ async function loadEEIFlow30DaysData() {
 }
 
 // [修复版] openDetailChart
-// [修复版] openDetailChart - 2025/2026 版本
 function openDetailChart(item, color) {
     const rawCode = item.code;
-    const code = String(rawCode).padStart(6, '0');  // 强制补齐6位，与 Excel key 一致
+    const code = rawCode;  // 按您当前写法，不补零
     console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
     // 初始化状态
@@ -98,26 +97,22 @@ function openDetailChart(item, color) {
     modalContent.style.borderColor = color;
     modal.style.display = 'flex';
 
-    // ================= 标题栏 - 使用 DOM 操作创建，避免事件丢失 =================
+    // 标题栏 - 使用 DOM 操作创建
     const titleEl = document.getElementById('modalTitle');
-    titleEl.innerHTML = '';  // 清空旧内容
-
+    titleEl.innerHTML = '';
     const headerDiv = document.createElement('div');
     headerDiv.style.cssText = 'display:flex; align-items:center; gap:10px;';
 
-    // 名称
     const nameSpan = document.createElement('span');
     nameSpan.style.cssText = 'font-size:1.1em; font-weight:bold;';
     nameSpan.textContent = item.name;
     headerDiv.appendChild(nameSpan);
 
-    // 代码
     const codeSpan = document.createElement('span');
     codeSpan.style.cssText = 'font-size:0.9em; color:#aaa;';
     codeSpan.textContent = `(${code})`;
     headerDiv.appendChild(codeSpan);
 
-    // 下拉菜单
     const select = document.createElement('select');
     select.id = 'metricSelect';
     select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:13px; cursor:pointer;';
@@ -141,7 +136,7 @@ function openDetailChart(item, color) {
     headerDiv.appendChild(select);
     titleEl.appendChild(headerDiv);
 
-    // 绑定 change 事件（使用 addEventListener 更可靠）
+    // 绑定 change 事件
     const handleMetricChange = (e) => {
         const newMetric = e.target.value;
         console.log(`metric 变更为: ${newMetric} (之前是 ${state.metric})`);
@@ -149,13 +144,12 @@ function openDetailChart(item, color) {
         state.progress = 0;
         state.playing = true;
         state.view = 'chart';
-        renderContent();           // 只刷新内容，不重建 modal
+        renderContent();
     };
-
-    select.removeEventListener('change', handleMetricChange); // 防重复绑定
+    select.removeEventListener('change', handleMetricChange);
     select.addEventListener('change', handleMetricChange);
 
-    // ================= 确保控制栏存在 =================
+    // 确保控制栏存在
     let controlsContainer = document.getElementById('chartControls');
     if (!controlsContainer) {
         controlsContainer = document.createElement('div');
@@ -164,7 +158,7 @@ function openDetailChart(item, color) {
         modalContent.appendChild(controlsContainer);
     }
 
-    // ================= getData 函数（增加详细日志） =================
+    // getData 函数（保持不变，略）
     function getData() {
         let labels = [];
         let values = [];
@@ -175,7 +169,6 @@ function openDetailChart(item, color) {
         console.log(`[getData] 当前指标: ${state.metric}, code: ${code}`);
 
         if (state.metric === '1min') {
-            // 1分钟价格逻辑（保持原样）
             if (item.history && item.history.length > 0) {
                 values = item.history;
                 labels = values.map((_, i) => i);
@@ -185,75 +178,50 @@ function openDetailChart(item, color) {
                 }
                 yLabel = '价格';
                 console.log(`[getData] 1min 数据长度: ${values.length}`);
-            } else {
-                console.warn('[getData] 1min 数据为空');
             }
         } else {
-            // 30天数据逻辑
-            if (!eeiFlow30DaysData) {
-                console.warn("[getData] eeiFlow30DaysData 未加载");
-            } else if (!eeiFlow30DaysData[code]) {
-                console.warn(`[getData] 未找到 ${code} 的30天数据。已有key示例:`, Object.keys(eeiFlow30DaysData).slice(0, 3));
-            }
-
             const d30 = eeiFlow30DaysData?.[code] || [];
             console.log(`[getData] 30天数据条数: ${d30.length}`);
-
             if (d30.length > 0) {
                 const recent30 = d30.slice(-30);
                 labels = recent30.map(r => r['日期']);
-
                 switch (state.metric) {
                     case '30d_price':
-                        console.log("[getData] 进入 30d_price 分支");
                         values = recent30.map(r => Number(r['收盘价']));
                         refValue = values[0] || 0;
                         yLabel = '收盘价';
                         lineColor = values[values.length-1] >= refValue ? '#EF4444' : '#10B981';
                         break;
-
                     case '30d_pot':
-                        console.log("[getData] 进入 30d_pot 分支");
                         values = recent30.map(r => Number(r['PotScore']));
                         refValue = 0;
                         yLabel = 'PotScore';
                         lineColor = '#FFD700';
                         break;
-
                     case '30d_super':
-                        console.log("[getData] 进入 30d_super 分支");
                         values = recent30.map(r => Number(r['超大单净流入-净占比']));
                         refValue = 0;
                         yLabel = '超大单占比(%)';
                         lineColor = '#FF6B6B';
                         break;
-
                     case '30d_main':
-                        console.log("[getData] 进入 30d_main 分支");
                         values = recent30.map(r => Number(r['主力净流入-净占比']));
                         refValue = 0;
                         yLabel = '主力占比(%)';
                         lineColor = '#4ECDC4';
                         break;
-
-                    default:
-                        console.warn(`[getData] 未识别的 metric: ${state.metric}`);
                 }
-
                 console.log(`[getData] 提取到值数量: ${values.length}`);
             }
         }
-
         return { labels, values, refValue, yLabel, lineColor };
     }
 
-    // ================= renderContent 函数（增加状态日志） =================
+    // renderContent 函数（只改动 updateHeaderInfo 调用部分）
     function renderContent() {
         console.log(`[renderContent] 开始渲染 | metric=${state.metric} | view=${state.view} | progress=${state.progress}`);
-
         const dataObj = getData();
 
-        // 清理旧图表和定时器
         if (currentChartInstance) {
             currentChartInstance.destroy();
             currentChartInstance = null;
@@ -265,29 +233,20 @@ function openDetailChart(item, color) {
 
         controlsContainer.innerHTML = '';
 
-        // 播放/暂停/重播按钮
         if (state.view === 'chart') {
             const playBtn = document.createElement('button');
             playBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
-
             const isFinished = state.progress >= dataObj.values.length && dataObj.values.length > 0;
-
             playBtn.innerHTML = isFinished ? "↺ 重播" : (state.playing ? "❚❚ 暂停" : "▶ 播放");
             if (isFinished) playBtn.style.background = "#2d5a2d";
-
             playBtn.onclick = () => {
-                if (isFinished) {
-                    state.progress = 0;
-                    state.playing = true;
-                } else {
-                    state.playing = !state.playing;
-                }
+                if (isFinished) state.progress = 0, state.playing = true;
+                else state.playing = !state.playing;
                 renderContent();
             };
             controlsContainer.appendChild(playBtn);
         }
 
-        // 表格/图表切换按钮
         const viewBtn = document.createElement('button');
         viewBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
         viewBtn.innerText = state.view === 'chart' ? "📅 切换表格" : "📈 切换图表";
@@ -298,11 +257,9 @@ function openDetailChart(item, color) {
         };
         controlsContainer.appendChild(viewBtn);
 
-        // 内容区域
         const canvas = document.getElementById('detailChartCanvas');
         const container = canvas.parentNode;
         let tableDiv = document.getElementById('detailTableContainer');
-
         if (!tableDiv) {
             tableDiv = document.createElement('div');
             tableDiv.id = 'detailTableContainer';
@@ -317,7 +274,8 @@ function openDetailChart(item, color) {
                 暂无 [${state.metric}] 数据<br>
                 <small>请确认代码 ${code} 是否存在于 Excel 中</small>
             </div>`;
-            document.getElementById('modalPct').innerText = '--';
+            // 关键修改：不再设置 modalPct 为 '--'
+            // document.getElementById('modalPct').innerText = '--';   ← 注释或删除这行
             return;
         }
 
@@ -333,13 +291,11 @@ function openDetailChart(item, color) {
                     </tr>
                 </thead>
                 <tbody>`;
-
             for (let i = dataObj.values.length - 1; i >= 0; i--) {
                 const val = dataObj.values[i];
                 const colorStyle = (state.metric.includes('super') || state.metric.includes('main') || state.metric.includes('pot'))
                     ? (val >= 0 ? '#ff4444' : '#00cc00')
                     : '#ddd';
-
                 html += `<tr style="border-bottom:1px solid #333;">
                     <td style="padding:6px 8px; color:#aaa;">${dataObj.labels[i]}</td>
                     <td style="padding:6px 8px; text-align:right; color:${colorStyle}; font-family:monospace;">${Number(val).toFixed(2)}</td>
@@ -348,6 +304,7 @@ function openDetailChart(item, color) {
             html += `</tbody></table>`;
             tableDiv.innerHTML = html;
 
+            // 只在 30d_price 时更新显示
             updateHeaderInfo(dataObj.values[dataObj.values.length-1], dataObj.refValue);
         } else {
             tableDiv.style.display = 'none';
@@ -360,39 +317,15 @@ function openDetailChart(item, color) {
 
             currentChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: dataObj.labels,
-                    datasets: [{
-                        label: dataObj.yLabel,
-                        data: [],
-                        borderColor: dataObj.lineColor,
-                        backgroundColor: gradient,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        fill: true,
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    layout: { padding: { top: 20, bottom: 10, left: 0, right: 10 } },
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { position: 'left', grid: { color: '#333' }, ticks: { color: '#888', font: {size:10} }, grace: '10%' }
-                    }
-                }
+                data: { labels: dataObj.labels, datasets: [{ label: dataObj.yLabel, data: [], borderColor: dataObj.lineColor, backgroundColor: gradient, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, fill: true, tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 20, bottom: 10, left: 0, right: 10 } }, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { position: 'left', grid: { color: '#333' }, ticks: { color: '#888', font: {size:10} }, grace: '10%' } } }
             });
 
             runAnimation(dataObj);
         }
     }
 
-    // ================= 动画相关函数（保持原样，略作精简） =================
+    // 动画函数
     function runAnimation(dataObj) {
         if (!state.playing) {
             updateChartData(dataObj.values.slice(0, state.progress));
@@ -433,22 +366,22 @@ function openDetailChart(item, color) {
         }
     }
 
+    // ──────────────── 核心修改在这里 ────────────────
     function updateHeaderInfo(val, ref) {
         const pctEl = document.getElementById('modalPct');
-        if (val == null) {
-            pctEl.innerText = '--';
-            return;
-        }
+        if (!pctEl) return;
 
-        const isPrice = state.metric === '1min' || state.metric === '30d_price';
-
-        if (isPrice && ref) {
+        // 只在 30d_price 时显示价格 + 涨跌幅，其他情况清空
+        if (state.metric === '30d_price' && val != null && ref != null) {
             const chg = ((val - ref) / ref * 100).toFixed(2);
-            pctEl.innerText = `${val.toFixed(2)} (${chg > 0 ? '+' : ''}${chg}%)`;
+            const sign = chg >= 0 ? '+' : '';
+            pctEl.innerText = `${val.toFixed(2)} (${sign}${chg}%)`;
             pctEl.style.color = val >= ref ? '#EF4444' : '#10B981';
         } else {
-            pctEl.innerText = val.toFixed(2);
-            pctEl.style.color = val >= 0 ? '#EF4444' : '#10B981';
+            // 其他所有情况（包括 1min、pot、super、main）都不显示任何内容
+            pctEl.innerText = '';
+            // 如果你想彻底隐藏这个元素，可以加：
+            // pctEl.style.display = 'none';
         }
     }
 
