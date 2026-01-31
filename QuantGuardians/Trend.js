@@ -407,7 +407,7 @@ function openDetailChart(item, color) {
             // 【问题1修复】：桌面端按钮稍小一些
             viewBtn.style.cssText = "padding:4px 12px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:normal;";
         }
-        viewBtn.innerText = state.view === 'chart' ? "📅 表格" : "📈 图表";
+        viewBtn.innerText = state.view === 'chart' ? "📅 表格" : "📈 动图";
         viewBtn.onclick = () => {
             state.view = state.view === 'chart' ? 'table' : 'chart';
             state.playing = false;
@@ -456,7 +456,6 @@ function openDetailChart(item, color) {
             tableDiv.style.display = 'block';
             tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#666;">
                 暂无 [${state.metric}] 数据<br>
-                <small>请确认代码 ${code} 是否存在于 Excel 中</small>
             </div>`;
             return;
         }
@@ -662,11 +661,11 @@ function openDetailChart(item, color) {
         // 【问题2修复】：移动端使用更小字体和普通字体
         if (isMobile) {
             pctEl.style.fontSize = '0.75em';
-            pctEl.style.fontWeight = 'normal';
+            pctEl.style.fontWeight = 'bold';
             pctEl.style.fontFamily = 'Courier New'; // 使用普通字体，非加粗
         } else {
             pctEl.style.fontSize = '1.05em';
-            pctEl.style.fontWeight = 'normal';
+            pctEl.style.fontWeight = 'bold';
             pctEl.style.fontFamily = 'Courier New'; // 使用普通字体，非加粗
         }
 
