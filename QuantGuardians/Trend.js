@@ -118,7 +118,7 @@ function openDetailChart(item, color) {
     infoDiv.appendChild(nameSpan);
 
     const codeSpan = document.createElement('span');
-    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal;';
+    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
     codeSpan.textContent = `(${code})`;
     infoDiv.appendChild(codeSpan);
     headerDiv.appendChild(infoDiv);
