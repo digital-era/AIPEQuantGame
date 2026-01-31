@@ -579,42 +579,67 @@ function openDetailChart(item, color) {
     }
 
     // --- 更新头部数字 ---
-    function updateHeaderInfo(val, ref, directPct) {
+        function updateHeaderInfo(val, ref, directPct) {
         const pctEl = document.getElementById('modalPct');
         if (!pctEl) return;
-        pctEl.innerText = ''; 
-        pctEl.style.color = '#fff';
         
-        // 移动端调整字体大小
-        if (isMobile) {
+        pctEl.innerText = ''; 
+        
+        // 遇到 null 或 undefined 时显示占位符
+        if (val === null || val === undefined) {
+             pctEl.innerText = '--';
+             pctEl.style.color = '#888';
+             return;
+        }
+
+        // 移动端字体大小微调
+        if (window.innerWidth <= 768) {
+            pctEl.style.fontSize = '1em';
+        } else {
             pctEl.style.fontSize = '1.1em';
         }
 
-        if (val == null) return;
-
-        if (state.metric === '30d_price') {
-            if (directPct !== null && directPct !== undefined) {
-                const sign = directPct >= 0 ? '+' : '';
-                const color = directPct >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = isMobile ? 
-                    `${val.toFixed(2)} (${sign}${directPct.toFixed(1)}%)` : 
-                    `${val.toFixed(2)} (${sign}${directPct.toFixed(2)}%)`;
-                pctEl.style.color = color;
-            } else {
-                pctEl.innerText = `${val.toFixed(2)}`;
-            }
-        } 
-        else if (state.metric === '1min') {
+        // 逻辑分支处理
+        if (state.metric === '1min') {
+            // 1分钟线：显示价格 + (计算出的涨跌幅)
             if (ref && ref !== 0) {
                 const chg = ((val - ref) / ref * 100);
                 const sign = chg >= 0 ? '+' : '';
                 const color = chg >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = isMobile ? 
-                    `${val.toFixed(2)} (${sign}${chg.toFixed(1)}%)` : 
-                    `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
+                pctEl.innerText = `${val.toFixed(2)} ${sign}${chg.toFixed(2)}%`;
                 pctEl.style.color = color;
             } else {
                 pctEl.innerText = `${val.toFixed(2)}`;
+                pctEl.style.color = '#fff';
+            }
+        } 
+        else if (state.metric === '30d_price') {
+            // 30天价格：显示收盘价 + (Excel里的涨跌幅)
+            if (directPct !== null && directPct !== undefined) {
+                const sign = directPct >= 0 ? '+' : '';
+                const color = directPct >= 0 ? '#EF4444' : '#10B981';
+                pctEl.innerText = `${val.toFixed(2)} ${sign}${directPct.toFixed(2)}%`;
+                pctEl.style.color = color;
+            } else {
+                pctEl.innerText = `${val.toFixed(2)}`;
+                pctEl.style.color = '#fff';
+            }
+        }
+        else {
+            // 【修改点】：处理 PotScore, 超大单, 主力 等其他指标
+            // 这些指标通常只显示数值，根据正负变色
+            pctEl.innerText = val.toFixed(2);
+            
+            if (state.metric.includes('pot')) {
+                pctEl.style.color = '#FFD700'; // 金色
+            } else {
+                // 资金流向类，正红负绿
+                pctEl.style.color = val >= 0 ? '#EF4444' : '#10B981';
+            }
+            
+            // 如果是占比类，加上 % 符号
+            if (state.metric.includes('super') || state.metric.includes('main')) {
+                pctEl.innerText += '%';
             }
         }
     }
