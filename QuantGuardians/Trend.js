@@ -661,12 +661,13 @@ function openDetailChart(item, color) {
         
         // 【问题2修复】：移动端使用更小字体和普通字体
         if (isMobile) {
-            pctEl.style.fontSize = '0.85em';
+            pctEl.style.fontSize = '0.75em';
             pctEl.style.fontWeight = 'normal';
-            pctEl.style.fontFamily = 'inherit'; // 使用普通字体，非加粗
+            pctEl.style.fontFamily = 'Courier New'; // 使用普通字体，非加粗
         } else {
             pctEl.style.fontSize = '1.05em';
-            pctEl.style.fontWeight = 'bold';
+            pctEl.style.fontWeight = 'normal';
+            pctEl.style.fontFamily = 'Courier New'; // 使用普通字体，非加粗
         }
 
         if (val == null) return;
