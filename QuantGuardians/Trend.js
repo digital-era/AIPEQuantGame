@@ -74,34 +74,38 @@ async function loadEEIFlow30DaysData() {
     }
 }
 
+// [修复版] openDetailChart
 function openDetailChart(item, color) {
-    const code = item.code;
+    const rawCode = item.code;
+    // 关键修复：强制将代码转为6位字符串（例如 89 -> "000089"），以匹配 Excel 中的 Key
+    // const code = String(rawCode).padStart(6, '0');
     
-    // 1. 初始化或获取该股票的状态
+    console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
+
+    // 1. 初始化状态
     if (!modalState[code]) {
         modalState[code] = {
-            metric: '1min', // 默认指标
-            view: 'chart',  // chart 或 table
-            playing: true,  // 是否自动播放
-            progress: 0     // 记录播放进度
+            metric: '1min',
+            view: 'chart', 
+            playing: true, 
+            progress: 0 
         };
     }
     const state = modalState[code];
 
-    // 2. 准备基础 DOM
+    // 2. 基础 DOM 设置
     const modal = document.getElementById('chartModal');
     const modalContent = document.querySelector('.modal-content');
     modalContent.style.borderColor = color;
     modal.style.display = 'flex';
 
-    // 2.1 设置标题区域（包含下拉框）
+    // 标题栏设置
     const titleEl = document.getElementById('modalTitle');
-    // 使用 innerHTML 构造下拉框，注意 onchange 事件绑定
     titleEl.innerHTML = `
         <div style="display:flex; align-items:center; gap:10px;">
-            <span>${item.name}</span>
-            <span style="font-size:0.8em; color:#888;">(${code})</span>
-            <select id="metricSelect" style="background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:4px; font-size:12px;">
+            <span style="font-size:1.1em; font-weight:bold;">${item.name}</span>
+            <span style="font-size:0.9em; color:#aaa;">(${code})</span>
+            <select id="metricSelect" style="background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:13px; cursor:pointer;">
                 <option value="1min" ${state.metric === '1min' ? 'selected' : ''}>1分钟价格</option>
                 <option value="30d_price" ${state.metric === '30d_price' ? 'selected' : ''}>30天价格</option>
                 <option value="30d_pot" ${state.metric === '30d_pot' ? 'selected' : ''}>30天PotScore</option>
@@ -111,28 +115,25 @@ function openDetailChart(item, color) {
         </div>
     `;
 
-    // 2.2 绑定下拉框事件
+    // 绑定下拉事件
     document.getElementById('metricSelect').onchange = function(e) {
         state.metric = e.target.value;
-        state.progress = 0;      // 切换指标重置进度
-        state.playing = true;    // 切换指标自动播放
-        state.view = 'chart';    // 切换指标默认回图表
-        renderContent();         // 重新渲染
+        state.progress = 0;
+        state.playing = true;
+        state.view = 'chart';
+        openDetailChart(item, color); // 重新调用自身以刷新
     };
 
-    // 2.3 创建控制栏（播放按钮、表格切换）
-    // 检查是否已存在控制容器，不存在则创建
+    // 确保控制栏存在
     let controlsContainer = document.getElementById('chartControls');
     if (!controlsContainer) {
         controlsContainer = document.createElement('div');
         controlsContainer.id = 'chartControls';
-        // 样式：放在模态框底部或顶部，这里放在 Canvas 下方
-        controlsContainer.style.cssText = "display:flex; justify-content:center; gap:15px; margin-top:10px; padding:5px;";
-        // 插入到 modal-content 内部的最后
+        controlsContainer.style.cssText = "display:flex; justify-content:center; gap:15px; margin-top:15px; padding-top:10px; border-top:1px solid #333;";
         modalContent.appendChild(controlsContainer); 
     }
 
-    // 3. 数据准备逻辑
+    // 3. 数据获取逻辑（增加日志）
     function getData() {
         let labels = [];
         let values = [];
@@ -141,66 +142,73 @@ function openDetailChart(item, color) {
         let lineColor = color;
 
         if (state.metric === '1min') {
-            // 原有 1分钟逻辑
+            // --- 1分钟逻辑 ---
             if (item.history && item.history.length > 0) {
                 values = item.history;
-                labels = values.map((_, i) => i); // 简单索引，或转换成时间
-                
-                // 计算参考价 (RefPrice)
+                labels = values.map((_, i) => i);
                 refValue = item.refPrice;
-                if (item.officialChangePercent !== null && item.officialChangePercent !== undefined && item.currentPrice) {
+                // 尝试用涨跌幅反推昨日收盘价
+                if (item.officialChangePercent != null && item.currentPrice) {
                     refValue = item.currentPrice / (1 + item.officialChangePercent / 100);
                 }
                 if (!refValue) refValue = values[0];
-                
                 yLabel = '价格';
-                lineColor = color;
             }
         } else {
-            // 30天数据逻辑
+            // --- 30天逻辑 ---
+            if (!eeiFlow30DaysData) {
+                console.warn("30天数据对象 eeiFlow30DaysData 为空，请检查 loadEEIFlow30DaysData 是否执行");
+            } else if (!eeiFlow30DaysData[code]) {
+                console.warn(`未找到代码 [${code}] 的30天数据。现有Key示例:`, Object.keys(eeiFlow30DaysData).slice(0,3));
+            }
+
+            // 获取数据
             const d30 = eeiFlow30DaysData ? (eeiFlow30DaysData[code] || []) : [];
-            // 取最近30条
-            const recent30 = d30.slice(-30); 
             
-            labels = recent30.map(r => r['日期']);
-            
-            switch (state.metric) {
-                case '30d_price':
-                    values = recent30.map(r => r['收盘价']);
-                    refValue = values[0] || 0;
-                    yLabel = '收盘价';
-                    // 涨红跌绿 (相对于30天前)
-                    lineColor = (values[values.length-1] >= refValue) ? '#EF4444' : '#10B981';
-                    break;
-                case '30d_pot':
-                    values = recent30.map(r => r['PotScore']);
-                    refValue = 0; 
-                    yLabel = 'PotScore';
-                    lineColor = '#FFD700'; // 金色
-                    break;
-                case '30d_super':
-                    values = recent30.map(r => r['超大单净流入-净占比']);
-                    refValue = 0;
-                    yLabel = '超大单占比(%)';
-                    lineColor = '#FF6B6B';
-                    break;
-                case '30d_main':
-                    values = recent30.map(r => r['主力净流入-净占比']);
-                    refValue = 0;
-                    yLabel = '主力占比(%)';
-                    lineColor = '#4ECDC4';
-                    break;
+            if (d30.length > 0) {
+                // 取最近 30 条
+                const recent30 = d30.slice(-30); 
+                labels = recent30.map(r => r['日期']);
+                
+                // 根据你提供的 JSON 字段名进行映射
+                switch (state.metric) {
+                    case '30d_price':
+                        values = recent30.map(r => Number(r['收盘价']));
+                        refValue = values[0] || 0;
+                        yLabel = '收盘价';
+                        lineColor = (values[values.length-1] >= refValue) ? '#EF4444' : '#10B981';
+                        break;
+                    case '30d_pot':
+                        values = recent30.map(r => Number(r['PotScore']));
+                        refValue = 0; 
+                        yLabel = 'PotScore';
+                        lineColor = '#FFD700';
+                        break;
+                    case '30d_super':
+                        values = recent30.map(r => Number(r['超大单净流入-净占比']));
+                        refValue = 0;
+                        yLabel = '超大单占比(%)';
+                        lineColor = '#FF6B6B';
+                        break;
+                    case '30d_main':
+                        values = recent30.map(r => Number(r['主力净流入-净占比']));
+                        refValue = 0;
+                        yLabel = '主力占比(%)';
+                        lineColor = '#4ECDC4';
+                        break;
+                }
+            } else {
+                console.log(`代码 [${code}] 的 d30 数组长度为 0`);
             }
         }
         return { labels, values, refValue, yLabel, lineColor };
     }
 
-    // 4. 核心渲染函数 (负责图表/表格/按钮更新)
+    // 4. 渲染核心
     function renderContent() {
         const dataObj = getData();
-        const canvasContainer = document.getElementById('detailChartCanvas').parentNode;
         
-        // 清理旧资源
+        // 清理旧状态
         if (currentChartInstance) {
             currentChartInstance.destroy();
             currentChartInstance = null;
@@ -210,251 +218,226 @@ function openDetailChart(item, color) {
             currentPlaybackTimer = null;
         }
 
-        // --- 渲染控制按钮 ---
-        // 动态生成按钮，以便状态更新时文字变化
+        // --- 按钮状态更新 ---
         controlsContainer.innerHTML = '';
         
-        // 按钮1: 播放/暂停/重播 (仅在图表模式下显示)
+        // 播放按钮 (仅Chart模式)
         if (state.view === 'chart') {
             const playBtn = document.createElement('button');
-            playBtn.className = 'ctrl-btn'; // 建议加点 CSS class 样式
-            playBtn.style.cssText = "padding:5px 15px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer;";
+            playBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
             
-            // 逻辑：如果已经播完，显示“重播”；如果正在播，显示“暂停”；如果暂停中，显示“播放”
-            if (state.progress >= dataObj.values.length && dataObj.values.length > 0) {
-                 playBtn.innerText = "↺ 重播";
+            // 播放完显示重播
+            const isFinished = state.progress >= dataObj.values.length && dataObj.values.length > 0;
+            
+            if (isFinished) {
+                 playBtn.innerHTML = "↺ 重播";
+                 playBtn.style.background = "#2d5a2d"; // 绿色提示可重播
             } else {
-                 playBtn.innerText = state.playing ? "❚❚ 暂停" : "▶ 播放";
+                 playBtn.innerHTML = state.playing ? "❚❚ 暂停" : "▶ 播放";
             }
 
             playBtn.onclick = () => {
-                if (state.progress >= dataObj.values.length) {
-                    // 重播逻辑
-                    state.progress = 0;
+                if (isFinished) {
+                    state.progress = 0; // 重置
                     state.playing = true;
                 } else {
-                    // 切换播放/暂停
                     state.playing = !state.playing;
                 }
-                renderContent(); // 刷新按钮状态和图表动画
+                renderContent();
             };
             controlsContainer.appendChild(playBtn);
         }
 
-        // 按钮2: 切换图表/表格
+        // 表格/图表切换按钮
         const viewBtn = document.createElement('button');
-        viewBtn.style.cssText = "padding:5px 15px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer;";
-        viewBtn.innerText = state.view === 'chart' ? "📅 查看表格" : "📈 查看曲线";
+        viewBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+        viewBtn.innerText = state.view === 'chart' ? "📅 切换表格" : "📈 切换图表";
         viewBtn.onclick = () => {
             state.view = state.view === 'chart' ? 'table' : 'chart';
-            state.playing = false; // 切换视图时暂停
+            state.playing = false; // 切换时暂停
             renderContent();
         };
         controlsContainer.appendChild(viewBtn);
 
-
-        // --- 视图渲染 ---
+        // --- 内容显示区域 ---
         const canvas = document.getElementById('detailChartCanvas');
-        const tableContainerId = 'detailTableContainer';
-        let tableDiv = document.getElementById(tableContainerId);
+        const container = canvas.parentNode;
+        let tableDiv = document.getElementById('detailTableContainer');
         
-        // 确保表格容器存在
         if (!tableDiv) {
             tableDiv = document.createElement('div');
-            tableDiv.id = tableContainerId;
-            tableDiv.style.cssText = "width:100%; height:300px; overflow-y:auto; display:none; background:#111; color:#ddd;";
-            canvasContainer.appendChild(tableDiv);
+            tableDiv.id = 'detailTableContainer';
+            tableDiv.style.cssText = "width:100%; height:320px; overflow-y:auto; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px;";
+            container.appendChild(tableDiv);
+        }
+
+        // 没数据时的提示
+        if (dataObj.values.length === 0) {
+            canvas.style.display = 'none';
+            tableDiv.style.display = 'block';
+            tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#666;">
+                暂无 [${state.metric}] 数据<br>
+                <small>请确认Excel是否包含代码 ${code}</small>
+            </div>`;
+            document.getElementById('modalPct').innerText = '--';
+            return;
         }
 
         if (state.view === 'table') {
-            // 表格模式
+            // 表格渲染
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
             
-            // 生成表格 HTML
-            let html = `<table style="width:100%; border-collapse:collapse; text-align:center;">
-                        <thead style="background:#222; position:sticky; top:0;">
-                            <tr><th style="padding:8px;">日期/时间</th><th style="padding:8px;">${dataObj.yLabel}</th></tr>
+            let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead style="background:#2d2d2d; position:sticky; top:0; z-index:1;">
+                            <tr>
+                                <th style="padding:8px; text-align:left;">日期</th>
+                                <th style="padding:8px; text-align:right;">${dataObj.yLabel}</th>
+                            </tr>
                         </thead>
                         <tbody>`;
-            // 倒序显示（最新的在上面）
+            // 倒序遍历
             for (let i = dataObj.values.length - 1; i >= 0; i--) {
+                const val = dataObj.values[i];
+                const colorStyle = (state.metric.includes('net') || state.metric.includes('super')) 
+                    ? (val >= 0 ? '#ff4444' : '#00cc00') 
+                    : '#ddd';
+                    
                 html += `<tr style="border-bottom:1px solid #333;">
-                            <td style="padding:6px;">${dataObj.labels[i]}</td>
-                            <td style="padding:6px;">${Number(dataObj.values[i]).toFixed(2)}</td>
+                            <td style="padding:6px 8px; color:#aaa;">${dataObj.labels[i]}</td>
+                            <td style="padding:6px 8px; text-align:right; color:${colorStyle}; font-family:monospace;">${Number(val).toFixed(2)}</td>
                          </tr>`;
             }
             html += `</tbody></table>`;
             tableDiv.innerHTML = html;
             
-            // 更新顶部百分比显示（显示最新值）
-            updateHeaderInfo(dataObj.values[dataObj.values.length - 1], dataObj.refValue);
+            // 更新顶部大字
+            updateHeaderInfo(dataObj.values[dataObj.values.length-1], dataObj.refValue);
 
         } else {
-            // 图表模式
+            // 图表渲染
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
 
-            // 处理无数据情况
-            if (dataObj.values.length === 0) {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.font = "14px Arial";
-                ctx.fillStyle = "#888";
-                ctx.fillText("暂无数据", canvas.width / 2 - 30, canvas.height / 2);
-                return;
-            }
-
             const ctx = canvas.getContext('2d');
-            
-            // 背景渐变
             const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, dataObj.lineColor + '55'); // 透明度
-            gradient.addColorStop(1, dataObj.lineColor + '00');
+            gradient.addColorStop(0, dataObj.lineColor + '40'); // 25% opacity
+            gradient.addColorStop(1, dataObj.lineColor + '00'); // 0% opacity
 
-            // 修复1：初始化 Chart
             currentChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: dataObj.labels,
                     datasets: [{
                         label: dataObj.yLabel,
-                        data: [], // 初始为空，动画填充
+                        data: [], // 初始为空，由动画填充
                         borderColor: dataObj.lineColor,
                         backgroundColor: gradient,
                         borderWidth: 2,
-                        pointRadius: 0, // 不显示圆点，防止遮挡
+                        pointRadius: 0,
                         pointHoverRadius: 4,
                         fill: true,
-                        tension: 0.2 // 稍微平滑一点
+                        tension: 0.1
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: false, // 关闭自带动画，使用手动播放
-                    layout: {
-                        padding: {
-                            top: 20,
-                            bottom: 10,
-                            left: 10,
-                            right: 10
-                        }
-                    },
+                    animation: false,
+                    layout: { padding: { top: 20, bottom: 10, left: 0, right: 10 } },
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            mode: 'index',
-                            intersect: false,
                             callbacks: {
-                                label: function(context) {
-                                    return ` ${context.parsed.y.toFixed(2)}`;
-                                }
+                                label: function(ctx) { return ` ${ctx.parsed.y.toFixed(2)}`; }
                             }
                         }
                     },
                     scales: {
-                        x: { 
-                            display: false, // 隐藏 X 轴标签以节省空间
-                            grid: { display: false }
-                        },
+                        x: { display: false }, // 隐藏横坐标文字
                         y: {
-                            display: true,
                             position: 'left',
                             grid: { color: '#333' },
-                            ticks: { color: '#888', font: { size: 10 } },
-                            // 修复2：增加 grace 防止曲线顶天立地
-                            grace: '5%' 
+                            ticks: { color: '#888', font: {size:10} },
+                            grace: '10%' // 留白
                         }
                     }
                 }
             });
 
-            // 启动动画循环
             runAnimation(dataObj);
         }
     }
 
-    // 5. 动画控制逻辑
+    // 5. 动画循环
     function runAnimation(dataObj) {
+        // 如果未处于播放状态，直接显示到当前进度
         if (!state.playing) {
-            // 如果暂停，直接渲染到当前进度
             updateChartData(dataObj.values.slice(0, state.progress));
-            // 更新头部数字
-            const currentVal = dataObj.values[state.progress - 1];
-            updateHeaderInfo(currentVal, dataObj.refValue);
+            const curVal = dataObj.values[state.progress - 1];
+            updateHeaderInfo(curVal, dataObj.refValue);
             return;
         }
 
-        const totalPoints = dataObj.values.length;
-        // 修复3：根据数据量调整速度
-        // 1分钟数据(240点) -> 快(20ms)
-        // 30天数据(30点) -> 慢(150ms)
-        const speed = totalPoints > 100 ? 20 : 150;
+        const total = dataObj.values.length;
+        // 速度逻辑：数据少(30天)则慢，数据多(1分钟)则快
+        const speed = total < 100 ? 100 : 20; 
 
         currentPlaybackTimer = setInterval(() => {
             if (!state.playing) {
                 clearInterval(currentPlaybackTimer);
+                renderContent(); // 刷新按钮状态
                 return;
             }
 
             state.progress++;
-
-            // 渲染切片数据
-            const currentData = dataObj.values.slice(0, state.progress);
-            updateChartData(currentData);
             
-            // 更新头部数字
-            const lastVal = currentData[currentData.length - 1];
+            const currentSlice = dataObj.values.slice(0, state.progress);
+            updateChartData(currentSlice);
+            
+            const lastVal = currentSlice[currentSlice.length - 1];
             updateHeaderInfo(lastVal, dataObj.refValue);
 
             // 播放结束
-            if (state.progress >= totalPoints) {
-                state.playing = false; // 自动停止
+            if (state.progress >= total) {
+                state.playing = false;
                 clearInterval(currentPlaybackTimer);
-                // 重新渲染以更新按钮文字为“重播”
-                renderContent(); 
+                renderContent(); // 触发重播按钮显示
             }
-
         }, speed);
     }
 
-    function updateChartData(newData) {
+    function updateChartData(data) {
         if (currentChartInstance) {
-            currentChartInstance.data.datasets[0].data = newData;
-            currentChartInstance.update('none'); // 'none' 模式最高效
+            currentChartInstance.data.datasets[0].data = data;
+            currentChartInstance.update('none');
         }
     }
 
     function updateHeaderInfo(val, ref) {
         const pctEl = document.getElementById('modalPct');
-        const codeEl = document.getElementById('modalCode'); // 也可以用这个显示额外信息
-
-        if (val === undefined || val === null) {
+        if (val == null) {
             pctEl.innerText = '--';
             return;
         }
 
-        // 如果是价格类指标，计算涨跌幅；如果是得分/比例，直接显示数值
-        if (state.metric.includes('price') || state.metric === '1min') {
-            if (ref && ref !== 0) {
-                const chg = ((val - ref) / ref * 100).toFixed(2);
-                pctEl.innerText = `${val.toFixed(2)} (${chg > 0 ? '+' : ''}${chg}%)`;
-                pctEl.style.color = val >= ref ? '#EF4444' : '#10B981';
-            } else {
-                pctEl.innerText = val.toFixed(2);
-                pctEl.style.color = '#ddd';
-            }
+        // 只有价格相关才显示涨跌幅百分比
+        const isPrice = state.metric === '1min' || state.metric === '30d_price';
+        
+        if (isPrice && ref) {
+            const chg = ((val - ref) / ref * 100).toFixed(2);
+            pctEl.innerText = `${val.toFixed(2)} (${chg > 0 ? '+' : ''}${chg}%)`;
+            pctEl.style.color = val >= ref ? '#EF4444' : '#10B981';
         } else {
-            // 其他指标直接显示数值
+            // 资金流或PotScore直接显示数值
             pctEl.innerText = val.toFixed(2);
-            // 颜色逻辑：>0 红, <0 绿 (适用于净流入)
+            // >0 红色, <0 绿色
             pctEl.style.color = val >= 0 ? '#EF4444' : '#10B981';
         }
     }
 
-    // --- 初始化入口 ---
-    // 首次打开时，如果不处于播放中且进度为0，默认开始播放
-    // 每次打开模态框都重新渲染
-    renderContent(); 
+    // 启动
+    renderContent();
 }
+
