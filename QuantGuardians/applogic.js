@@ -2255,8 +2255,9 @@ async function initSystem() {
 
     await fetchAllStocksData(); // 新增：获取全量搜索数据
     setupAllAdhocAutoCompletes(); // 新增：设置自动补全
-    
-    
+
+    await loadEEIFlow30DaysData(); // 新增：30天市场关键字段
+        
     gameState.active = true;
     btn.innerText = "SYSTEM ONLINE";
     btn.style.boxShadow = "0 0 20px #0f0";
