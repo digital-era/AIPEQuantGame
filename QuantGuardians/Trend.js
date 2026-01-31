@@ -73,18 +73,22 @@ async function loadEEIFlow30DaysData() {
 }
 
 // ================= 图表详情函数 =================
+// ================= 图表详情函数 (完整优化版) =================
 function openDetailChart(item, color) {
     const rawCode = item.code;
-    const code = rawCode;
-    console.log(`正在打开图表: ${item.name} (${code})`);
+    const code = rawCode; 
+    console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
+    // 移动端检测
     const isMobile = window.innerWidth <= 768;
-
-    // 1. 清理旧元素
+    
+    // 彻底移除原有的 modalCode 元素，避免显示 (--)
     const oldModalCode = document.getElementById('modalCode');
-    if (oldModalCode) oldModalCode.remove();
+    if (oldModalCode) {
+        oldModalCode.remove();
+    }
 
-    // 2. 初始化状态
+    // 初始化状态
     if (!modalState[code]) {
         modalState[code] = {
             metric: '1min',
@@ -95,102 +99,126 @@ function openDetailChart(item, color) {
     }
     const state = modalState[code];
 
-    // 3. 获取模态框 DOM
+    // --- 1. 基础 DOM 设置 (含移动端布局修复) ---
     const modal = document.getElementById('chartModal');
     const modalContent = document.querySelector('.modal-content');
     modalContent.style.borderColor = color;
-
-    // --- 布局设置 ---
+    
+    // 【布局修复】：使用 Flex 列布局，限制最大高度，防止模态框溢出屏幕
     modalContent.style.display = 'flex';
     modalContent.style.flexDirection = 'column';
     modalContent.style.maxHeight = isMobile ? '95vh' : '90vh';
     modal.style.display = 'flex';
-
+    
+    // 移动端调整模态框宽度和位置
     if (isMobile) {
         modalContent.style.width = '95vw';
         modalContent.style.margin = 'auto';
-        modalContent.style.maxWidth = '95vw';
+        modalContent.style.maxWidth = '95vw'; // 确保不超过屏幕宽度
+        // 确保模态框不会超出屏幕
         modal.style.alignItems = 'center';
         modal.style.justifyContent = 'center';
-        modalContent.style.overflow = 'hidden';
+        modalContent.style.overflow = 'hidden'; // 防止内容溢出
     }
 
-    // --- 关闭按钮逻辑 ---
+    // 修改原有关闭按钮的点击事件，确保能停止播放
     const originalCloseBtn = modal.querySelector('.close-btn');
     if (originalCloseBtn) {
+        // 保存原有的点击事件（如果有的话）
         const originalOnClick = originalCloseBtn.onclick;
+        
+        // 设置新的点击事件
         originalCloseBtn.onclick = (e) => {
+            // 停止播放
             state.playing = false;
             if (currentPlaybackTimer) {
                 clearInterval(currentPlaybackTimer);
                 currentPlaybackTimer = null;
             }
+            
+            // 执行原有的关闭函数
             if (typeof originalOnClick === 'function') {
                 originalOnClick.call(originalCloseBtn, e);
             } else {
+                // 如果没有原有函数，则默认关闭模态框
                 modal.style.display = 'none';
             }
+            
+            // 阻止事件冒泡
             e.stopPropagation();
         };
+        
+        // 移动端调整关闭按钮样式
         if (isMobile) {
             originalCloseBtn.style.fontSize = '12px';
             originalCloseBtn.style.padding = '4px 8px';
-            originalCloseBtn.style.marginLeft = 'auto';
+            originalCloseBtn.style.marginLeft = 'auto'; // 靠右对齐
         }
     }
 
-    // ==========================================
-    //   标题栏重构 (核心修复区域)
-    // ==========================================
+    // --- 2. 标题栏重构 (含移动端适配) ---
     const titleEl = document.getElementById('modalTitle');
-    titleEl.innerHTML = '';
+    titleEl.innerHTML = ''; // 清空原有内容
 
     const headerDiv = document.createElement('div');
-    // 启用 flex-wrap 允许移动端换行
-    headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:5px;';
+    // 移动端标题栏布局优化
+    if (isMobile) {
+        headerDiv.style.cssText = 'display:flex; align-items:flex-start; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;';
+    } else {
+        headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%;';
+    }
 
-    // --- 左侧区域：名称 + 代码 + 数值 ---
-    const leftContainer = document.createElement('div');
-    // flex:1 确保占满左侧剩余空间，把下拉框挤到右边
-    leftContainer.style.cssText = 'display:flex; align-items:center; gap:8px; flex:1; min-width:0; margin-right:5px;';
+    // 2.1 左侧信息 (名称+代码)
+    const infoDiv = document.createElement('div');
+    if (isMobile) {
+        infoDiv.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; overflow:hidden; white-space:nowrap; min-width:0;';
+    } else {
+        infoDiv.style.cssText = 'display:flex; align-items:center; gap:5px; flex:1; overflow:hidden; white-space:nowrap;';
+    }
 
-    // 股票名称
     const nameSpan = document.createElement('span');
-    nameSpan.style.cssText = isMobile ? 'font-size:1em; font-weight:bold; white-space:nowrap;' : 'font-size:1.1em; font-weight:bold;';
+    if (isMobile) {
+        nameSpan.style.cssText = 'font-size:0.95em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:40vw;';
+    } else {
+        nameSpan.style.cssText = 'font-size:1.1em; font-weight:bold; text-overflow:ellipsis; overflow:hidden;';
+    }
     nameSpan.textContent = item.name;
-    leftContainer.appendChild(nameSpan);
+    infoDiv.appendChild(nameSpan);
 
-    // 股票代码
     const codeSpan = document.createElement('span');
-    codeSpan.style.cssText = 'font-size:0.9em; color:#aaa; font-family:"Courier New", monospace;';
+    if (isMobile) {
+        codeSpan.style.cssText = 'font-size:0.8em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+    } else {
+        codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+    }
     codeSpan.textContent = `(${code})`;
-    leftContainer.appendChild(codeSpan);
+    infoDiv.appendChild(codeSpan);
+    headerDiv.appendChild(infoDiv);
 
-    // 【关键修复】数值显示区域 (初始化为 --)
-    const pctSpan = document.createElement('span');
-    pctSpan.id = 'modalPct'; // 确保 ID 存在
-    pctSpan.textContent = '--'; // 默认占位
-    pctSpan.style.cssText = isMobile 
-        ? 'font-weight:bold; font-family:monospace; margin-left:2px; font-size:0.95em;' 
-        : 'font-weight:bold; font-family:monospace; margin-left:8px; font-size:1.1em;';
-    leftContainer.appendChild(pctSpan);
-
-    headerDiv.appendChild(leftContainer);
-
-    // --- 右侧区域：下拉框 ---
+    // 2.2 右侧操作区 (下拉框) - 重点修复右边界问题
     const actionDiv = document.createElement('div');
     if (isMobile) {
-        // 移动端：强制换行(width:100%) 并 靠右对齐(justify-content:flex-end)
-        actionDiv.style.cssText = 'display:flex; align-items:center; width:100%; justify-content:flex-end; margin-top:5px; order:2;';
+        actionDiv.style.cssText = 'display:flex; align-items:center; gap:4px; flex-shrink:0; min-width:0; flex-wrap:nowrap;';
     } else {
         actionDiv.style.cssText = 'display:flex; align-items:center; gap:8px; flex-shrink:0;';
     }
 
     const select = document.createElement('select');
     select.id = 'metricSelect';
-    select.style.cssText = isMobile 
-        ? 'background:#333; color:#fff; border:1px solid #555; padding:2px 8px; border-radius:4px; font-size:12px; height:26px;' 
-        : 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer;';
+    
+    // 【重要修复】：移动端下拉框右边界问题
+    if (isMobile) {
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 6px; border-radius:4px; font-size:11px; cursor:pointer; max-width: 45vw; box-sizing:border-box; width:auto; flex-shrink:1; min-width: 0; overflow:hidden; text-overflow:ellipsis;';
+        
+        // 创建包装容器，确保下拉框不会溢出
+        const selectWrapper = document.createElement('div');
+        selectWrapper.style.cssText = 'position:relative; max-width:45vw; flex-shrink:1;';
+        selectWrapper.appendChild(select);
+        actionDiv.appendChild(selectWrapper);
+    } else {
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; max-width: 100%; box-sizing:border-box; width:auto;';
+        actionDiv.appendChild(select);
+    }
 
     const optionsList = [
         { value: '1min',      label: '1分价格' },
@@ -203,18 +231,25 @@ function openDetailChart(item, color) {
     optionsList.forEach(opt => {
         const option = document.createElement('option');
         option.value = opt.value;
-        option.textContent = opt.label;
+        // 移动端选项文字缩短
+        if (isMobile && opt.label.length > 4) {
+            option.textContent = opt.label.replace('价格', '价').replace('占比', '占');
+        } else {
+            option.textContent = opt.label;
+        }
         if (opt.value === state.metric) option.selected = true;
         select.appendChild(option);
     });
+    
+    // 注意：这里不再创建关闭按钮，使用HTML中原有的关闭按钮
 
-    actionDiv.appendChild(select);
     headerDiv.appendChild(actionDiv);
     titleEl.appendChild(headerDiv);
 
     // 绑定 change 事件
     const handleMetricChange = (e) => {
-        state.metric = e.target.value;
+        const newMetric = e.target.value;
+        state.metric = newMetric;
         state.progress = 0;
         state.playing = true;
         state.view = 'chart';
@@ -223,27 +258,32 @@ function openDetailChart(item, color) {
     select.removeEventListener('change', handleMetricChange);
     select.addEventListener('change', handleMetricChange);
 
-    // --- 控制栏容器 ---
+    // 确保控制栏存在
     let controlsContainer = document.getElementById('chartControls');
     if (!controlsContainer) {
         controlsContainer = document.createElement('div');
         controlsContainer.id = 'chartControls';
-        controlsContainer.style.cssText = isMobile 
-            ? "display:flex; justify-content:center; gap:10px; margin-top:8px; padding-top:8px; border-top:1px solid #333; flex-shrink: 0; flex-wrap:wrap;"
-            : "display:flex; justify-content:center; gap:15px; margin-top:10px; padding-top:10px; border-top:1px solid #333; flex-shrink: 0;";
+        if (isMobile) {
+            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:10px; margin-top:8px; padding-top:8px; border-top:1px solid #333; flex-shrink: 0; flex-wrap:wrap;";
+        } else {
+            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:15px; margin-top:10px; padding-top:10px; border-top:1px solid #333; flex-shrink: 0;";
+        }
         modalContent.appendChild(controlsContainer);
     }
 
-    // --- 数据获取函数 ---
+    // --- 3. 数据获取 ---
     function getData() {
-        let labels = [], values = [], pctChanges = [];
-        let refValue = 0, yLabel = '', lineColor = color;
+        let labels = [];
+        let values = [];
+        let pctChanges = []; // 存储涨跌幅
+        let refValue = 0;
+        let yLabel = '';
+        let lineColor = color;
 
         if (state.metric === '1min') {
             if (item.history && item.history.length > 0) {
                 values = item.history;
                 labels = values.map((_, i) => i);
-                // 1分钟线的基准价计算
                 refValue = item.refPrice || values[0];
                 if (item.officialChangePercent != null && item.currentPrice) {
                     refValue = item.currentPrice / (1 + item.officialChangePercent / 100);
@@ -258,7 +298,7 @@ function openDetailChart(item, color) {
                 switch (state.metric) {
                     case '30d_price':
                         values = recent30.map(r => Number(r['收盘价']));
-                        pctChanges = recent30.map(r => Number(r['涨跌幅']));
+                        pctChanges = recent30.map(r => Number(r['涨跌幅'])); // 获取 Excel 中的涨跌幅
                         refValue = values[0] || 0;
                         yLabel = '收盘价';
                         lineColor = values[values.length-1] >= refValue ? '#EF4444' : '#10B981';
@@ -284,22 +324,29 @@ function openDetailChart(item, color) {
         return { labels, values, pctChanges, refValue, yLabel, lineColor };
     }
 
-    // --- 渲染内容主函数 ---
+    // --- 4. 渲染内容 ---
     function renderContent() {
         const dataObj = getData();
 
-        // 清理旧实例
-        if (currentChartInstance) { currentChartInstance.destroy(); currentChartInstance = null; }
-        if (currentPlaybackTimer) { clearInterval(currentPlaybackTimer); currentPlaybackTimer = null; }
+        if (currentChartInstance) {
+            currentChartInstance.destroy();
+            currentChartInstance = null;
+        }
+        if (currentPlaybackTimer) {
+            clearInterval(currentPlaybackTimer);
+            currentPlaybackTimer = null;
+        }
 
         controlsContainer.innerHTML = '';
 
-        // 1. 播放按钮
+        // 4.1 播放/暂停按钮
         if (state.view === 'chart') {
             const playBtn = document.createElement('button');
-            playBtn.style.cssText = isMobile 
-                ? "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;"
-                : "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+            if (isMobile) {
+                playBtn.style.cssText = "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;";
+            } else {
+                playBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+            }
             const isFinished = state.progress >= dataObj.values.length && dataObj.values.length > 0;
             playBtn.innerHTML = isFinished ? "↺ 重播" : (state.playing ? "❚❚ 暂停" : "▶ 播放");
             if (isFinished) playBtn.style.background = "#2d5a2d";
@@ -311,11 +358,13 @@ function openDetailChart(item, color) {
             controlsContainer.appendChild(playBtn);
         }
 
-        // 2. 视图切换按钮
+        // 4.2 切换视图按钮
         const viewBtn = document.createElement('button');
-        viewBtn.style.cssText = isMobile 
-            ? "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;"
-            : "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+        if (isMobile) {
+            viewBtn.style.cssText = "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;";
+        } else {
+            viewBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+        }
         viewBtn.innerText = state.view === 'chart' ? "📅 表格" : "📈 图表";
         viewBtn.onclick = () => {
             state.view = state.view === 'chart' ? 'table' : 'chart';
@@ -324,67 +373,95 @@ function openDetailChart(item, color) {
         };
         controlsContainer.appendChild(viewBtn);
 
-        // 3. 容器设置
+        // 4.3 容器与表格初始化
         const canvas = document.getElementById('detailChartCanvas');
         const container = canvas.parentNode;
+        
+        // 【布局修复】：Flex布局容器
         container.style.flex = "1";
+        container.style.minHeight = "0"; 
         container.style.display = "flex";
         container.style.flexDirection = "column";
-        if (isMobile) container.style.padding = "0 2px";
+        
+        // 移动端容器内边距调整
+        if (isMobile) {
+            container.style.padding = "0 2px";
+        }
 
         let tableDiv = document.getElementById('detailTableContainer');
         if (!tableDiv) {
             tableDiv = document.createElement('div');
             tableDiv.id = 'detailTableContainer';
-            const tableMaxHeight = isMobile ? 'calc(95vh - 120px)' : '45vh';
-            tableDiv.style.cssText = `flex:1; width:100%; max-height:${tableMaxHeight}; overflow-y:auto; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:8px; -webkit-overflow-scrolling: touch;`;
+            // 【重要修复】：移动端表格下边界问题
+            if (isMobile) {
+                // 计算可用高度：模态框高度 - 标题高度 - 控制栏高度 - 内边距
+                const tableMaxHeight = 'calc(95vh - 120px)';
+                tableDiv.style.cssText = `flex:1; width:100%; max-height: ${tableMaxHeight}; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:8px; -webkit-overflow-scrolling: touch;`;
+            } else {
+                tableDiv.style.cssText = "flex:1; width:100%; max-height: 45vh; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px; -webkit-overflow-scrolling: touch;";
+            }
             container.appendChild(tableDiv);
         }
 
-        // --- 立即更新头部数值 (防止空白) ---
-        // 如果正在播放且进度为0，显示第0个；如果播放完，显示最后一个。
-        // 安全起见，如果 values 不为空，先显示当前进度对应的值。
-        if (dataObj.values.length > 0) {
-            let initialIdx = state.progress;
-            if (initialIdx >= dataObj.values.length) initialIdx = dataObj.values.length - 1;
-            if (initialIdx < 0) initialIdx = 0;
-            
-            updateHeaderInfo(
-                dataObj.values[initialIdx], 
-                dataObj.refValue, 
-                dataObj.pctChanges ? dataObj.pctChanges[initialIdx] : null
-            );
-        } else {
-            updateHeaderInfo(null);
-        }
+        const pctEl = document.getElementById('modalPct');
+        if(pctEl) pctEl.innerText = '';
 
         if (dataObj.values.length === 0) {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
-            tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#666;">暂无 [${state.metric}] 数据</div>`;
+            tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#666;">
+                暂无 [${state.metric}] 数据<br>
+                <small>请确认代码 ${code} 是否存在于 Excel 中</small>
+            </div>`;
             return;
         }
 
-        // --- 视图渲染 ---
+        // --- 表格视图逻辑 ---
         if (state.view === 'table') {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
-            // (表格渲染逻辑省略，保持原有即可，或者如果不显示请告诉我补全)
-            // 简单补全表格逻辑：
-            const cellPad = isMobile ? '3px 2px' : '6px 8px';
-            let html = `<table style="width:100%; border-collapse:collapse; font-size:${isMobile?'10px':'13px'};"><thead><tr><th style="text-align:left;padding:${cellPad}">日期</th><th style="text-align:right;padding:${cellPad}">${dataObj.yLabel}</th>${state.metric==='30d_price'?`<th style="text-align:right;padding:${cellPad}">涨跌幅</th>`:''}</tr></thead><tbody>`;
-            for(let i=dataObj.values.length-1; i>=0; i--){
-                const v=dataObj.values[i];
-                let cStyle='#ddd';
-                if(state.metric.includes('pot')||state.metric.includes('super')||state.metric.includes('main')) cStyle = v>=0?'#ff4444':'#00cc00';
-                html += `<tr style="border-bottom:1px solid #333;"><td style="padding:${cellPad};color:#aaa;">${dataObj.labels[i]}</td><td style="padding:${cellPad};text-align:right;color:${cStyle};font-family:monospace;">${v.toFixed(2)}</td>${state.metric==='30d_price'?`<td style="padding:${cellPad};text-align:right;color:${dataObj.pctChanges[i]>=0?'#ff4444':'#00cc00'};font-family:monospace;">${dataObj.pctChanges[i]>=0?'+':''}${dataObj.pctChanges[i].toFixed(2)}%</td>`:''}</tr>`;
+
+            // 移动端表格字体更小，压缩布局
+            const tableFontSize = isMobile ? '10px' : '13px';
+            const cellPadding = isMobile ? '3px 2px' : '6px 8px';
+            
+            let html = `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; table-layout:fixed;">
+                <thead style="background:#2d2d2d; position:sticky; top:0; z-index:1;">
+                    <tr>
+                        <th style="padding:${cellPadding}; text-align:left; width:${isMobile ? '35%' : 'auto'};">日期</th>
+                        <th style="padding:${cellPadding}; text-align:right; width:${isMobile ? '30%' : 'auto'};">${dataObj.yLabel}</th>
+                        ${state.metric === '30d_price' ? `<th style="padding:${cellPadding}; text-align:right; width:${isMobile ? '35%' : 'auto'};">涨跌幅</th>` : ''}
+                    </tr>
+                </thead>
+                <tbody>`;
+            for (let i = dataObj.values.length - 1; i >= 0; i--) {
+                const val = dataObj.values[i];
+                let colorStyle = '#ddd';
+                
+                // 表格内的颜色逻辑
+                if (state.metric === '30d_price') {
+                   // 价格本身如果是红绿显示需要参照昨日，这里简化处理，主要看涨跌幅列
+                } else if (state.metric.includes('super') || state.metric.includes('main') || state.metric.includes('pot')) {
+                   colorStyle = val >= 0 ? '#ff4444' : '#00cc00';
+                }
+
+                html += `<tr style="border-bottom:1px solid #333;">
+                    <td style="padding:${cellPadding}; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dataObj.labels[i]}</td>
+                    <td style="padding:${cellPadding}; text-align:right; color:${colorStyle}; font-family:monospace; white-space:nowrap;">${Number(val).toFixed(2)}</td>
+                    ${state.metric === '30d_price' ? renderTablePctCell(dataObj.pctChanges[i], cellPadding, isMobile) : ''}
+                </tr>`;
             }
-            html+='</tbody></table>';
+            html += `</tbody></table>`;
             tableDiv.innerHTML = html;
-        } else {
+
+            const lastIdx = dataObj.values.length - 1;
+            updateHeaderInfo(dataObj.values[lastIdx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[lastIdx] : null);
+        } 
+        // --- 图表视图逻辑 ---
+        else {
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
-            canvas.style.maxHeight = isMobile ? 'calc(95vh - 150px)' : '50vh';
+            canvas.style.maxHeight = isMobile ? 'calc(95vh - 150px)' : '50vh'; 
 
             const ctx = canvas.getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -393,55 +470,98 @@ function openDetailChart(item, color) {
 
             currentChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: dataObj.labels,
-                    datasets: [{
-                        label: dataObj.yLabel,
-                        data: [], // 初始为空，由动画填充
-                        borderColor: dataObj.lineColor,
-                        backgroundColor: gradient,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 4,
-                        fill: true,
-                        tension: 0.1
-                    }]
+                data: { 
+                    labels: dataObj.labels, 
+                    datasets: [{ 
+                        label: dataObj.yLabel, 
+                        data: [], 
+                        borderColor: dataObj.lineColor, 
+                        backgroundColor: gradient, 
+                        borderWidth: 2, 
+                        pointRadius: 0, 
+                        pointHoverRadius: 4, 
+                        fill: true, 
+                        tension: 0.1 
+                    }] 
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { position: 'left', grid: { color: '#333' }, ticks: { color: '#888' } }
-                    }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    animation: false, 
+                    layout: { padding: { top: 20, bottom: 10, left: 0, right: 10 } }, 
+                    interaction: { mode: 'index', intersect: false }, 
+                    plugins: { 
+                        legend: { display: false },
+                        // 【新功能实现】：自定义 Tooltip，显示30天价格的涨跌幅
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2);
+                                    }
+                                    
+                                    // 检查是否为 30天价格，且有涨跌幅数据
+                                    if (state.metric === '30d_price' && dataObj.pctChanges) {
+                                        const idx = context.dataIndex; // 获取当前鼠标所在的索引
+                                        const pct = dataObj.pctChanges[idx]; // 获取对应的涨跌幅
+                                        if (pct !== null && pct !== undefined) {
+                                            const sign = pct >= 0 ? '+' : '';
+                                            label += ` (${sign}${pct.toFixed(2)}%)`;
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }, 
+                    scales: { 
+                        x: { display: false }, 
+                        y: { position: 'left', grid: { color: '#333' }, ticks: { color: '#888', font: {size:10} }, grace: '10%' } 
+                    } 
                 }
             });
+
             runAnimation(dataObj);
         }
+    }
+
+    // 辅助函数：渲染表格中的涨跌幅单元格
+    function renderTablePctCell(pct, padding, isMobile) {
+        if (pct === null || pct === undefined) return `<td style="padding:${padding};"></td>`;
+        const color = pct >= 0 ? '#ff4444' : '#00cc00';
+        const sign = pct >= 0 ? '+' : '';
+        return `<td style="padding:${padding}; text-align:right; color:${color}; font-family:monospace; white-space:nowrap;">${sign}${isMobile ? pct.toFixed(1) : pct.toFixed(2)}%</td>`;
     }
 
     // --- 动画逻辑 ---
     function runAnimation(dataObj) {
         if (!state.playing) {
             updateChartData(dataObj.values.slice(0, state.progress));
+            const idx = Math.max(0, state.progress - 1);
+            updateHeaderInfo(dataObj.values[idx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[idx] : null);
             return;
         }
+
         const total = dataObj.values.length;
         const speed = total < 100 ? 100 : 20;
 
         currentPlaybackTimer = setInterval(() => {
-            if (!state.playing) { clearInterval(currentPlaybackTimer); return; }
+            if (!state.playing) {
+                clearInterval(currentPlaybackTimer);
+                renderContent();
+                return;
+            }
+
             state.progress++;
             const currentSlice = dataObj.values.slice(0, state.progress);
             updateChartData(currentSlice);
 
             const idx = state.progress - 1;
-            if (idx >= 0) {
-                updateHeaderInfo(dataObj.values[idx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[idx] : null);
-            }
+            updateHeaderInfo(currentSlice[idx], dataObj.refValue, dataObj.pctChanges ? dataObj.pctChanges[idx] : null);
 
             if (state.progress >= total) {
                 state.playing = false;
@@ -458,56 +578,43 @@ function openDetailChart(item, color) {
         }
     }
 
-    // --- 头部数值更新 (终极修复版) ---
+    // --- 更新头部数字 ---
     function updateHeaderInfo(val, ref, directPct) {
         const pctEl = document.getElementById('modalPct');
         if (!pctEl) return;
-
-        // 如果值为 null/undefined，显示横线
-        if (val === null || val === undefined) {
-            pctEl.innerText = '--';
-            pctEl.style.color = '#888';
-            return;
+        pctEl.innerText = ''; 
+        pctEl.style.color = '#fff';
+        
+        // 移动端调整字体大小
+        if (isMobile) {
+            pctEl.style.fontSize = '1.1em';
         }
 
-        // 1. 1分钟线逻辑
-        if (state.metric === '1min') {
+        if (val == null) return;
+
+        if (state.metric === '30d_price') {
+            if (directPct !== null && directPct !== undefined) {
+                const sign = directPct >= 0 ? '+' : '';
+                const color = directPct >= 0 ? '#EF4444' : '#10B981';
+                pctEl.innerText = isMobile ? 
+                    `${val.toFixed(2)} (${sign}${directPct.toFixed(1)}%)` : 
+                    `${val.toFixed(2)} (${sign}${directPct.toFixed(2)}%)`;
+                pctEl.style.color = color;
+            } else {
+                pctEl.innerText = `${val.toFixed(2)}`;
+            }
+        } 
+        else if (state.metric === '1min') {
             if (ref && ref !== 0) {
                 const chg = ((val - ref) / ref * 100);
                 const sign = chg >= 0 ? '+' : '';
                 const color = chg >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = `${val.toFixed(2)} ${sign}${chg.toFixed(2)}%`;
+                pctEl.innerText = isMobile ? 
+                    `${val.toFixed(2)} (${sign}${chg.toFixed(1)}%)` : 
+                    `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
                 pctEl.style.color = color;
             } else {
-                pctEl.innerText = val.toFixed(2);
-                pctEl.style.color = '#fff';
-            }
-        } 
-        // 2. 30天价格逻辑 (使用 Excel 中的涨跌幅)
-        else if (state.metric === '30d_price') {
-            if (directPct !== null && directPct !== undefined) {
-                const sign = directPct >= 0 ? '+' : '';
-                const color = directPct >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = `${val.toFixed(2)} ${sign}${directPct.toFixed(2)}%`;
-                pctEl.style.color = color;
-            } else {
-                pctEl.innerText = val.toFixed(2);
-                pctEl.style.color = '#fff';
-            }
-        } 
-        // 3. 其他指标逻辑 (Pot, Super, Main)
-        else {
-            pctEl.innerText = val.toFixed(2);
-            // 颜色判断
-            if (state.metric.includes('pot')) {
-                pctEl.style.color = '#FFD700'; // 金色
-            } else {
-                // 资金流向，正红负绿
-                pctEl.style.color = val >= 0 ? '#EF4444' : '#10B981';
-            }
-            // 如果是占比，加 %
-            if (state.metric.includes('super') || state.metric.includes('main')) {
-                pctEl.innerText += '%';
+                pctEl.innerText = `${val.toFixed(2)}`;
             }
         }
     }
