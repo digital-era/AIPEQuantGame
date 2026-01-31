@@ -110,10 +110,15 @@ function openDetailChart(item, color) {
     modalContent.style.maxHeight = isMobile ? '95vh' : '90vh';
     modal.style.display = 'flex';
     
-    // 移动端调整模态框宽度
+    // 移动端调整模态框宽度和位置
     if (isMobile) {
         modalContent.style.width = '95vw';
         modalContent.style.margin = 'auto';
+        modalContent.style.maxWidth = '95vw'; // 确保不超过屏幕宽度
+        // 确保模态框不会超出屏幕
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modalContent.style.overflow = 'hidden'; // 防止内容溢出
     }
 
     // 修改原有关闭按钮的点击事件，确保能停止播放
@@ -142,6 +147,13 @@ function openDetailChart(item, color) {
             // 阻止事件冒泡
             e.stopPropagation();
         };
+        
+        // 移动端调整关闭按钮样式
+        if (isMobile) {
+            originalCloseBtn.style.fontSize = '12px';
+            originalCloseBtn.style.padding = '4px 8px';
+            originalCloseBtn.style.marginLeft = 'auto'; // 靠右对齐
+        }
     }
 
     // --- 2. 标题栏重构 (含移动端适配) ---
@@ -149,38 +161,63 @@ function openDetailChart(item, color) {
     titleEl.innerHTML = ''; // 清空原有内容
 
     const headerDiv = document.createElement('div');
-    headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%;';
+    // 移动端标题栏布局优化
+    if (isMobile) {
+        headerDiv.style.cssText = 'display:flex; align-items:flex-start; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;';
+    } else {
+        headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%;';
+    }
 
     // 2.1 左侧信息 (名称+代码)
     const infoDiv = document.createElement('div');
-    infoDiv.style.cssText = 'display:flex; align-items:center; gap:5px; flex:1; overflow:hidden; white-space:nowrap;';
+    if (isMobile) {
+        infoDiv.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; overflow:hidden; white-space:nowrap; min-width:0;';
+    } else {
+        infoDiv.style.cssText = 'display:flex; align-items:center; gap:5px; flex:1; overflow:hidden; white-space:nowrap;';
+    }
 
     const nameSpan = document.createElement('span');
-    nameSpan.style.cssText = 'font-size:1.1em; font-weight:bold; text-overflow:ellipsis; overflow:hidden;';
+    if (isMobile) {
+        nameSpan.style.cssText = 'font-size:0.95em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:40vw;';
+    } else {
+        nameSpan.style.cssText = 'font-size:1.1em; font-weight:bold; text-overflow:ellipsis; overflow:hidden;';
+    }
     nameSpan.textContent = item.name;
     infoDiv.appendChild(nameSpan);
 
     const codeSpan = document.createElement('span');
-    // 普通字体，白色，适中的透明度
-    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+    if (isMobile) {
+        codeSpan.style.cssText = 'font-size:0.8em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+    } else {
+        codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+    }
     codeSpan.textContent = `(${code})`;
     infoDiv.appendChild(codeSpan);
     headerDiv.appendChild(infoDiv);
 
-    // 2.2 右侧操作区 (下拉框)
+    // 2.2 右侧操作区 (下拉框) - 重点修复右边界问题
     const actionDiv = document.createElement('div');
-    actionDiv.style.cssText = 'display:flex; align-items:center; gap:8px; flex-shrink:0;';
+    if (isMobile) {
+        actionDiv.style.cssText = 'display:flex; align-items:center; gap:4px; flex-shrink:0; min-width:0; flex-wrap:nowrap;';
+    } else {
+        actionDiv.style.cssText = 'display:flex; align-items:center; gap:8px; flex-shrink:0;';
+    }
 
     const select = document.createElement('select');
     select.id = 'metricSelect';
-    // 【移动端优化】：使用响应式宽度
-    select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; max-width: 100%; box-sizing:border-box; width:auto;';
-
-    // 移动端特定样式
+    
+    // 【重要修复】：移动端下拉框右边界问题
     if (isMobile) {
-        select.style.fontSize = '12px';
-        select.style.padding = '4px 6px';
-        select.style.maxWidth = '90%';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 6px; border-radius:4px; font-size:11px; cursor:pointer; max-width: 45vw; box-sizing:border-box; width:auto; flex-shrink:1; min-width: 0; overflow:hidden; text-overflow:ellipsis;';
+        
+        // 创建包装容器，确保下拉框不会溢出
+        const selectWrapper = document.createElement('div');
+        selectWrapper.style.cssText = 'position:relative; max-width:45vw; flex-shrink:1;';
+        selectWrapper.appendChild(select);
+        actionDiv.appendChild(selectWrapper);
+    } else {
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; max-width: 100%; box-sizing:border-box; width:auto;';
+        actionDiv.appendChild(select);
     }
 
     const optionsList = [
@@ -194,11 +231,15 @@ function openDetailChart(item, color) {
     optionsList.forEach(opt => {
         const option = document.createElement('option');
         option.value = opt.value;
-        option.textContent = opt.label;
+        // 移动端选项文字缩短
+        if (isMobile && opt.label.length > 4) {
+            option.textContent = opt.label.replace('价格', '价').replace('占比', '占');
+        } else {
+            option.textContent = opt.label;
+        }
         if (opt.value === state.metric) option.selected = true;
         select.appendChild(option);
     });
-    actionDiv.appendChild(select);
     
     // 注意：这里不再创建关闭按钮，使用HTML中原有的关闭按钮
 
@@ -222,7 +263,11 @@ function openDetailChart(item, color) {
     if (!controlsContainer) {
         controlsContainer = document.createElement('div');
         controlsContainer.id = 'chartControls';
-        controlsContainer.style.cssText = "display:flex; justify-content:center; gap:15px; margin-top:10px; padding-top:10px; border-top:1px solid #333; flex-shrink: 0;";
+        if (isMobile) {
+            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:10px; margin-top:8px; padding-top:8px; border-top:1px solid #333; flex-shrink: 0; flex-wrap:wrap;";
+        } else {
+            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:15px; margin-top:10px; padding-top:10px; border-top:1px solid #333; flex-shrink: 0;";
+        }
         modalContent.appendChild(controlsContainer);
     }
 
@@ -297,7 +342,11 @@ function openDetailChart(item, color) {
         // 4.1 播放/暂停按钮
         if (state.view === 'chart') {
             const playBtn = document.createElement('button');
-            playBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+            if (isMobile) {
+                playBtn.style.cssText = "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;";
+            } else {
+                playBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+            }
             const isFinished = state.progress >= dataObj.values.length && dataObj.values.length > 0;
             playBtn.innerHTML = isFinished ? "↺ 重播" : (state.playing ? "❚❚ 暂停" : "▶ 播放");
             if (isFinished) playBtn.style.background = "#2d5a2d";
@@ -311,8 +360,12 @@ function openDetailChart(item, color) {
 
         // 4.2 切换视图按钮
         const viewBtn = document.createElement('button');
-        viewBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
-        viewBtn.innerText = state.view === 'chart' ? "📅 切换表格" : "📈 切换图表";
+        if (isMobile) {
+            viewBtn.style.cssText = "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;";
+        } else {
+            viewBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+        }
+        viewBtn.innerText = state.view === 'chart' ? "📅 表格" : "📈 图表";
         viewBtn.onclick = () => {
             state.view = state.view === 'chart' ? 'table' : 'chart';
             state.playing = false;
@@ -329,14 +382,24 @@ function openDetailChart(item, color) {
         container.style.minHeight = "0"; 
         container.style.display = "flex";
         container.style.flexDirection = "column";
+        
+        // 移动端容器内边距调整
+        if (isMobile) {
+            container.style.padding = "0 2px";
+        }
 
         let tableDiv = document.getElementById('detailTableContainer');
         if (!tableDiv) {
             tableDiv = document.createElement('div');
             tableDiv.id = 'detailTableContainer';
-            // 【移动端优化】：更好的高度控制和滚动
-            const tableMaxHeight = isMobile ? 'calc(80vh - 150px)' : '45vh';
-            tableDiv.style.cssText = `flex:1; width:100%; max-height: ${tableMaxHeight}; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px; -webkit-overflow-scrolling: touch;`;
+            // 【重要修复】：移动端表格下边界问题
+            if (isMobile) {
+                // 计算可用高度：模态框高度 - 标题高度 - 控制栏高度 - 内边距
+                const tableMaxHeight = 'calc(95vh - 120px)';
+                tableDiv.style.cssText = `flex:1; width:100%; max-height: ${tableMaxHeight}; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:8px; -webkit-overflow-scrolling: touch;`;
+            } else {
+                tableDiv.style.cssText = "flex:1; width:100%; max-height: 45vh; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px; -webkit-overflow-scrolling: touch;";
+            }
             container.appendChild(tableDiv);
         }
 
@@ -358,16 +421,16 @@ function openDetailChart(item, color) {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
 
-            // 移动端表格字体更小
-            const tableFontSize = isMobile ? '11px' : '13px';
-            const cellPadding = isMobile ? '4px 3px' : '6px 8px';
+            // 移动端表格字体更小，压缩布局
+            const tableFontSize = isMobile ? '10px' : '13px';
+            const cellPadding = isMobile ? '3px 2px' : '6px 8px';
             
-            let html = `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
+            let html = `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; table-layout:fixed;">
                 <thead style="background:#2d2d2d; position:sticky; top:0; z-index:1;">
                     <tr>
-                        <th style="padding:${cellPadding}; text-align:left;">日期</th>
-                        <th style="padding:${cellPadding}; text-align:right;">${dataObj.yLabel}</th>
-                        ${state.metric === '30d_price' ? `<th style="padding:${cellPadding}; text-align:right;">涨跌幅</th>` : ''}
+                        <th style="padding:${cellPadding}; text-align:left; width:${isMobile ? '35%' : 'auto'};">日期</th>
+                        <th style="padding:${cellPadding}; text-align:right; width:${isMobile ? '30%' : 'auto'};">${dataObj.yLabel}</th>
+                        ${state.metric === '30d_price' ? `<th style="padding:${cellPadding}; text-align:right; width:${isMobile ? '35%' : 'auto'};">涨跌幅</th>` : ''}
                     </tr>
                 </thead>
                 <tbody>`;
@@ -383,9 +446,9 @@ function openDetailChart(item, color) {
                 }
 
                 html += `<tr style="border-bottom:1px solid #333;">
-                    <td style="padding:${cellPadding}; color:#aaa;">${dataObj.labels[i]}</td>
-                    <td style="padding:${cellPadding}; text-align:right; color:${colorStyle}; font-family:monospace;">${Number(val).toFixed(2)}</td>
-                    ${state.metric === '30d_price' ? renderTablePctCell(dataObj.pctChanges[i], cellPadding) : ''}
+                    <td style="padding:${cellPadding}; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dataObj.labels[i]}</td>
+                    <td style="padding:${cellPadding}; text-align:right; color:${colorStyle}; font-family:monospace; white-space:nowrap;">${Number(val).toFixed(2)}</td>
+                    ${state.metric === '30d_price' ? renderTablePctCell(dataObj.pctChanges[i], cellPadding, isMobile) : ''}
                 </tr>`;
             }
             html += `</tbody></table>`;
@@ -398,7 +461,7 @@ function openDetailChart(item, color) {
         else {
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
-            canvas.style.maxHeight = isMobile ? '45vh' : '50vh'; 
+            canvas.style.maxHeight = isMobile ? 'calc(95vh - 150px)' : '50vh'; 
 
             const ctx = canvas.getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -467,11 +530,11 @@ function openDetailChart(item, color) {
     }
 
     // 辅助函数：渲染表格中的涨跌幅单元格
-    function renderTablePctCell(pct, padding) {
+    function renderTablePctCell(pct, padding, isMobile) {
         if (pct === null || pct === undefined) return `<td style="padding:${padding};"></td>`;
         const color = pct >= 0 ? '#ff4444' : '#00cc00';
         const sign = pct >= 0 ? '+' : '';
-        return `<td style="padding:${padding}; text-align:right; color:${color}; font-family:monospace;">${sign}${pct.toFixed(2)}%</td>`;
+        return `<td style="padding:${padding}; text-align:right; color:${color}; font-family:monospace; white-space:nowrap;">${sign}${isMobile ? pct.toFixed(1) : pct.toFixed(2)}%</td>`;
     }
 
     // --- 动画逻辑 ---
@@ -521,6 +584,11 @@ function openDetailChart(item, color) {
         if (!pctEl) return;
         pctEl.innerText = ''; 
         pctEl.style.color = '#fff';
+        
+        // 移动端调整字体大小
+        if (isMobile) {
+            pctEl.style.fontSize = '1.1em';
+        }
 
         if (val == null) return;
 
@@ -528,7 +596,9 @@ function openDetailChart(item, color) {
             if (directPct !== null && directPct !== undefined) {
                 const sign = directPct >= 0 ? '+' : '';
                 const color = directPct >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = `${val.toFixed(2)} (${sign}${directPct.toFixed(2)}%)`;
+                pctEl.innerText = isMobile ? 
+                    `${val.toFixed(2)} (${sign}${directPct.toFixed(1)}%)` : 
+                    `${val.toFixed(2)} (${sign}${directPct.toFixed(2)}%)`;
                 pctEl.style.color = color;
             } else {
                 pctEl.innerText = `${val.toFixed(2)}`;
@@ -539,7 +609,9 @@ function openDetailChart(item, color) {
                 const chg = ((val - ref) / ref * 100);
                 const sign = chg >= 0 ? '+' : '';
                 const color = chg >= 0 ? '#EF4444' : '#10B981';
-                pctEl.innerText = `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
+                pctEl.innerText = isMobile ? 
+                    `${val.toFixed(2)} (${sign}${chg.toFixed(1)}%)` : 
+                    `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
                 pctEl.style.color = color;
             } else {
                 pctEl.innerText = `${val.toFixed(2)}`;
