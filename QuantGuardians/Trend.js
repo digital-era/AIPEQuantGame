@@ -21,7 +21,6 @@ async function loadEEIFlow30DaysData() {
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
 
-        // 使用 XLSX.utils.sheet_to_json 简化读取，但需要手动处理列名映射以防万一
         const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: null });
         
         const dataMap = {};
@@ -35,11 +34,10 @@ async function loadEEIFlow30DaysData() {
             // 2. 处理日期：统一格式为 YYYY-MM-DD
             let dateStr = row['日期'];
             if (typeof dateStr === 'number') {
-                // 处理 Excel 序列日期
                 const dateObj = new Date(Math.round((dateStr - 25569)*86400*1000));
                 dateStr = dateObj.toISOString().split('T')[0];
             } else {
-                dateStr = String(dateStr || '').trim().split(' ')[0]; // 去掉可能的时间部分
+                dateStr = String(dateStr || '').trim().split(' ')[0];
             }
 
             // 3. 构建数据对象
@@ -47,7 +45,7 @@ async function loadEEIFlow30DaysData() {
                 '代码': code,
                 '日期': dateStr,
                 '收盘价': Number(row['收盘价'] || 0),
-                '涨跌幅': Number(row['涨跌幅'] || 0),
+                '涨跌幅': Number(row['涨跌幅'] || 0), // 重点：保留原始涨跌幅
                 'PotScore': Number(row['PotScore'] || 0),
                 '超大单净流入-净占比': Number(row['超大单净流入-净占比'] || 0),
                 '主力净流入-净占比': Number(row['主力净流入-净占比'] || 0),
@@ -61,7 +59,7 @@ async function loadEEIFlow30DaysData() {
             dataMap[code].push(cleanRow);
         });
 
-        // 4. 排序：按日期升序（旧 -> 新），方便图表绘制
+        // 4. 排序：按日期升序
         Object.keys(dataMap).forEach(key => {
             dataMap[key].sort((a, b) => a['日期'].localeCompare(b['日期']));
         });
@@ -74,10 +72,10 @@ async function loadEEIFlow30DaysData() {
     }
 }
 
-// [修复版] openDetailChart
+// ================= 图表详情函数 =================
 function openDetailChart(item, color) {
     const rawCode = item.code;
-    const code = rawCode;  // 按您当前写法，不补零
+    const code = rawCode; 
     console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
     // 初始化状态
@@ -97,7 +95,7 @@ function openDetailChart(item, color) {
     modalContent.style.borderColor = color;
     modal.style.display = 'flex';
 
-    // 标题栏 - 使用 DOM 操作创建
+    // 标题栏
     const titleEl = document.getElementById('modalTitle');
     titleEl.innerHTML = '';
     const headerDiv = document.createElement('div');
@@ -109,7 +107,8 @@ function openDetailChart(item, color) {
     headerDiv.appendChild(nameSpan);
 
     const codeSpan = document.createElement('span');
-    codeSpan.style.cssText = 'font-size:0.9em; color:#aaa;';
+    // 【修改点1】：字体颜色改为白色 (#fff)，去除灰色，样式更清晰
+    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal;';
     codeSpan.textContent = `(${code})`;
     headerDiv.appendChild(codeSpan);
 
@@ -139,7 +138,6 @@ function openDetailChart(item, color) {
     // 绑定 change 事件
     const handleMetricChange = (e) => {
         const newMetric = e.target.value;
-        console.log(`metric 变更为: ${newMetric} (之前是 ${state.metric})`);
         state.metric = newMetric;
         state.progress = 0;
         state.playing = true;
@@ -158,15 +156,14 @@ function openDetailChart(item, color) {
         modalContent.appendChild(controlsContainer);
     }
 
-    // getData 函数（保持不变，略）
+    // --- 数据获取 ---
     function getData() {
         let labels = [];
         let values = [];
+        let pctChanges = []; // 【修改点2】：新增数组，用于存储30天数据的原始涨跌幅
         let refValue = 0;
         let yLabel = '';
         let lineColor = color;
-
-        console.log(`[getData] 当前指标: ${state.metric}, code: ${code}`);
 
         if (state.metric === '1min') {
             if (item.history && item.history.length > 0) {
@@ -177,49 +174,44 @@ function openDetailChart(item, color) {
                     refValue = item.currentPrice / (1 + item.officialChangePercent / 100);
                 }
                 yLabel = '价格';
-                console.log(`[getData] 1min 数据长度: ${values.length}`);
             }
         } else {
             const d30 = eeiFlow30DaysData?.[code] || [];
-            console.log(`[getData] 30天数据条数: ${d30.length}`);
             if (d30.length > 0) {
                 const recent30 = d30.slice(-30);
                 labels = recent30.map(r => r['日期']);
                 switch (state.metric) {
                     case '30d_price':
                         values = recent30.map(r => Number(r['收盘价']));
+                        // 提取 Excel 中的涨跌幅，不进行计算
+                        pctChanges = recent30.map(r => Number(r['涨跌幅'])); 
                         refValue = values[0] || 0;
                         yLabel = '收盘价';
                         lineColor = values[values.length-1] >= refValue ? '#EF4444' : '#10B981';
                         break;
                     case '30d_pot':
                         values = recent30.map(r => Number(r['PotScore']));
-                        refValue = 0;
                         yLabel = 'PotScore';
                         lineColor = '#FFD700';
                         break;
                     case '30d_super':
                         values = recent30.map(r => Number(r['超大单净流入-净占比']));
-                        refValue = 0;
                         yLabel = '超大单占比(%)';
                         lineColor = '#FF6B6B';
                         break;
                     case '30d_main':
                         values = recent30.map(r => Number(r['主力净流入-净占比']));
-                        refValue = 0;
                         yLabel = '主力占比(%)';
                         lineColor = '#4ECDC4';
                         break;
                 }
-                console.log(`[getData] 提取到值数量: ${values.length}`);
             }
         }
-        return { labels, values, refValue, yLabel, lineColor };
+        return { labels, values, pctChanges, refValue, yLabel, lineColor };
     }
 
-    // renderContent 函数（只改动 updateHeaderInfo 调用部分）
+    // --- 渲染内容 ---
     function renderContent() {
-        console.log(`[renderContent] 开始渲染 | metric=${state.metric} | view=${state.view} | progress=${state.progress}`);
         const dataObj = getData();
 
         if (currentChartInstance) {
@@ -267,6 +259,10 @@ function openDetailChart(item, color) {
             container.appendChild(tableDiv);
         }
 
+        // 每次渲染前先清空头部信息，防止残留
+        const pctEl = document.getElementById('modalPct');
+        if(pctEl) pctEl.innerText = '';
+
         if (dataObj.values.length === 0) {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
@@ -274,8 +270,6 @@ function openDetailChart(item, color) {
                 暂无 [${state.metric}] 数据<br>
                 <small>请确认代码 ${code} 是否存在于 Excel 中</small>
             </div>`;
-            // 关键修改：不再设置 modalPct 为 '--'
-            // document.getElementById('modalPct').innerText = '--';   ← 注释或删除这行
             return;
         }
 
@@ -304,8 +298,11 @@ function openDetailChart(item, color) {
             html += `</tbody></table>`;
             tableDiv.innerHTML = html;
 
-            // 只在 30d_price 时更新显示
-            updateHeaderInfo(dataObj.values[dataObj.values.length-1], dataObj.refValue);
+            // 表格模式显示最后一条数据
+            const lastIdx = dataObj.values.length - 1;
+            const lastPct = dataObj.pctChanges ? dataObj.pctChanges[lastIdx] : null;
+            updateHeaderInfo(dataObj.values[lastIdx], dataObj.refValue, lastPct);
+
         } else {
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
@@ -325,12 +322,17 @@ function openDetailChart(item, color) {
         }
     }
 
-    // 动画函数
+    // --- 动画逻辑 ---
     function runAnimation(dataObj) {
         if (!state.playing) {
             updateChartData(dataObj.values.slice(0, state.progress));
-            const curVal = dataObj.values[state.progress - 1];
-            updateHeaderInfo(curVal, dataObj.refValue);
+            
+            // 静态展示时，获取当前进度对应的数据
+            const idx = Math.max(0, state.progress - 1);
+            const curVal = dataObj.values[idx];
+            const curPct = dataObj.pctChanges ? dataObj.pctChanges[idx] : null;
+            
+            updateHeaderInfo(curVal, dataObj.refValue, curPct);
             return;
         }
 
@@ -348,8 +350,12 @@ function openDetailChart(item, color) {
             const currentSlice = dataObj.values.slice(0, state.progress);
             updateChartData(currentSlice);
 
-            const lastVal = currentSlice[currentSlice.length - 1];
-            updateHeaderInfo(lastVal, dataObj.refValue);
+            // 获取当前动画帧对应的数据
+            const idx = state.progress - 1;
+            const lastVal = currentSlice[idx];
+            const lastPct = dataObj.pctChanges ? dataObj.pctChanges[idx] : null;
+            
+            updateHeaderInfo(lastVal, dataObj.refValue, lastPct);
 
             if (state.progress >= total) {
                 state.playing = false;
@@ -366,23 +372,45 @@ function openDetailChart(item, color) {
         }
     }
 
-    // ──────────────── 核心修改在这里 ────────────────
-    function updateHeaderInfo(val, ref) {
+    // --- 【关键函数】更新头部数字 ---
+    // val: 当前数值
+    // ref: 参考值 (用于1min)
+    // directPct: 直接从Excel读取的涨跌幅 (用于30d_price)
+    function updateHeaderInfo(val, ref, directPct) {
         const pctEl = document.getElementById('modalPct');
         if (!pctEl) return;
 
-        // 只在 30d_price 时显示价格 + 涨跌幅，其他情况清空
-        if (state.metric === '30d_price' && val != null && ref != null) {
-            const chg = ((val - ref) / ref * 100).toFixed(2);
-            const sign = chg >= 0 ? '+' : '';
-            pctEl.innerText = `${val.toFixed(2)} (${sign}${chg}%)`;
-            pctEl.style.color = val >= ref ? '#EF4444' : '#10B981';
-        } else {
-            // 其他所有情况（包括 1min、pot、super、main）都不显示任何内容
-            pctEl.innerText = '';
-            // 如果你想彻底隐藏这个元素，可以加：
-            // pctEl.style.display = 'none';
+        // 【修改点3】：默认为空字符串，彻底解决 "(--)" 显示问题
+        pctEl.innerText = ''; 
+        pctEl.style.color = '#fff';
+
+        if (val == null) return;
+
+        // 情况1：30天价格 - 使用 Excel 里的原始涨跌幅，不计算
+        if (state.metric === '30d_price') {
+            if (directPct !== null && directPct !== undefined) {
+                const sign = directPct >= 0 ? '+' : '';
+                const color = directPct >= 0 ? '#EF4444' : '#10B981';
+                pctEl.innerText = `${val.toFixed(2)} (${sign}${directPct.toFixed(2)}%)`;
+                pctEl.style.color = color;
+            } else {
+                // 如果没有涨跌幅数据，只显示价格，不显示空括号
+                pctEl.innerText = `${val.toFixed(2)}`;
+            }
+        } 
+        // 情况2：1分钟价格 - 需要计算
+        else if (state.metric === '1min') {
+            if (ref && ref !== 0) {
+                const chg = ((val - ref) / ref * 100);
+                const sign = chg >= 0 ? '+' : '';
+                const color = chg >= 0 ? '#EF4444' : '#10B981';
+                pctEl.innerText = `${val.toFixed(2)} (${sign}${chg.toFixed(2)}%)`;
+                pctEl.style.color = color;
+            } else {
+                pctEl.innerText = `${val.toFixed(2)}`;
+            }
         }
+        // 情况3：其他指标 (PotScore, 资金流等) -> 保持为空，不显示任何内容
     }
 
     // 首次渲染
