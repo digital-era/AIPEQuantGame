@@ -81,6 +81,12 @@ function openDetailChart(item, color) {
 
     // 移动端检测
     const isMobile = window.innerWidth <= 768;
+    
+    // 彻底移除原有的 modalCode 元素，避免显示 (--)
+    const oldModalCode = document.getElementById('modalCode');
+    if (oldModalCode) {
+        oldModalCode.remove();
+    }
 
     // 初始化状态
     if (!modalState[code]) {
@@ -156,7 +162,7 @@ function openDetailChart(item, color) {
 
     const codeSpan = document.createElement('span');
     // 普通字体，白色，适中的透明度
-    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; opacity:0.9; margin-left:5px;';
+    codeSpan.style.cssText = 'font-size:0.9em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
     codeSpan.textContent = `(${code})`;
     infoDiv.appendChild(codeSpan);
     headerDiv.appendChild(infoDiv);
