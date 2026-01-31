@@ -73,6 +73,7 @@ async function loadEEIFlow30DaysData() {
 }
 
 // ================= 图表详情函数 =================/
+// ================= 图表详情函数 (完整优化版) =================
 function openDetailChart(item, color) {
     const rawCode = item.code;
     const code = rawCode; 
@@ -103,79 +104,73 @@ function openDetailChart(item, color) {
     const modalContent = document.querySelector('.modal-content');
     modalContent.style.borderColor = color;
     
-    // 【布局修复】：使用 Flex 列布局，限制最大高度，防止模态框溢出屏幕
+    // 【问题1修复】：调整桌面端高度，避免内容溢出
     modalContent.style.display = 'flex';
     modalContent.style.flexDirection = 'column';
-    modalContent.style.maxHeight = isMobile ? '95vh' : '90vh';
+    // 桌面端使用更小的高度，移动端保持不变
+    modalContent.style.maxHeight = isMobile ? '95vh' : '80vh'; // 桌面端从90vh改为80vh
     modal.style.display = 'flex';
     
     // 移动端调整模态框宽度和位置
     if (isMobile) {
         modalContent.style.width = '95vw';
         modalContent.style.margin = 'auto';
-        modalContent.style.maxWidth = '95vw'; // 确保不超过屏幕宽度
-        // 确保模态框不会超出屏幕
+        modalContent.style.maxWidth = '95vw';
         modal.style.alignItems = 'center';
         modal.style.justifyContent = 'center';
-        modalContent.style.overflow = 'hidden'; // 防止内容溢出
+        modalContent.style.overflow = 'hidden';
     }
 
     // 修改原有关闭按钮的点击事件，确保能停止播放
     const originalCloseBtn = modal.querySelector('.close-btn');
     if (originalCloseBtn) {
-        // 保存原有的点击事件（如果有的话）
         const originalOnClick = originalCloseBtn.onclick;
         
-        // 设置新的点击事件
         originalCloseBtn.onclick = (e) => {
-            // 停止播放
             state.playing = false;
             if (currentPlaybackTimer) {
                 clearInterval(currentPlaybackTimer);
                 currentPlaybackTimer = null;
             }
             
-            // 执行原有的关闭函数
             if (typeof originalOnClick === 'function') {
                 originalOnClick.call(originalCloseBtn, e);
             } else {
-                // 如果没有原有函数，则默认关闭模态框
                 modal.style.display = 'none';
             }
             
-            // 阻止事件冒泡
             e.stopPropagation();
         };
         
-        // 移动端调整关闭按钮样式
         if (isMobile) {
             originalCloseBtn.style.fontSize = '12px';
             originalCloseBtn.style.padding = '4px 8px';
-            originalCloseBtn.style.marginLeft = 'auto'; // 靠右对齐
+            originalCloseBtn.style.marginLeft = 'auto';
         }
     }
 
     // --- 2. 标题栏重构 (含移动端适配) ---
     const titleEl = document.getElementById('modalTitle');
-    titleEl.innerHTML = ''; // 清空原有内容
+    titleEl.innerHTML = '';
 
-    // 【问题2修复】：移动端使用两行布局
+    // 【问题2修复】：移动端使用更小的字体和普通字体
     if (isMobile) {
         // 移动端：第一行显示名称、代码和关闭按钮
         const firstRow = document.createElement('div');
-        firstRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:8px;';
+        firstRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:6px;';
         
         // 左侧信息
         const infoDiv = document.createElement('div');
         infoDiv.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; overflow:hidden; white-space:nowrap;';
         
         const nameSpan = document.createElement('span');
-        nameSpan.style.cssText = 'font-size:0.95em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:50vw;';
+        nameSpan.style.cssText = 'font-size:0.9em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:50vw;';
         nameSpan.textContent = item.name;
         infoDiv.appendChild(nameSpan);
 
         const codeSpan = document.createElement('span');
-        codeSpan.style.cssText = 'font-size:0.8em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
+        // 【问题2修复】：移动端代码字体调小
+        codeSpan.style.cssText = 'font-size:0.75em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9;';
         codeSpan.textContent = `(${code})`;
         infoDiv.appendChild(codeSpan);
         firstRow.appendChild(infoDiv);
@@ -184,12 +179,12 @@ function openDetailChart(item, color) {
         
         // 移动端：第二行显示数值和下拉框
         const secondRow = document.createElement('div');
-        secondRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px;';
+        secondRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; gap:6px;';
         
-        // 数值显示区域（左侧）
+        // 数值显示区域（左侧）- 【问题2修复】：使用普通字体，调小字号
         const valueDiv = document.createElement('div');
         valueDiv.id = 'modalPct';
-        valueDiv.style.cssText = 'font-size:0.95em; font-weight:bold; color:#fff; text-align:left; flex-shrink:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:50%;';
+        valueDiv.style.cssText = 'font-size:0.85em; font-weight:normal; color:#fff; text-align:left; flex-shrink:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; max-width:50%; font-family:inherit;'; // 使用普通字体
         secondRow.appendChild(valueDiv);
         
         // 下拉框容器（右侧）
@@ -198,7 +193,7 @@ function openDetailChart(item, color) {
         
         const select = document.createElement('select');
         select.id = 'metricSelect';
-        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 6px; border-radius:4px; font-size:11px; cursor:pointer; width:100%; max-width:150px; box-sizing:border-box;';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:3px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:100%; max-width:130px; box-sizing:border-box;';
         selectWrapper.appendChild(select);
         secondRow.appendChild(selectWrapper);
         
@@ -254,7 +249,7 @@ function openDetailChart(item, color) {
         // 中间数值显示
         const valueDiv = document.createElement('div');
         valueDiv.id = 'modalPct';
-        valueDiv.style.cssText = 'font-size:1.1em; font-weight:bold; color:#fff; text-align:center; flex-shrink:0; padding:0 10px;';
+        valueDiv.style.cssText = 'font-size:1.05em; font-weight:bold; color:#fff; text-align:center; flex-shrink:0; padding:0 10px;';
         headerDiv.appendChild(valueDiv);
         
         // 右侧下拉框
@@ -263,7 +258,7 @@ function openDetailChart(item, color) {
         
         const select = document.createElement('select');
         select.id = 'metricSelect';
-        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:14px; cursor:pointer; width:auto;';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:13px; cursor:pointer; width:auto;';
         actionDiv.appendChild(select);
         
         const optionsList = [
@@ -302,9 +297,10 @@ function openDetailChart(item, color) {
         controlsContainer = document.createElement('div');
         controlsContainer.id = 'chartControls';
         if (isMobile) {
-            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:10px; margin-top:8px; padding-top:8px; border-top:1px solid #333; flex-shrink: 0; flex-wrap:wrap;";
+            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:6px; margin-top:6px; padding-top:6px; border-top:1px solid #333; flex-shrink: 0; flex-wrap:wrap;";
         } else {
-            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:15px; margin-top:10px; padding-top:10px; border-top:1px solid #333; flex-shrink: 0;";
+            // 【问题1修复】：桌面端控制栏减少上边距
+            controlsContainer.style.cssText = "display:flex; justify-content:center; gap:12px; margin-top:8px; padding-top:8px; border-top:1px solid #333; flex-shrink: 0;";
         }
         modalContent.appendChild(controlsContainer);
     }
@@ -313,11 +309,11 @@ function openDetailChart(item, color) {
     function getData() {
         let labels = [];
         let values = [];
-        let pctChanges = []; // 存储涨跌幅
+        let pctChanges = [];
         let refValue = 0;
         let yLabel = '';
         let lineColor = color;
-        let currentValue = 0; // 当前数值
+        let currentValue = 0;
 
         if (state.metric === '1min') {
             if (item.history && item.history.length > 0) {
@@ -338,7 +334,7 @@ function openDetailChart(item, color) {
                 switch (state.metric) {
                     case '30d_price':
                         values = recent30.map(r => Number(r['收盘价']));
-                        pctChanges = recent30.map(r => Number(r['涨跌幅'])); // 获取 Excel 中的涨跌幅
+                        pctChanges = recent30.map(r => Number(r['涨跌幅']));
                         refValue = values[0] || 0;
                         yLabel = '收盘价';
                         lineColor = values[values.length-1] >= refValue ? '#EF4444' : '#10B981';
@@ -387,9 +383,10 @@ function openDetailChart(item, color) {
         if (state.view === 'chart') {
             const playBtn = document.createElement('button');
             if (isMobile) {
-                playBtn.style.cssText = "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;";
+                playBtn.style.cssText = "padding:3px 8px; background:#444; color:white; border:none; border-radius:3px; cursor:pointer; font-size:10px; flex:1; min-width: 60px; font-weight:normal;";
             } else {
-                playBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+                // 【问题1修复】：桌面端按钮稍小一些
+                playBtn.style.cssText = "padding:4px 12px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:normal;";
             }
             const isFinished = state.progress >= dataObj.values.length && dataObj.values.length > 0;
             playBtn.innerHTML = isFinished ? "↺ 重播" : (state.playing ? "❚❚ 暂停" : "▶ 播放");
@@ -405,9 +402,10 @@ function openDetailChart(item, color) {
         // 4.2 切换视图按钮
         const viewBtn = document.createElement('button');
         if (isMobile) {
-            viewBtn.style.cssText = "padding:4px 10px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px; flex:1; min-width: 70px;";
+            viewBtn.style.cssText = "padding:3px 8px; background:#444; color:white; border:none; border-radius:3px; cursor:pointer; font-size:10px; flex:1; min-width: 60px; font-weight:normal;";
         } else {
-            viewBtn.style.cssText = "padding:6px 16px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:13px;";
+            // 【问题1修复】：桌面端按钮稍小一些
+            viewBtn.style.cssText = "padding:4px 12px; background:#444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:12px; font-weight:normal;";
         }
         viewBtn.innerText = state.view === 'chart' ? "📅 表格" : "📈 图表";
         viewBtn.onclick = () => {
@@ -421,33 +419,36 @@ function openDetailChart(item, color) {
         const canvas = document.getElementById('detailChartCanvas');
         const container = canvas.parentNode;
         
-        // 【布局修复】：Flex布局容器
+        // 【问题1修复】：调整容器布局，确保高度正确
         container.style.flex = "1";
         container.style.minHeight = "0"; 
         container.style.display = "flex";
         container.style.flexDirection = "column";
+        container.style.overflow = "hidden"; // 防止内容溢出
         
         // 移动端容器内边距调整
         if (isMobile) {
             container.style.padding = "0 2px";
+        } else {
+            container.style.padding = "5px 0 0 0"; // 桌面端添加一点上边距
         }
 
         let tableDiv = document.getElementById('detailTableContainer');
         if (!tableDiv) {
             tableDiv = document.createElement('div');
             tableDiv.id = 'detailTableContainer';
-            // 【重要修复】：移动端表格下边界问题
+            // 【问题1修复】：调整桌面端表格高度，避免溢出
             if (isMobile) {
-                // 计算可用高度：模态框高度 - 标题高度 - 控制栏高度 - 内边距
                 const tableMaxHeight = 'calc(95vh - 120px)';
-                tableDiv.style.cssText = `flex:1; width:100%; max-height: ${tableMaxHeight}; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:8px; -webkit-overflow-scrolling: touch;`;
+                tableDiv.style.cssText = `flex:1; width:100%; max-height: ${tableMaxHeight}; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:6px; -webkit-overflow-scrolling: touch;`;
             } else {
-                tableDiv.style.cssText = "flex:1; width:100%; max-height: 45vh; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:10px; -webkit-overflow-scrolling: touch;";
+                // 桌面端表格高度调整
+                tableDiv.style.cssText = "flex:1; width:100%; max-height: 35vh; overflow-y:auto; overflow-x:hidden; display:none; background:#181818; color:#ddd; border:1px solid #333; margin-top:8px; -webkit-overflow-scrolling: touch;";
             }
             container.appendChild(tableDiv);
         }
 
-        // 【问题1修复】：立即更新头部数值显示
+        // 立即更新头部数值显示
         updateHeaderInfo(dataObj);
 
         if (dataObj.values.length === 0) {
@@ -465,9 +466,8 @@ function openDetailChart(item, color) {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
 
-            // 移动端表格字体更小，压缩布局
-            const tableFontSize = isMobile ? '10px' : '13px';
-            const cellPadding = isMobile ? '3px 2px' : '6px 8px';
+            const tableFontSize = isMobile ? '10px' : '12px';
+            const cellPadding = isMobile ? '3px 2px' : '5px 6px';
             
             let html = `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; table-layout:fixed;">
                 <thead style="background:#2d2d2d; position:sticky; top:0; z-index:1;">
@@ -482,10 +482,7 @@ function openDetailChart(item, color) {
                 const val = dataObj.values[i];
                 let colorStyle = '#ddd';
                 
-                // 表格内的颜色逻辑
-                if (state.metric === '30d_price') {
-                   // 价格本身如果是红绿显示需要参照昨日，这里简化处理，主要看涨跌幅列
-                } else if (state.metric.includes('super') || state.metric.includes('main') || state.metric.includes('pot')) {
+                if (state.metric.includes('super') || state.metric.includes('main') || state.metric.includes('pot')) {
                    colorStyle = val >= 0 ? '#ff4444' : '#00cc00';
                 }
 
@@ -502,13 +499,23 @@ function openDetailChart(item, color) {
         else {
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
-            canvas.style.maxHeight = isMobile ? 'calc(95vh - 150px)' : '50vh'; 
+            
+            // 【问题1修复】：调整图表区域高度计算
+            if (isMobile) {
+                canvas.style.maxHeight = 'calc(95vh - 140px)';
+                canvas.style.height = 'calc(95vh - 140px)';
+            } else {
+                // 桌面端：计算可用高度，确保按钮不被遮挡
+                canvas.style.maxHeight = 'calc(80vh - 180px)';
+                canvas.style.height = 'calc(80vh - 180px)';
+            }
 
             const ctx = canvas.getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 400);
             gradient.addColorStop(0, dataObj.lineColor + '40');
             gradient.addColorStop(1, dataObj.lineColor + '00');
 
+            // 【问题1修复】：调整图表选项，确保纵坐标显示完整
             currentChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: { 
@@ -529,11 +536,17 @@ function openDetailChart(item, color) {
                     responsive: true, 
                     maintainAspectRatio: false, 
                     animation: false, 
-                    layout: { padding: { top: 20, bottom: 10, left: 0, right: 10 } }, 
+                    layout: { 
+                        padding: { 
+                            top: 15, 
+                            bottom: isMobile ? 10 : 20, // 桌面端增加下边距
+                            left: isMobile ? 5 : 15,    // 调整左边距确保纵坐标显示
+                            right: 10 
+                        } 
+                    }, 
                     interaction: { mode: 'index', intersect: false }, 
                     plugins: { 
                         legend: { display: false },
-                        // 【新功能实现】：自定义 Tooltip，显示30天价格的涨跌幅
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
@@ -545,10 +558,9 @@ function openDetailChart(item, color) {
                                         label += context.parsed.y.toFixed(2);
                                     }
                                     
-                                    // 检查是否为 30天价格，且有涨跌幅数据
                                     if (state.metric === '30d_price' && dataObj.pctChanges) {
-                                        const idx = context.dataIndex; // 获取当前鼠标所在的索引
-                                        const pct = dataObj.pctChanges[idx]; // 获取对应的涨跌幅
+                                        const idx = context.dataIndex;
+                                        const pct = dataObj.pctChanges[idx];
                                         if (pct !== null && pct !== undefined) {
                                             const sign = pct >= 0 ? '+' : '';
                                             label += ` (${sign}${pct.toFixed(2)}%)`;
@@ -560,8 +572,30 @@ function openDetailChart(item, color) {
                         }
                     }, 
                     scales: { 
-                        x: { display: false }, 
-                        y: { position: 'left', grid: { color: '#333' }, ticks: { color: '#888', font: {size:10} }, grace: '10%' } 
+                        x: { 
+                            display: false,
+                            ticks: {
+                                font: {
+                                    size: isMobile ? 9 : 11
+                                }
+                            }
+                        }, 
+                        y: { 
+                            position: 'left', 
+                            grid: { color: '#333' }, 
+                            ticks: { 
+                                color: '#888', 
+                                font: {
+                                    size: isMobile ? 9 : 11 // 调整纵坐标字体大小
+                                },
+                                padding: 5
+                            }, 
+                            grace: '10%',
+                            // 确保纵坐标有足够空间
+                            afterFit: function(scale) {
+                                scale.width = isMobile ? 30 : 40;
+                            }
+                        } 
                     } 
                 }
             });
@@ -570,7 +604,6 @@ function openDetailChart(item, color) {
         }
     }
 
-    // 辅助函数：渲染表格中的涨跌幅单元格
     function renderTablePctCell(pct, padding, isMobile) {
         if (pct === null || pct === undefined) return `<td style="padding:${padding};"></td>`;
         const color = pct >= 0 ? '#ff4444' : '#00cc00';
@@ -582,8 +615,6 @@ function openDetailChart(item, color) {
     function runAnimation(dataObj) {
         if (!state.playing) {
             updateChartData(dataObj.values.slice(0, state.progress));
-            const idx = Math.max(0, state.progress - 1);
-            // 更新头部信息
             updateHeaderInfo(dataObj);
             return;
         }
@@ -602,7 +633,6 @@ function openDetailChart(item, color) {
             const currentSlice = dataObj.values.slice(0, state.progress);
             updateChartData(currentSlice);
 
-            // 更新头部信息
             updateHeaderInfo(dataObj);
 
             if (state.progress >= total) {
@@ -620,7 +650,7 @@ function openDetailChart(item, color) {
         }
     }
 
-    // --- 【问题1修复】：更新头部数字 ---
+    // --- 更新头部数字 ---
     function updateHeaderInfo(dataObj) {
         const pctEl = document.getElementById('modalPct');
         if (!pctEl || dataObj.values.length === 0) return;
@@ -629,9 +659,14 @@ function openDetailChart(item, color) {
         const lastIdx = dataObj.values.length - 1;
         const currentPct = dataObj.pctChanges ? dataObj.pctChanges[lastIdx] : null;
         
-        // 移动端调整字体大小
+        // 【问题2修复】：移动端使用更小字体和普通字体
         if (isMobile) {
-            pctEl.style.fontSize = '0.95em';
+            pctEl.style.fontSize = '0.85em';
+            pctEl.style.fontWeight = 'normal';
+            pctEl.style.fontFamily = 'inherit'; // 使用普通字体，非加粗
+        } else {
+            pctEl.style.fontSize = '1.05em';
+            pctEl.style.fontWeight = 'bold';
         }
 
         if (val == null) return;
