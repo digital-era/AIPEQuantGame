@@ -79,7 +79,8 @@ function openDetailChart(item, color) {
     const rawCode = item.code;
     // 关键修复：强制将代码转为6位字符串（例如 89 -> "000089"），以匹配 Excel 中的 Key
     // const code = String(rawCode).padStart(6, '0');
-    
+    const code = item.code;
+
     console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
     // 1. 初始化状态
