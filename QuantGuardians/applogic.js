@@ -2076,9 +2076,13 @@ async function initSystem() {
         initOSS(),
         loadStrategies(),
         loadHistoryData(),
-        loadSweetPoints(),
-        loadAdhocFromCloud(),
         loadCloudPortfolio()
+    ]);
+
+    // 2. 并行执行所有独立初始化任务
+    await Promise.all([
+        loadSweetPoints(),
+        loadAdhocFromCloud()
     ]);
 
     // 2. 并行获取市场数据、全量股票数据和30天数据（如果它们不互相依赖）
