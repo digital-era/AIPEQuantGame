@@ -2071,43 +2071,66 @@ async function initSystem() {
     const btn = document.getElementById('engageBtn');
     btn.innerText = "INITIALIZING...";
     
-    // 1. 并行执行所有独立初始化任务
-    await Promise.all([
-        initOSS(),
-        loadStrategies(),
-        loadHistoryData(),
-        loadCloudPortfolio()
-    ]);
+    try {
+        // ============================================================
+        // Phase 1: 基础建设 (互相独立，但被后续步骤依赖)
+        // ============================================================
+        // 1. initOSS: 后续读取云端 Excel 必须先有 Client
+        // 2. loadStrategies: 后续关联持仓价格、标记甜点必须先有策略列表
+        // 3. loadHistoryData: 独立的大文件下载，尽早开始
+        await Promise.all([
+            initOSS(),
+            loadStrategies(),
+            loadHistoryData()
+        ]);
 
-    // 2. 并行执行所有独立初始化任务
-    await Promise.all([
-        loadSweetPoints(),
-        loadAdhocFromCloud()
-    ]);
+        // ============================================================
+        // Phase 2: 依赖数据的加载 (必须等待 Phase 1 完成)
+        // ============================================================
+        // 1. loadCloudPortfolio: 依赖 OSS Client 和 策略列表(用于获取refPrice)
+        // 2. loadSweetPoints: 依赖 策略列表(用于标记 isSweet)
+        // 3. loadAdhocFromCloud: 依赖 OSS Client
+        await Promise.all([
+            loadCloudPortfolio(),
+            loadSweetPoints(),
+            loadAdhocFromCloud()
+        ]);
 
-    // 2. 并行获取市场数据、全量股票数据和30天数据（如果它们不互相依赖）
-    const [marketDataResult, allStocksData, eeiFlowData] = await Promise.allSettled([
-        updateMarketData(true),
-        fetchAllStocksData(),
-        loadEEIFlow30DaysData()
-    ]);
+        // ============================================================
+        // Phase 3: 市场数据与渲染 (此时所有列表已就绪)
+        // ============================================================
+        // 并行获取行情、全量股票列表、EEI数据
+        const [marketDataResult, allStocksData, eeiFlowData] = await Promise.allSettled([
+            updateMarketData(true), // 这里会触发 renderLists，此时 Adhoc 和 SweetPoint 均已就绪
+            fetchAllStocksData(),
+            loadEEIFlow30DaysData()
+        ]);
 
-    // 处理市场数据结果，启动定时器
-    if (marketDataResult.status === 'fulfilled') {
-        if (hasClosedPrices) { 
-            log("Market currently closed on init. Price polling will not start.", "yellow");
+        // 处理市场数据结果，启动定时器
+        if (marketDataResult.status === 'fulfilled') {
+            if (hasClosedPrices) { 
+                log("Market currently closed on init. Price polling will not start.", "yellow");
+            } else {
+                // 只有市场开启时才启动轮询
+                priceUpdateInterval = setInterval(() => updateMarketData(false), 300000);
+                log("Market is open. Price polling started every 5 minutes.", "#0f0");
+            }
         } else {
-            priceUpdateInterval = setInterval(() => updateMarketData(false), 300000);
-            log("Market is open. Price polling started every 5 minutes.", "#0f0");
+            console.error("Market data update failed:", marketDataResult.reason);
+            log("Market Data Error", "red");
         }
-    } else {
-        console.error("Market data update failed:", marketDataResult.reason);
+
+        // 3. 设置自动补全（依赖于 fetchAllStocksData 的结果）
+        setupAllAdhocAutoCompletes();
+
+        gameState.active = true;
+        btn.innerText = "SYSTEM ONLINE";
+        btn.style.boxShadow = "0 0 20px #0f0";
+
+    } catch (err) {
+        console.error("Init System Critical Failure:", err);
+        btn.innerText = "INIT FAILED";
+        btn.style.color = "red";
+        log("System Init Failed: " + err.message, "red");
     }
-
-    // 3. 设置自动补全（可能依赖于 fetchAllStocksData 的结果）
-    setupAllAdhocAutoCompletes();
-
-    gameState.active = true;
-    btn.innerText = "SYSTEM ONLINE";
-    btn.style.boxShadow = "0 0 20px #0f0";
 }
