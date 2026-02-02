@@ -153,135 +153,113 @@ function openDetailChart(item, color) {
 
     // 【修复下拉框跳动问题】：将下拉框固定在右侧
     if (isMobile) {
-        // 移动端：第一行显示名称、代码和关闭按钮
+        /* ================= 第一行：名称 + 代码 + 下拉框 ================= */
         const firstRow = document.createElement('div');
-        firstRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:6px;';
-        
-        // 左侧信息
+        firstRow.style.cssText = `
+            display:flex;
+            align-items:center;
+            width:100%;
+            gap:6px;
+            margin-bottom:4px;
+        `;
+    
+        // 左侧 名称 + 代码
         const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; overflow:hidden; white-space:nowrap; min-width:0;';
-        
+        infoDiv.style.cssText = `
+            flex:1;
+            min-width:0;
+            display:flex;
+            align-items:center;
+            gap:4px;
+            overflow:hidden;
+            white-space:nowrap;
+        `;
+    
         const nameSpan = document.createElement('span');
-        nameSpan.style.cssText = 'font-size:0.9em; font-weight:bold; text-overflow:ellipsis; overflow:hidden; max-width:50vw;';
         nameSpan.textContent = item.name;
-        infoDiv.appendChild(nameSpan);
-
+        nameSpan.style.cssText = `
+            font-size:0.95em;
+            font-weight:bold;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        `;
+    
         const codeSpan = document.createElement('span');
-        codeSpan.style.cssText = 'font-size:0.75em; color:#fff; font-weight:normal; font-family:"Courier New", monospace; opacity:0.9; flex-shrink:0;';
         codeSpan.textContent = `(${code})`;
+        codeSpan.style.cssText = `
+            font-size:0.8em;
+            opacity:0.85;
+            font-family:monospace;
+            flex-shrink:0;
+        `;
+    
+        infoDiv.appendChild(nameSpan);
         infoDiv.appendChild(codeSpan);
-        firstRow.appendChild(infoDiv);
-        
-        titleEl.appendChild(firstRow);        
-        
-        // =========【修改开始：移动端第二行】=========
-        const secondRow = document.createElement('div');
-        // 1. 增加 position:relative 以便内部使用绝对定位
-        // 2. 增加 height 确保高度塌陷不会影响布局
-        //secondRow.style.cssText = 'position:relative; display:flex; align-items:center; width:100%; margin-top:2px; height:24px;'; 
-        secondRow.style.cssText = `
-                          display:flex;
-                          align-items:center;
-                          width:100%;
-                          margin-top:2px;
-                          height:26px;
-                          gap:6px;
-                        
-                          /* 防止安卓重绘抖动 */
-                          transform: translateZ(0);
-                        `;
-
-       
-        // 数值显示区域（左侧）
-        const valueDiv = document.createElement('div');
-        valueDiv.id = 'modalPct';
-        // 1. 去掉 flex:1，改为 width: 100%
-        // 2. 增加 padding-right: 110px (预留给右侧下拉框的空间)，防止文字重叠
-        //valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; width:100%; padding-right:110px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px;';
-        valueDiv.style.cssText = `
-                          flex:1;                    /* ✅ 吃掉所有剩余空间 */
-                          min-width:0;               /* ✅ 关键：允许被压缩但不撑爆 */
-                          
-                          font-size:0.9em;
-                          font-weight:bold;
-                          color:#fff;
-                          text-align:left;
-                        
-                          /* 数字等宽，防止轻微抖动 */
-                          font-variant-numeric: tabular-nums;
-                          font-family:"Courier New", monospace;
-                        
-                          white-space:nowrap;
-                          overflow:hidden;
-                          text-overflow:ellipsis;
-                        
-                          line-height:26px;
-                        `;
-
-        secondRow.appendChild(valueDiv);
-        
-        // 下拉框容器
-        const selectWrapper = document.createElement('div');
-        // 核心修复：使用 absolute 定位，彻底脱离文档流，不再受左侧文字宽度抖动影响
-        //selectWrapper.style.cssText = 'position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:flex-end;';
-        selectWrapper.style.cssText = `
-                      flex:0 0 92px;      /* ✅ 固定宽度，但比以前更合理 */
-                      display:flex;
-                      align-items:center;
-                      justify-content:flex-end;
-                    `;
-        
+    
+        /* 右侧 下拉框（固定宽度，完全独立于数值区域） */
         const select = document.createElement('select');
         select.id = 'metricSelect';
-        //select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
         select.style.cssText = `
-                      width:100%;
-                      height:22px;
-                      background:#333;
-                      color:#fff;
-                      border:1px solid #555;
-                      border-radius:3px;
-                      font-size:11px;
-                      box-sizing:border-box;
-                    
-                      -webkit-text-size-adjust:100%;
-                    `;
-
-        
-        selectWrapper.appendChild(select);
-        secondRow.appendChild(selectWrapper);
-        
-        titleEl.appendChild(secondRow);
-        // =========【修改结束：移动端第二行】=========
-        
-        // 为移动端添加选项
+            flex:0 0 92px;
+            height:24px;
+            background:#333;
+            color:#fff;
+            border:1px solid #555;
+            border-radius:4px;
+            font-size:11px;
+            box-sizing:border-box;
+            -webkit-text-size-adjust:100%;
+        `;
+    
         const optionsList = [
-            { value: '1min',      label: '分钟价格' },
-            { value: '30d_price', label: '30天价格' },
-            { value: '30d_pot',   label: 'PotScore' },
-            { value: '30d_super', label: '超大单%' },
-            { value: '30d_main',  label: '主力%'  }
+            { value: '1min',      label: '分钟价' },
+            { value: '30d_price', label: '30天价' },
+            { value: '30d_pot',   label: 'Pot' },
+            { value: '30d_super', label: '超大单' },
+            { value: '30d_main',  label: '主力' }
         ];
-        
+    
         optionsList.forEach(opt => {
             const option = document.createElement('option');
             option.value = opt.value;
-            option.textContent = opt.label.replace('价格', '价').replace('占比', '占');
+            option.textContent = opt.label;
             if (opt.value === state.metric) option.selected = true;
             select.appendChild(option);
         });
-        
-        // 绑定事件
+    
         select.addEventListener('change', (e) => {
-            const newMetric = e.target.value;
-            state.metric = newMetric;
+            state.metric = e.target.value;
             state.progress = 0;
             state.playing = true;
             state.view = 'chart';
             renderContent();
         });
-        
-    } else {
+    
+        firstRow.appendChild(infoDiv);
+        firstRow.appendChild(select);
+        titleEl.appendChild(firstRow);
+    
+    
+        /* ================= 第二行：动态数值（完全独占，不再影响任何布局） ================= */
+        const valueDiv = document.createElement('div');
+        valueDiv.id = 'modalPct';
+        valueDiv.style.cssText = `
+            width:100%;
+            font-size:1em;
+            font-weight:bold;
+            color:#fff;
+            font-family:monospace;
+            font-variant-numeric: tabular-nums;
+    
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+    
+            transform: translateZ(0);
+        `;
+    
+        titleEl.appendChild(valueDiv);
+    }  else {
         // 桌面端：保持原有单行布局
         const headerDiv = document.createElement('div');
         headerDiv.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; gap:10px;';
