@@ -176,20 +176,30 @@ function openDetailChart(item, color) {
         
         // =========【修改开始：移动端第二行】=========
         const secondRow = document.createElement('div');
-        // 1. 移除flex布局，改用相对定位
-        secondRow.style.cssText = 'position:relative; width:100%; margin-top:2px; height:24px; overflow:visible;'; 
+        // 1. 增加 position:relative 以便内部使用绝对定位
+        // 2. 增加 height 确保高度塌陷不会影响布局
+        secondRow.style.cssText = 'position:relative; display:flex; align-items:center; width:100%; margin-top:2px; height:24px;'; 
         
-        // 数值显示区域（左侧）- 使用绝对定位
+        // 数值显示区域（左侧）
         const valueDiv = document.createElement('div');
         valueDiv.id = 'modalPct';
-        // 2. 固定数值区域的宽度和位置，使用绝对定位
-        valueDiv.style.cssText = 'position:absolute; left:0; top:0; width:calc(100% - 110px); font-size:0.85em; font-weight:bold; color:#fff; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px; padding-right:5px; box-sizing:border-box;';
+        // 1. 去掉 flex:1，改为 width: 100%
+        // 2. 增加 padding-right: 110px (预留给右侧下拉框的空间)，防止文字重叠
+        valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; width:100%; padding-right:110px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px;';
         secondRow.appendChild(valueDiv);
         
-        // 下拉框容器 - 绝对定位在右侧
+        // 下拉框容器
         const selectWrapper = document.createElement('div');
-        selectWrapper.style.cssText = 'position:absolute; right:0; top:0; display:flex; align-items:center; justify-content:flex-end; width:100px;';
+        // 核心修复：使用 absolute 定位，彻底脱离文档流，不再受左侧文字宽度抖动影响
+        selectWrapper.style.cssText = 'position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:flex-end;';
+        
+        const select = document.createElement('select');
+        select.id = 'metricSelect';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
+        selectWrapper.appendChild(select);
         secondRow.appendChild(selectWrapper);
+        
+        titleEl.appendChild(secondRow);
         // =========【修改结束：移动端第二行】=========
         
         // 为移动端添加选项
@@ -732,4 +742,3 @@ function openDetailChart(item, color) {
     // 首次渲染
     renderContent();
 }
-
