@@ -185,17 +185,64 @@ function openDetailChart(item, color) {
         valueDiv.id = 'modalPct';
         // 1. 去掉 flex:1，改为 width: 100%
         // 2. 增加 padding-right: 110px (预留给右侧下拉框的空间)，防止文字重叠
-        valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; width:100%; padding-right:110px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px;';
+        //valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; width:100%; padding-right:110px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px;';
+        valueDiv.style.cssText = `
+                          font-size:0.85em;
+                          font-weight:bold;
+                          color:#fff;
+                          text-align:left;
+                        
+                          /* ✅ 关键：锁死宽度，彻底阻止抖动 */
+                          width: calc(100% - 110px);
+                          flex-shrink: 0;
+                        
+                          /* ✅ 数字等宽显示，避免 1 和 8 宽度不同导致轻微抖动 */
+                          font-variant-numeric: tabular-nums;
+                        
+                          overflow:hidden;
+                          white-space:nowrap;
+                          font-family:"Courier New", monospace;
+                          line-height:24px;
+                        `;
+
         secondRow.appendChild(valueDiv);
         
         // 下拉框容器
         const selectWrapper = document.createElement('div');
         // 核心修复：使用 absolute 定位，彻底脱离文档流，不再受左侧文字宽度抖动影响
-        selectWrapper.style.cssText = 'position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:flex-end;';
+        //selectWrapper.style.cssText = 'position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:flex-end;';
+        selectWrapper.style.cssText = `
+                          position:absolute;
+                          right:0;
+                          top:0;
+                          bottom:0;
+                        
+                          /* ✅ 锁死整个区域宽度 */
+                          width:110px;
+                        
+                          display:flex;
+                          align-items:center;
+                          justify-content:flex-end;
+                        `;
+
         
         const select = document.createElement('select');
         select.id = 'metricSelect';
-        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
+        //select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
+        select.style.cssText = `
+                          width:100%;
+                          background:#333;
+                          color:#fff;
+                          border:1px solid #555;
+                          padding:2px 5px;
+                          border-radius:3px;
+                          font-size:10px;
+                          box-sizing:border-box;
+                        
+                          /* 防止安卓字体放大导致宽度变化 */
+                          -webkit-text-size-adjust: 100%;
+                        `;
+        
         selectWrapper.appendChild(select);
         secondRow.appendChild(selectWrapper);
         
