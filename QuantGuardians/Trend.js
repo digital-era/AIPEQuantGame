@@ -172,29 +172,35 @@ function openDetailChart(item, color) {
         infoDiv.appendChild(codeSpan);
         firstRow.appendChild(infoDiv);
         
-        titleEl.appendChild(firstRow);
+        titleEl.appendChild(firstRow);        
         
-        // 移动端：第二行显示数值和下拉框
+        // =========【修改开始：移动端第二行】=========
         const secondRow = document.createElement('div');
-        secondRow.style.cssText = 'display:flex; align-items:center; justify-content:space-between; width:100%; margin-top:2px;';
+        // 1. 增加 position:relative 以便内部使用绝对定位
+        // 2. 增加 height 确保高度塌陷不会影响布局
+        secondRow.style.cssText = 'position:relative; display:flex; align-items:center; width:100%; margin-top:2px; height:24px;'; 
         
-        // 数值显示区域（左侧）- 使用固定宽度，防止挤压下拉框
+        // 数值显示区域（左侧）
         const valueDiv = document.createElement('div');
         valueDiv.id = 'modalPct';
-        valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:10px; font-family:"Courier New", monospace;';
+        // 1. 去掉 flex:1，改为 width: 100%
+        // 2. 增加 padding-right: 110px (预留给右侧下拉框的空间)，防止文字重叠
+        valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; width:100%; padding-right:110px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px;';
         secondRow.appendChild(valueDiv);
         
-        // 【下拉框固定在右侧】- 使用固定位置，不受左侧内容影响
+        // 下拉框容器
         const selectWrapper = document.createElement('div');
-        selectWrapper.style.cssText = 'display:flex; align-items:center; justify-content:flex-end; flex-shrink:0; margin-left:auto;';
+        // 核心修复：使用 absolute 定位，彻底脱离文档流，不再受左侧文字宽度抖动影响
+        selectWrapper.style.cssText = 'position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:flex-end;';
         
         const select = document.createElement('select');
         select.id = 'metricSelect';
-        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:3px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
+        select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
         selectWrapper.appendChild(select);
         secondRow.appendChild(selectWrapper);
         
         titleEl.appendChild(secondRow);
+        // =========【修改结束：移动端第二行】=========
         
         // 为移动端添加选项
         const optionsList = [
@@ -243,11 +249,18 @@ function openDetailChart(item, color) {
         infoDiv.appendChild(codeSpan);
         headerDiv.appendChild(infoDiv);
         
-        // 中间数值显示 - 固定宽度避免跳动
+        // =========【修改开始：PC端数值区域】=========
+        // 中间数值显示
         const valueDiv = document.createElement('div');
         valueDiv.id = 'modalPct';
-        valueDiv.style.cssText = 'font-size:1.05em; font-weight:bold; color:#fff; text-align:center; flex-shrink:0; padding:0 20px; font-family:"Courier New", monospace; min-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+        // 核心修复：
+        // 1. 使用 width: 180px (固定宽度) 而不是 min-width
+        // 2. 增加 flex-shrink: 0 防止被挤压
+        // 3. 增加 text-align: center 保持美观
+        valueDiv.style.cssText = 'font-size:1.05em; font-weight:bold; color:#fff; text-align:center; flex-shrink:0; width:180px; font-family:"Courier New", monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
         headerDiv.appendChild(valueDiv);
+        // =========【修改结束：PC端数值区域】=========
+        
         
         // 【下拉框固定在右侧】- 使用margin-left:auto推至最右侧
         const actionDiv = document.createElement('div');
