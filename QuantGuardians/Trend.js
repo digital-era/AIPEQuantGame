@@ -178,8 +178,20 @@ function openDetailChart(item, color) {
         const secondRow = document.createElement('div');
         // 1. 增加 position:relative 以便内部使用绝对定位
         // 2. 增加 height 确保高度塌陷不会影响布局
-        secondRow.style.cssText = 'position:relative; display:flex; align-items:center; width:100%; margin-top:2px; height:24px;'; 
-        
+        //secondRow.style.cssText = 'position:relative; display:flex; align-items:center; width:100%; margin-top:2px; height:24px;'; 
+        secondRow.style.cssText = `
+                          display:flex;
+                          align-items:center;
+                          width:100%;
+                          margin-top:2px;
+                          height:26px;
+                          gap:6px;
+                        
+                          /* 防止安卓重绘抖动 */
+                          transform: translateZ(0);
+                        `;
+
+       
         // 数值显示区域（左侧）
         const valueDiv = document.createElement('div');
         valueDiv.id = 'modalPct';
@@ -187,22 +199,23 @@ function openDetailChart(item, color) {
         // 2. 增加 padding-right: 110px (预留给右侧下拉框的空间)，防止文字重叠
         //valueDiv.style.cssText = 'font-size:0.85em; font-weight:bold; color:#fff; text-align:left; width:100%; padding-right:110px; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Courier New", monospace; line-height:24px;';
         valueDiv.style.cssText = `
-                          font-size:0.85em;
+                          flex:1;                    /* ✅ 吃掉所有剩余空间 */
+                          min-width:0;               /* ✅ 关键：允许被压缩但不撑爆 */
+                          
+                          font-size:0.9em;
                           font-weight:bold;
                           color:#fff;
                           text-align:left;
                         
-                          /* ✅ 关键：锁死宽度，彻底阻止抖动 */
-                          width: calc(100% - 110px);
-                          flex-shrink: 0;
-                        
-                          /* ✅ 数字等宽显示，避免 1 和 8 宽度不同导致轻微抖动 */
+                          /* 数字等宽，防止轻微抖动 */
                           font-variant-numeric: tabular-nums;
-                        
-                          overflow:hidden;
-                          white-space:nowrap;
                           font-family:"Courier New", monospace;
-                          line-height:24px;
+                        
+                          white-space:nowrap;
+                          overflow:hidden;
+                          text-overflow:ellipsis;
+                        
+                          line-height:26px;
                         `;
 
         secondRow.appendChild(valueDiv);
@@ -212,36 +225,28 @@ function openDetailChart(item, color) {
         // 核心修复：使用 absolute 定位，彻底脱离文档流，不再受左侧文字宽度抖动影响
         //selectWrapper.style.cssText = 'position:absolute; right:0; top:0; bottom:0; display:flex; align-items:center; justify-content:flex-end;';
         selectWrapper.style.cssText = `
-                          position:absolute;
-                          right:0;
-                          top:0;
-                          bottom:0;
-                        
-                          /* ✅ 锁死整个区域宽度 */
-                          width:110px;
-                        
-                          display:flex;
-                          align-items:center;
-                          justify-content:flex-end;
-                        `;
-
+                      flex:0 0 92px;      /* ✅ 固定宽度，但比以前更合理 */
+                      display:flex;
+                      align-items:center;
+                      justify-content:flex-end;
+                    `;
         
         const select = document.createElement('select');
         select.id = 'metricSelect';
         //select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:2px 5px; border-radius:3px; font-size:10px; cursor:pointer; width:auto; box-sizing:border-box; min-width:100px;';
         select.style.cssText = `
-                          width:100%;
-                          background:#333;
-                          color:#fff;
-                          border:1px solid #555;
-                          padding:2px 5px;
-                          border-radius:3px;
-                          font-size:10px;
-                          box-sizing:border-box;
-                        
-                          /* 防止安卓字体放大导致宽度变化 */
-                          -webkit-text-size-adjust: 100%;
-                        `;
+                      width:100%;
+                      height:22px;
+                      background:#333;
+                      color:#fff;
+                      border:1px solid #555;
+                      border-radius:3px;
+                      font-size:11px;
+                      box-sizing:border-box;
+                    
+                      -webkit-text-size-adjust:100%;
+                    `;
+
         
         selectWrapper.appendChild(select);
         secondRow.appendChild(selectWrapper);
