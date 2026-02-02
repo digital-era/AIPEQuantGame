@@ -272,7 +272,7 @@ function openDetailChart(item, color) {
         actionDiv.appendChild(select);
         
         const optionsList = [
-            { value: '1min',      label: '1分价格' },
+            { value: '1min',      label: '分钟价格' },
             { value: '30d_price', label: '30天价格' },
             { value: '30d_pot',   label: 'PotScore' },
             { value: '30d_super', label: '超大单%' },
