@@ -693,22 +693,22 @@ function openDetailChart(item, color) {
                 
             case '30d_pot':
                 displayText = isMobile ? 
-                    `Pot: ${val.toFixed(1)}` : 
-                    `PotScore: ${val.toFixed(2)}`;
+                    `${val.toFixed(1)}` : 
+                    `${val.toFixed(2)}`;
                 displayColor = val >= 0 ? '#EF4444' : '#10B981';
                 break;
                 
             case '30d_super':
                 displayText = isMobile ? 
-                    `超大单: ${val.toFixed(1)}%` : 
-                    `超大单: ${val.toFixed(2)}%`;
+                    `${val.toFixed(1)}%` : 
+                    `${val.toFixed(2)}%`;
                 displayColor = val >= 0 ? '#EF4444' : '#10B981';
                 break;
                 
             case '30d_main':
                 displayText = isMobile ? 
-                    `主力: ${val.toFixed(1)}%` : 
-                    `主力: ${val.toFixed(2)}%`;
+                    `${val.toFixed(1)}%` : 
+                    `${val.toFixed(2)}%`;
                 displayColor = val >= 0 ? '#EF4444' : '#10B981';
                 break;
                 
