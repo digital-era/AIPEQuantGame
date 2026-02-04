@@ -138,7 +138,31 @@
         .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
         
         /* --- 卡片样式 --- */
-        .guardian-card { background: var(--panel-bg); border: 2px solid #444; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5); min-height: 800px; transition: all 0.3s ease; }
+        /*--- .guardian-card { background: var(--panel-bg); border: 2px solid #444; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.5); min-height: 800px; transition: all 0.3s ease; } --- */
+		/* --- 找到原有的 .guardian-card 样式并替换为以下内容 --- */
+		.guardian-card { 
+		    background: var(--panel-bg); 
+		    border: 2px solid #444; 
+		    padding: 15px; 
+		    border-radius: 4px; 
+		    display: flex; 
+		    flex-direction: column; 
+		    
+		    /* 【修复点1】不要使用 all，只针对颜色和阴影做动画，禁止对 layout (宽高) 做动画 */
+		    transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s; 
+		    
+		    box-shadow: 0 0 10px rgba(0,0,0,0.5); 
+		    min-height: 800px; 
+		    
+		    /* 【修复点2】强制开启 GPU 硬件加速，防止渲染层丢失 */
+		    transform: translateZ(0);
+		    -webkit-transform: translateZ(0);
+		    backface-visibility: hidden;
+		    perspective: 1000px;
+		    
+		    /* 【修复点3】告诉浏览器即将发生变化的属性，优化渲染性能 */
+		    will-change: border-color, box-shadow;
+		}
         .guardian-card.active { border-color: var(--glow-color); box-shadow: 0 0 20px var(--glow-color); }
         .g-genbu { --glow-color: var(--genbu-color); }
         .g-suzaku { --glow-color: var(--suzaku-color); }
