@@ -77,7 +77,7 @@ async function loadEEIFlow30DaysData() {
 function openDetailChart(item, color) {
     const rawCode = item.code;
     const code = rawCode; 
-    console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
+    //console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
 
     // 移动端检测
     const isMobile = window.innerWidth <= 768;
