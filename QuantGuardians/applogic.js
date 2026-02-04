@@ -2116,7 +2116,8 @@ async function initSystem() {
                 log("Market is open. Price polling started every 5 minutes.", "#0f0");
             }
         } else {
-            console.error("Market data update failed:", marketDataResult.reason);
+            // [修改] 风格化日志：替换 console.error
+            log(">> MARKET DATA SYNC FAILURE: " + (marketDataResult.reason?.message || "Unknown Error"), "#f00");
             log("Market Data Error", "red");
         }
 
@@ -2128,9 +2129,10 @@ async function initSystem() {
         btn.style.boxShadow = "0 0 20px #0f0";
 
     } catch (err) {
-        console.error("Init System Critical Failure:", err);
+        // [修改] 风格化日志：替换 console.error
+        console.error("Init System Critical Failure:", err); // 保留系统级 error 用于浏览器调试
         btn.innerText = "INIT FAILED";
         btn.style.color = "red";
-        log("System Init Failed: " + err.message, "red");
+        log(">> SYSTEM INITIALIZATION FATAL ERROR: " + err.message, "#f00");
     }
 }
