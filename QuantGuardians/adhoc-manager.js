@@ -3,19 +3,22 @@
  * 处理用户手动增加标的的功能
  */
 
+const GITHUB_ADD_USER = 'digital-era';
 const GITHUB_REPO_ADD = 'AIPEHotTracker';
+const GITHUB_ADD_BRANCH = 'main';
+const PROXY_BASE_ADD_URL = "https://githubproxy.aivibeinvest.com"; 
 const DATA_PATH_ADD = `https://raw.githubusercontent.com/digital-era/${GITHUB_REPO_ADD}/main/data`;
 
 let allStocks = []; // 全量股票池
 
 function getAllStocksDataResourceUrl(filename) {
     // 基础路径结构: User/Repo/Branch/File
-    const filePath = `${GITHUB_USER}/${GITHUB_REPO_ADD}/${GITHUB_BRANCH}/${filename}`;
+    const filePath = `${GITHUB_ADD_USER}/${GITHUB_REPO_ADD}/${GITHUB_ADD_BRANCH}/${filename}`;
     
     let finalUrl;
     if (typeof gitproxy !== 'undefined' && gitproxy === true) {
         // 走代理: https://proxy.com/User/Repo/Branch/File
-        finalUrl = `${PROXY_BASE_URL}/${filePath}`;
+        finalUrl = `${PROXY_BASE_ADD_URL}/${filePath}`;
     } else {
         // 走原生: https://raw.githubusercontent.com/User/Repo/Branch/File
         finalUrl = `https://raw.githubusercontent.com/${filePath}`;
@@ -38,7 +41,7 @@ async function fetchAllStocksData() {
             //fetch(`${DATA_PATH_ADD}/FlowInfoBase.json`),
             //fetch(`${DATA_PATH_ADD}/HKFlowInfoBase.json`)
             getAllStocksDataResourceUrl(`data/FlowInfoBase.json`),
-            getAllStocksDataResourceUrl(`data/HKFlowInfoBase.json`),
+            getAllStocksDataResourceUrl(`data/HKFlowInfoBase.json`)
         ]);
 
         // 建议加上简单的错误检查，以防fetch失败但未抛出异常（可选）
