@@ -207,7 +207,7 @@ function isMarketClosed() {
     }
 
     // 市场在9:15前  16:15 后关闭
-    if ((hours > 16 || (hours === 16 && minutes > 30)) || (hours < 9 || (hours === 9 && minutes < 30))) {
+    if ((hours > 16 || (hours === 16 && minutes > 30)) || (hours < 9 || (hours === 9 && minutes < 15))) {
         return true;
     }
     
