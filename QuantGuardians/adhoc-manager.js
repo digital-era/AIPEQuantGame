@@ -9,12 +9,23 @@ const DATA_PATH_ADD = `https://raw.githubusercontent.com/digital-era/${GITHUB_RE
 let allStocks = []; // 全量股票池
 
 // 获取全量数据
+// 获取全量数据
 async function fetchAllStocksData() {
     try {
+        // [新增] 风格化日志：开始加载基础数据
+        // 这里的文案模仿系统初始化或数据库连接的语境
+        if (typeof log === 'function') {
+            log(">> INITIALIZING STOCK INDEX: LOADING BASE DATA...", "#0ff");
+        }
+
         const [aShareRes, hkShareRes] = await Promise.all([
             fetch(`${DATA_PATH_ADD}/FlowInfoBase.json`),
             fetch(`${DATA_PATH_ADD}/HKFlowInfoBase.json`)
         ]);
+
+        // 建议加上简单的错误检查，以防fetch失败但未抛出异常（可选）
+        if (!aShareRes.ok || !hkShareRes.ok) throw new Error("Network response was not ok");
+
         const aData = await aShareRes.json();
         const hkData = await hkShareRes.json();
         
@@ -23,9 +34,23 @@ async function fetchAllStocksData() {
             name: s.名称 || s.name,
             code: s.代码 || s.code
         }));
+
+        // [修改] 风格化日志：加载成功
+        // 使用 "SYNCHRONIZED" (同步完成) 和 "ENTITIES REGISTERED" (实体注册) 等游戏化术语
+        // 同时也保留了控制台原本的输出习惯（可选，如果只需要log函数可删除console.log）
         console.log("Stock search engine ready. Total items:", allStocks.length);
+        if (typeof log === 'function') {
+            log(`>> STOCK INDEX SYNCHRONIZED. ENTITIES REGISTERED: ${allStocks.length}`, "#0f0");
+        }
+
     } catch (e) {
         console.error("Error fetching stock lists", e);
+        
+        // [修改] 风格化日志：加载失败
+        // 使用 "SYSTEM FAILURE" (系统故障) 强调错误严重性
+        if (typeof log === 'function') {
+            log(">> SYSTEM FAILURE: STOCK LIST RETRIEVAL FAILED. " + (e.message || e), "#f00");
+        }
     }
 }
 
