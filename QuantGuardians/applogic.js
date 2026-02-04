@@ -2162,8 +2162,8 @@ async function initSystem() {
         // 此时我们有了：股票名字、代码、持仓数量。
         // 我们缺的是：实时价格。
         // 立刻渲染，让用户看到文字内容，价格显示为 "--" 
-        log("Rendering Static UI...", "#88f");
-        renderStaticLists(); 
+        // log("Rendering Static UI...", "#88f");
+        // renderStaticLists(); 
 
         // ============================================================
         // Phase 3: 市场数据与渲染 (此时所有列表已就绪)
