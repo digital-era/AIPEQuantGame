@@ -764,96 +764,39 @@ function updateCash(key) {
  * 更新市场数据，根据市场状态决定是否获取最新价格
  * @param {boolean} forceFetch - 强制获取价格，即使 hasClosedPrices 为 true。用于系统初始化。
  */
+// ===================== 主函数 =====================
 async function updateMarketData(forceFetch = false) {
+    // 1. 休市检查逻辑 (保持不变)
     if (hasClosedPrices && !forceFetch) {
         log("Market closed. Skipping price data fetch.", "#666");
-        for (let k in gameState.guardians) {
-            const g = gameState.guardians[k];
-            let portRtn = calculateUserRtn(k);
-            const userRtnElem = document.getElementById(`user-rtn-${k}`);
-            userRtnElem.innerText = portRtn.toFixed(2) + "%";
-            userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
+        // 即使休市，也遍历刷新一下 UI (计算净值)
+        Object.keys(gameState.guardians).forEach(k => {
+            const portRtn = calculateUserRtn(k);
+            updateUserRtnUI(k, portRtn); 
             renderLists(k); 
-        }
+        });
         return; 
     }
 
     log("Sync Price Data", "#aaa"); 
-    let allPricesFetchedSuccessfully = true; 
+    
+    // 2. 并行处理逻辑 (核心优化点)
+    // 获取所有 Guardian 的 ID
+    const guardianIds = Object.keys(gameState.guardians);
+    
+    // 同时触发所有 Guardian 的数据更新和计算 (Macro Parallelism)
+    // processSingleGuardian 内部会处理单个 Guardian 的网络并发和 UI 更新
+    const guardianPromises = guardianIds.map(k => processSingleGuardian(k));
 
-    for (let k in gameState.guardians) {
-        const g = gameState.guardians[k];
-        let currentAssets = 0;
-        
-        // 1. Update Strategy Prices
-        let systemRtn = 0; 
-        for (let s of g.strategy) {
-            await fetchPrice(s); 
-            if (s.currentPrice === null) allPricesFetchedSuccessfully = false; 
+    // 等待所有 Guardian 处理完毕
+    const results = await Promise.all(guardianPromises);
 
-            if (s.currentPrice && s.refPrice) {
-                 if (s.isAdhoc !== true) { 
-                     const chg = (s.currentPrice - s.refPrice) / s.refPrice;
-                     systemRtn += chg * (s.weight / 100);
-                 }
-            }
-        }
-
-         // =========== 【修改开始】 ===========
-        // 将计算出的组合满仓收益率，乘以策略的风控仓位因子 (Power)
-        // 例如：组合涨幅 1%，但 Power 为 0.5 (半仓)，则系统收益应为 0.5%
-        if (g.power !== undefined && g.power !== null) {
-            systemRtn = systemRtn * g.power;
-        }
-        // =========== 【修改结束】 ===========
-
-        // 【新增】Update ADHOC Prices (修复问题1：Adhoc区域微图为空)
-        // 必须获取价格，adhoc对象才有history数据用于画图
-        for (let s of g.adhocObservations) {
-            await fetchPrice(s);
-            // adhoc 股票通常不计入 systemRtn 模型收益，所以这里不累加 systemRtn
-        }
-
-        // --- 更新数值和颜色 ---
-        const sysRtnElem = document.getElementById(`rtn-${k}`);
-        const cardElem = document.getElementById(`card-${k}`);
-        
-        if (sysRtnElem) {
-            sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
-            sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
-        }
-
-        if (systemRtn > 0) {
-            cardElem.classList.add('active'); 
-        } else {
-            cardElem.classList.remove('active'); 
-        }              
-       
-        // 2. Update Portfolio Prices & Value
-        for (let p of g.portfolio) {
-            if (p.isCash) {
-                currentAssets += 100000 * (p.weight / 100); 
-            } else {
-                await fetchPrice(p); 
-                if (p.currentPrice === null) allPricesFetchedSuccessfully = false; 
-                currentAssets += 100000 * (p.weight / 100); 
-            }
-        }
-        
-        if (g.initialAssets === 0 && currentAssets > 0) {
-            g.initialAssets = 100000;
-        }
-
-        let portRtn = calculateUserRtn(k);         
-        const userRtnElem = document.getElementById(`user-rtn-${k}`);
-        userRtnElem.innerText = portRtn.toFixed(2) + "%";
-        userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
-        
-        renderLists(k);
-    }
+    // 检查是否所有价格都获取成功 (results 是一个布尔值数组)
+    const allPricesFetchedSuccessfully = results.every(res => res === true);
     
     log("Sync Price Data Finish", "#aaa"); 
 
+    // 3. 休市锁定逻辑 (保持不变)
     if (isMarketClosed() && allPricesFetchedSuccessfully && !hasClosedPrices) {
         hasClosedPrices = true; 
         if (priceUpdateInterval) {
@@ -863,6 +806,117 @@ async function updateMarketData(forceFetch = false) {
         log("Market closed. Prices locked.", "yellow");
     }
 }
+
+// ===================== 辅助函数 1：处理单个策略逻辑 =====================
+/**
+ * 独立处理单个策略的所有逻辑：并发获取数据 -> 计算收益 -> 更新自身 UI
+ * 返回值: boolean (表示该策略下的标的是否全部获取成功)
+ */
+async function processSingleGuardian(k) {
+    const g = gameState.guardians[k];
+    let guardianSuccess = true;
+
+    // --- A. 收集并发请求 (Micro Parallelism) ---
+    // 将 Strategy, Adhoc, Portfolio 的请求全部放入数组
+    // 注意：fetchPrice 必须是返回 Promise 的函数
+    
+    const strategyPromises = g.strategy.map(s => fetchPrice(s));
+    const adhocPromises = g.adhocObservations.map(s => fetchPrice(s));
+    
+    // Portfolio 中非现金部分才需要 fetch
+    const portfolioStocks = g.portfolio.filter(p => !p.isCash);
+    const portfolioPromises = portfolioStocks.map(p => fetchPrice(p));
+
+    // --- B. 并行等待网络请求 ---
+    try {
+        // 使用 Promise.all 让该 Guardian 下的所有标的同时请求
+        // 即使某个请求失败，我们也希望捕获异常，不要中断整个流程
+        await Promise.all([
+            ...strategyPromises, 
+            ...adhocPromises, 
+            ...portfolioPromises
+        ]);
+    } catch (e) {
+        console.error(`Network error in guardian ${k}:`, e);
+        guardianSuccess = false; // 标记网络有失败
+    }
+
+    // --- C. 数据计算 (此时 fetchPrice 已经更新了对象内部的 currentPrice) ---
+    
+    // 1. 计算 System Return
+    let systemRtn = 0; 
+    for (let s of g.strategy) {
+        if (s.currentPrice === null) guardianSuccess = false; 
+
+        if (s.currentPrice && s.refPrice) {
+             if (s.isAdhoc !== true) { 
+                 const chg = (s.currentPrice - s.refPrice) / s.refPrice;
+                 systemRtn += chg * (s.weight / 100);
+             }
+        }
+    }
+
+    // 风控仓位因子修正 (Power Logic)
+    if (g.power !== undefined && g.power !== null) {
+        systemRtn = systemRtn * g.power;
+    }
+
+    // 2. 计算 Portfolio Assets
+    // Adhoc 部分不需要计算 value，已经在上面 fetch 过了
+    let currentAssets = 0;
+    for (let p of g.portfolio) {
+        if (p.isCash) {
+            currentAssets += 100000 * (p.weight / 100); 
+        } else {
+            // p 已经在上面被 fetchPrice 更新过了，这里只做检查
+            if (p.currentPrice === null) guardianSuccess = false; 
+            currentAssets += 100000 * (p.weight / 100); 
+        }
+    }
+    
+    if (g.initialAssets === 0 && currentAssets > 0) {
+        g.initialAssets = 100000;
+    }
+
+    // --- D. 更新 UI ---
+    // 这里的 DOM 操作只会影响当前 Guardian 的卡片，不干扰其他
+    
+    // 更新策略收益显示
+    const sysRtnElem = document.getElementById(`rtn-${k}`);
+    const cardElem = document.getElementById(`card-${k}`);
+    
+    if (sysRtnElem) {
+        sysRtnElem.innerText = (systemRtn * 100).toFixed(2) + "%";
+        sysRtnElem.className = systemRtn >= 0 ? "stat-value text-up" : "stat-value text-down";
+    }
+
+    if (cardElem) {
+        if (systemRtn > 0) {
+            cardElem.classList.add('active'); 
+        } else {
+            cardElem.classList.remove('active'); 
+        }
+    }
+
+    // 更新用户持仓显示
+    let portRtn = calculateUserRtn(k);         
+    updateUserRtnUI(k, portRtn);
+    
+    // 重新渲染列表
+    renderLists(k);
+
+    return guardianSuccess;
+}
+
+// ===================== 辅助函数 2：UI 工具 =====================
+function updateUserRtnUI(k, portRtn) {
+    const userRtnElem = document.getElementById(`user-rtn-${k}`);
+    if (userRtnElem) {
+        userRtnElem.innerText = portRtn.toFixed(2) + "%";
+        userRtnElem.className = portRtn >= 0 ? "stat-value user-stat text-up" : "stat-value user-stat text-down";
+    }
+}
+
 /**
  * 获取股票价格及历史数据
  * @param {object} item - 包含股票代码、名称、历史价格等的对象
