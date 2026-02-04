@@ -2156,7 +2156,7 @@ async function initSystem() {
         // 并行获取行情、全量股票列表、EEI数据
         const [marketDataResult, allStocksData, eeiFlowData] = await Promise.allSettled([
             updateMarketData(true), // 这里会触发 renderLists，此时 Adhoc 和 SweetPoint 均已就绪
-            //fetchAllStocksData(),
+            fetchAllStocksData(),
             loadEEIFlow30DaysData()
         ]);
 
@@ -2176,7 +2176,6 @@ async function initSystem() {
         }
      
         // 3. 设置自动补全（依赖于 fetchAllStocksData 的结果）
-        fetchAllStocksData();
         setupAllAdhocAutoCompletes();
 
         gameState.active = true;
