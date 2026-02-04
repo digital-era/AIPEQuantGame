@@ -10,7 +10,9 @@ const PROXY_BASE_ADD_URL = "https://githubproxy.aivibeinvest.com";
 const DATA_PATH_ADD = `https://raw.githubusercontent.com/digital-era/${GITHUB_REPO_ADD}/main/data`;
 
 let allStocks = []; // 全量股票池
-
+/**
+ * 生成资源文件的完整URL
+ */
 function getAllStocksDataResourceUrl(filename) {
     // 基础路径结构: User/Repo/Branch/File
     const filePath = `${GITHUB_ADD_USER}/${GITHUB_REPO_ADD}/${GITHUB_ADD_BRANCH}/${filename}`;
@@ -31,34 +33,38 @@ function getAllStocksDataResourceUrl(filename) {
 // 获取全量数据
 async function fetchAllStocksData() {
     try {
-        // [新增] 风格化日志：开始加载基础数据
-        // 这里的文案模仿系统初始化或数据库连接的语境
         if (typeof log === 'function') {
             log(">> INITIALIZING STOCK INDEX: LOADING BASE DATA...", "#0ff");
         }
 
+        // [核心修正] 这里必须调用 fetch，否则 Promise.all 等待的只是字符串
         const [aShareRes, hkShareRes] = await Promise.all([
-            //fetch(`${DATA_PATH_ADD}/FlowInfoBase.json`),
-            //fetch(`${DATA_PATH_ADD}/HKFlowInfoBase.json`)
-            getAllStocksDataResourceUrl(`data/FlowInfoBase.json`),
-            getAllStocksDataResourceUrl(`data/HKFlowInfoBase.json`)
+            fetch(getAllStocksDataResourceUrl(`data/FlowInfoBase.json`)),
+            fetch(getAllStocksDataResourceUrl(`data/HKFlowInfoBase.json`))
         ]);
 
-        // 建议加上简单的错误检查，以防fetch失败但未抛出异常（可选）
-        if (!aShareRes.ok || !hkShareRes.ok) throw new Error("Network response was not ok");
+        // 检查 HTTP 状态码
+        if (!aShareRes.ok || !hkShareRes.ok) {
+            throw new Error(`Network error: A-Share(${aShareRes.status}) / HK-Share(${hkShareRes.status})`);
+        }
 
         const aData = await aShareRes.json();
         const hkData = await hkShareRes.json();
         
+        // [安全性优化] 确保数据是数组，防止非数组数据导致崩溃
+        const validAData = Array.isArray(aData) ? aData : [];
+        const validHkData = Array.isArray(hkData) ? hkData : [];
+
+        if (!Array.isArray(aData) || !Array.isArray(hkData)) {
+            console.warn("Stock data format warning: received non-array data");
+        }
+
         // 合并并清洗数据
-        allStocks = [...aData, ...hkData].map(s => ({
+        allStocks = [...validAData, ...validHkData].map(s => ({
             name: s.名称 || s.name,
             code: s.代码 || s.code
         }));
 
-        // [修改] 风格化日志：加载成功
-        // 使用 "SYNCHRONIZED" (同步完成) 和 "ENTITIES REGISTERED" (实体注册) 等游戏化术语
-        // 同时也保留了控制台原本的输出习惯（可选，如果只需要log函数可删除console.log）
         console.log("Stock search engine ready. Total items:", allStocks.length);
         if (typeof log === 'function') {
             log(`>> STOCK INDEX SYNCHRONIZED. ENTITIES REGISTERED: ${allStocks.length}`, "#0f0");
@@ -67,8 +73,6 @@ async function fetchAllStocksData() {
     } catch (e) {
         console.error("Error fetching stock lists", e);
         
-        // [修改] 风格化日志：加载失败
-        // 使用 "SYSTEM FAILURE" (系统故障) 强调错误严重性
         if (typeof log === 'function') {
             log(">> SYSTEM FAILURE: STOCK LIST RETRIEVAL FAILED. " + (e.message || e), "#f00");
         }
