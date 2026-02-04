@@ -4,14 +4,13 @@
  */
 
 const GITHUB_REPO_ADD = 'AIPEHotTracker';
-//const DATA_PATH_ADD = `https://raw.githubusercontent.com/digital-era/${GITHUB_REPO_ADD}/main/data`;
-const DATA_PATH_ADD = `main/data`;
+const DATA_PATH_ADD = `https://raw.githubusercontent.com/digital-era/${GITHUB_REPO_ADD}/main/data`;
 
 let allStocks = []; // 全量股票池
 
 function getAllStocksDataResourceUrl(filename) {
     // 基础路径结构: User/Repo/Branch/File
-    const filePath = `${GITHUB_USER}/${GITHUB_REPO_ADD}/${DATA_PATH_ADD}/${filename}`;
+    const filePath = `${GITHUB_USER}/${GITHUB_REPO_ADD}/${GITHUB_BRANCH}/${filename}`;
     
     let finalUrl;
     if (typeof gitproxy !== 'undefined' && gitproxy === true) {
@@ -38,8 +37,8 @@ async function fetchAllStocksData() {
         const [aShareRes, hkShareRes] = await Promise.all([
             //fetch(`${DATA_PATH_ADD}/FlowInfoBase.json`),
             //fetch(`${DATA_PATH_ADD}/HKFlowInfoBase.json`)
-            getAllStocksDataResourceUrl(`FlowInfoBase.json`),
-            getAllStocksDataResourceUrl(`HKFlowInfoBase.json`),
+            getAllStocksDataResourceUrl(`data/FlowInfoBase.json`),
+            getAllStocksDataResourceUrl(`data/HKFlowInfoBase.json`),
         ]);
 
         // 建议加上简单的错误检查，以防fetch失败但未抛出异常（可选）
