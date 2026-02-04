@@ -2120,6 +2120,14 @@ window.updateVariantVisibility = function() {
     perfChart.update();
 };
 
+// [新增] 渲染中间态列表（有名字，但价格显示 --）
+// 用于在策略加载完但价格还没到的时候调用
+function renderStaticLists() {
+    Object.keys(gameState.guardians).forEach(key => {
+        renderLists(key); // renderLists 内部已经处理了 currentPrice 为 null 的情况
+    });
+}
+
 async function initSystem() {
     if (gameState.active) return;
     const btn = document.getElementById('engageBtn');
@@ -2149,6 +2157,13 @@ async function initSystem() {
             loadSweetPoints(),
             loadAdhocFromCloud()
         ]);
+
+        // --- 【关键修改】在此处立即渲染“静态”列表 ---
+        // 此时我们有了：股票名字、代码、持仓数量。
+        // 我们缺的是：实时价格。
+        // 立刻渲染，让用户看到文字内容，价格显示为 "--" 
+        log("Rendering Static UI...", "#88f");
+        renderStaticLists(); 
 
         // ============================================================
         // Phase 3: 市场数据与渲染 (此时所有列表已就绪)
