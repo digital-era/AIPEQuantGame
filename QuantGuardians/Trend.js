@@ -12,7 +12,9 @@ async function loadEEIFlow30DaysData() {
     const url = getResourceUrl(filename); // 假设你有这个获取路径的函数
 
     try {
-        console.log("正在加载 30 天资金流向数据...");
+        // [修改] 风格化日志：开始加载
+        log(">> INITIATING DATA STREAM: 30-DAY FLOW ANALYSIS...", "#0ff");
+        
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -65,19 +67,23 @@ async function loadEEIFlow30DaysData() {
         });
 
         eeiFlow30DaysData = dataMap;
-        console.log(`30天数据加载完成，覆盖 ${Object.keys(dataMap).length} 只股票`);
+        
+        // [修改] 风格化日志：加载成功
+        log(`>> DATA STREAM SYNC COMPLETE. TARGETS ACQUIRED: ${Object.keys(dataMap).length}`, "#0f0");
 
     } catch (err) {
-        console.error("加载 EEIFlow30Days.xlsx 失败:", err);
+        // [修改] 风格化日志：加载失败
+        log(">> CRITICAL ERROR: EEI FLOW DATA CORRUPTED. " + (err.message || err), "#f00");
     }
 }
 
-// ================= 图表详情函数 =================/
 // ================= 图表详情函数 (完整优化版) =================
 function openDetailChart(item, color) {
     const rawCode = item.code;
     const code = rawCode; 
-    //console.log(`正在打开图表: 原始代码=${rawCode}, 查找代码=${code}`);
+    
+    // [修改] 风格化日志：交互反馈 (取消了原本的注释)
+    log(`>> ENGAGING VISUAL LINK: TARGET [${code}]...`, "#ffff00");
 
     // 移动端检测
     const isMobile = window.innerWidth <= 768;
