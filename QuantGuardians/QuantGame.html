@@ -48,6 +48,13 @@
         * { box-sizing: border-box; }
 
         /* Body 基础样式保持，但不再负责 Flex 布局，Flex 移交给 main-scaler */
+		/* 修改原有的 body 样式，并新增 html 样式 */
+		html {
+		    background-color: var(--bg-color); /* 关键：防止滚动到底部或加载时出现黑底 */
+		    overflow-x: hidden; /* 禁止横向滚动，防止页面抖动 */
+		    -webkit-text-size-adjust: 100%; /* 禁止iOS自动调整字体大小 */
+		}
+		
         body { 
             background-color: var(--bg-color); 
             color: var(--text-main); 
@@ -55,6 +62,11 @@
             margin: 0; 
             padding: 0; /* padding 移交给内部容器 */
             min-height: 100vh; 
+			
+			/* 新增优化属性 */
+		    overflow-x: hidden; 
+		    position: relative; /* 建立层叠上下文 */
+		    -webkit-overflow-scrolling: touch; /* 开启iOS平滑滚动 */
         }
 
         /* 新增：包裹层默认样式，继承原本 body 的 flex 布局特性 */
