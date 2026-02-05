@@ -128,6 +128,9 @@
 	        border: 1px solid rgba(255,255,255,0.1);
 	        backdrop-filter: blur(5px);
 	        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+			
+			backdrop-filter: blur(5px); /* 电脑端保持模糊 */
+    		-webkit-backdrop-filter: blur(5px);
 	    }
 	
 	    .icon-btn {
@@ -259,6 +262,19 @@
 			.main-title { font-size: 2.1em; }
             /* 原来的 .oss-btn 那一行删掉了，因为现在统一在 header-controls 里管理了 */
             .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
+			
+			/* 新增：手机端移除高斯模糊，改为纯色背景以提升性能 */
+			.header-controls {
+				backdrop-filter: none; 
+				-webkit-backdrop-filter: none;
+				background: rgba(20, 20, 30, 0.9); /* 加深背景色作为替代 */
+			}
+		    
+		    /* 减少卡片阴影半径，减轻渲染压力 */
+		    .guardian-card {
+		        box-shadow: none; 
+		        border: 1px solid #333;
+		    }
         }
         
         ::-webkit-scrollbar { width: 4px; }
