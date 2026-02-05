@@ -759,8 +759,9 @@
 		    font-size: 1.5em;         /* 【修改点1：PC端字体改小 (原1.5em -> 1.3em)】 */			
       		font-family:  'Ma Shan Zheng'; 
             padding-right: 40px;      /* 【修改点1：新增右边距，防止文字和按钮重叠】 */
+			padding-right: 40px;      /* 【修改点1：新增右边距，防止文字和按钮重叠】 */
 		    line-height: 1.6;
-		    margin-top: 30;
+		    margin-top: 30px;
 		    margin-bottom: 30px;
 		    text-align: center;
 		    font-weight: bold;
@@ -806,6 +807,14 @@
 		        font-size: 1.3em;
 				font-family:  'Ma Shan Zheng'; 
                 margin-top: 30px; /* 让标题下沉 */
+			
+				/* --- 修改开始 --- */
+			    padding-right: 20px;      /* 原有代码：为了避开右上角的关闭按钮 */
+			    padding-left: 20px;       /* 【新增】：添加左侧内边距，为了左右对称，文字才会视觉居中 */
+			    
+			    line-height: 1.6;
+			    margin-top: 30px;         /* 【修复】：原代码写的是 margin-top: 30; 缺少单位 px，浏览器会忽略此行 */
+			    /* --- 修改结束 --- */
 		    }
 
             /* 【修改点3：移动端 Conclusion 字体保持一致】 */
