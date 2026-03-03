@@ -679,32 +679,22 @@ function calculateUserRtn(key) {
     
     let totalPnL = 0;
 
-    // --- 第一部分：计算当前 Portfolio 中标的的浮动盈亏 ---
+    // --- 第一部分：计算当前 Portfolio 中标的的浮动盈亏 (相对于开盘价/基准价) ---
     g.portfolio.forEach(p => {
         if (p.isCash) return; // 跳过现金
         
-        let dailyChgDecimal = 0;
-        let baseRefPrice = p.refPrice;
+        // 优先从 portfolio 找现价，找不到则视为无波动
+        const nowPrice = p.currentPrice;
+        const refPrice = p.refPrice; // 这里的 refPrice 是今日开盘价/基准价
 
-        // 【核心修复 1】优先使用 API 的官方涨跌幅，保证与界面 UI 看到的绿色/红色百分比完全一致
-        if (p.officialChangePercent !== null && p.officialChangePercent !== undefined) {
-            dailyChgDecimal = p.officialChangePercent / 100;
-            // 反推真实的昨收价，为第二部的买卖成本修正做准备
-            if (p.currentPrice) {
-                baseRefPrice = p.currentPrice / (1 + dailyChgDecimal);
-            }
-        } 
-        // 退回本地计算
-        else if (p.currentPrice && p.refPrice) {
-            dailyChgDecimal = (p.currentPrice - p.refPrice) / p.refPrice;
+        if (nowPrice && refPrice) {
+            // 【核心修复】：直接使用 持仓初始配置价值 × 涨跌幅
+            // 避免除以现价产生的由于价格波动导致的股数放缩扭曲
+            const chgRatio = (nowPrice - refPrice) / refPrice; // 计算涨跌幅 (小数)
+            const currentWeightValue = initialTotalAssets * (p.weight / 100); // 算出分配到该股的虚拟初始本金
+            
+            totalPnL += currentWeightValue * chgRatio; // 盈亏金额 = 本金 * 涨跌幅
         }
-
-        // 【核心修复 2】直接使用（配置市值 * 涨跌幅），去掉错误的 /nowPrice 计算
-        const currentWeightValue = initialTotalAssets * (p.weight / 100);
-        totalPnL += currentWeightValue * dailyChgDecimal;
-
-        // 临时记录真实的基准价，用于下面过滤今日流水
-        p._tempDailyRefPrice = baseRefPrice; 
     });
 
     // --- 第二部分：通过 memoryFlows 修正买入成本，并累加卖出已实现收益 ---
@@ -713,15 +703,30 @@ function calculateUserRtn(key) {
         const tradePrice = f.data["价格"];
         const tradeQty = f.data["标的数量"];
         
-        const item = g.portfolio.find(p => p.code === code) || g.strategy.find(s => s.code === code);
-        const refPrice = item ? (item._tempDailyRefPrice || item.refPrice) : tradePrice;
+        // 尝试获取该标的的基准价（今日开盘价）
+        // 逻辑：先看 strategy（策略里存了 refPrice），再看 portfolio
+        const item = g.strategy.find(s => s.code === code) || 
+                     g.portfolio.find(p => p.code === code);
+        
+        const refPrice = item ? item.refPrice : tradePrice;
 
         if (f.data["操作类型"] === "Buy") {
+            /**
+             * 买入修正：
+             * 在第一部分计算中，我们假设所有持仓都是从 refPrice（开盘）开始波动的。
+             * 但今日买入的标的，其实是从 tradePrice 开始波动的。
+             * 所以要减去 (买入价 - 开盘价) 这一段多算的/少算的差额。
+             */
             if (tradePrice && refPrice) {
                 totalPnL -= (tradePrice - refPrice) * tradeQty;
             }
         } 
         else if (f.data["操作类型"] === "Sell") {
+            /**
+             * 卖出贡献（按您要求的逻辑）：
+             * 卖出时的价格与今日开盘价（refPrice）的差额作为今日收益贡献。
+             * 卖出后标的不在 portfolio 了，所以这部分是“锁定”的今日收益。
+             */
             if (tradePrice && refPrice) {
                 totalPnL += (tradePrice - refPrice) * tradeQty;
             }
@@ -730,6 +735,8 @@ function calculateUserRtn(key) {
 
     // 3. 计算收益率百分比
     const rtnPercentage = (totalPnL / initialTotalAssets) * 100;
+    
+    // 返回数值，外层调用可以用 .toFixed(2)
     return isNaN(rtnPercentage) ? 0 : rtnPercentage;
 }
 
