@@ -233,10 +233,22 @@ async function loadEEIFlow30DaysData() {
 }
 
 // ================= 图表详情函数 (完整优化版) =================
+// ================= 图表详情函数 (完整优化版) =================
 function openDetailChart(items, item, color) {
-    const rawCode = item.code;
+    const rawCode = item.code || item; 
     const code = rawCode; 
     
+    // 【修复重点 2】：确保标的名称被成功获取，防止头部显示缺失
+    if (!item.name || item.name === '未知') {
+        if (eeiFlow30DaysData && eeiFlow30DaysData[code] && eeiFlow30DaysData[code].length > 0) {
+            item.name = eeiFlow30DaysData[code][0]['名称'] || '未知';
+        } else {
+            // 尝试通过 items 传入的列表获取名称兜底
+            const match = items.find(i => (i.code || i) === code);
+            item.name = (match && match.name) ? match.name : '未知';
+        }
+    }
+
     log(`>> ENGAGING VISUAL LINK: TARGET [${code}]...`, "#ffff00");
 
     const isMobile = window.innerWidth <= 768;
@@ -292,16 +304,15 @@ function openDetailChart(items, item, color) {
     const titleEl = document.getElementById('modalTitle');
     titleEl.innerHTML = '';
 
-    // 【修改点】：统一加入3个新功能选项
     const optionsList =[
         { value: '1min',      label: '分钟价' },
         { value: '30d_price', label: '30天价' },
         { value: '30d_pot',   label: 'Pot' },
         { value: '30d_super', label: '超大单' },
         { value: '30d_main',  label: '主力' },
-        { value: 'industry',  label: '行业' },      // <-- 新增
-        { value: 'manifold',  label: '流形近似' },  // <-- 新增
-        { value: 'ind_lag',   label: '行业滑窗' }   // <-- 新增
+        { value: 'industry',  label: '行业' },      
+        { value: 'manifold',  label: '流形近似' },  
+        { value: 'ind_lag',   label: '行业滑窗' }   
     ];
 
     if (isMobile) {
@@ -377,7 +388,6 @@ function openDetailChart(items, item, color) {
         select.id = 'metricSelect';
         select.style.cssText = 'background:#333; color:#fff; border:1px solid #555; padding:4px 8px; border-radius:4px; font-size:13px; cursor:pointer; width:auto; min-width:120px;';
         
-        // 覆盖PC标签为详细版
         const pcOptionsList = optionsList.map(o => ({
             ...o, 
             label: o.value === '1min' ? '分钟价格' : (o.value === '30d_price' ? '30天价格' : (o.value === '30d_pot' ? 'PotScore' : (o.value === '30d_super' ? '超大单%' : (o.value === '30d_main' ? '主力%' : o.label))))
@@ -457,7 +467,6 @@ function openDetailChart(items, item, color) {
 
     // --- 【修改点】：新增针对 3个新增分析选项的专用表格渲染函数 ---
     function renderAnalysisTable(metricTargetCode) {
-        // 先获取并清理 DOM 容器
         const canvas = document.getElementById('detailChartCanvas');
         let tableDiv = document.getElementById('detailTableContainer');
         if (!tableDiv) {
@@ -466,12 +475,11 @@ function openDetailChart(items, item, color) {
             canvas.parentNode.appendChild(tableDiv);
         }
         
-        // 样式适配
         tableDiv.style.cssText = isMobile 
             ? `flex:1; width:100%; max-height:calc(95vh - 120px); overflow-y:auto; display:block; background:#181818; color:#ddd; margin-top:6px; -webkit-overflow-scrolling: touch; border:1px solid #333;`
             : "flex:1; width:100%; max-height:45vh; overflow-y:auto; display:block; background:#181818; color:#ddd; margin-top:8px; border:1px solid #333;";
         canvas.style.display = 'none';
-        controlsContainer.innerHTML = ''; // 清空播放等控制按钮
+        controlsContainer.innerHTML = ''; 
         
         const pctEl = document.getElementById('modalPct');
         if (pctEl) {
@@ -483,31 +491,49 @@ function openDetailChart(items, item, color) {
         const cellPadding = isMobile ? '6px 4px' : '8px 10px';
         let html = '';
 
-        // 分支渲染逻辑
         if (state.metric === 'industry') {
-            if (typeof industryData === 'undefined' || !industryData[metricTargetCode]) {
-                tableDiv.innerHTML = `<div style="padding:20px; text-align:center;">暂无此股票的行业数据</div>`;
-                return;
-            }
-            const ind = industryData[metricTargetCode];
-            // 筛选同板块内的股票代码
-            const peers = Object.keys(industryData).filter(k => industryData[k] === ind);
+            // 【修复重点 1】：设计意图为显示所在组（items）的每个标的对应的行业情况
+            const hasIndustryData = typeof industryData !== 'undefined';
+            const targetInd = (hasIndustryData && industryData[metricTargetCode]) ? industryData[metricTargetCode] : '未知';
 
             html += `<div style="padding:8px; color:#4ECDC4; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2;">
-                        所属行业: <b style="color:#fff;">${ind}</b> (共涵盖 ${peers.length} 支标的)
+                        当前标的行业: <b style="color:#fff;">${targetInd}</b> | 所在组共涵括 ${items.length} 支标的
                      </div>
                      <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
                      <thead style="background:#2d2d2d; position:sticky; top:33px;">
-                         <tr><th style="padding:${cellPadding}; text-align:left;">代码</th><th style="padding:${cellPadding}; text-align:left;">名称</th></tr>
+                         <tr>
+                             <th style="padding:${cellPadding}; text-align:left;">代码</th>
+                             <th style="padding:${cellPadding}; text-align:left;">名称</th>
+                             <th style="padding:${cellPadding}; text-align:left;">所属行业</th>
+                         </tr>
                      </thead><tbody>`;
-            peers.forEach(p => {
-                let pName = '未知';
-                if (eeiFlow30DaysData && eeiFlow30DaysData[p] && eeiFlow30DaysData[p][0]) {
-                    pName = eeiFlow30DaysData[p][0]['名称'] || pName;
+            
+            // 遍历传入的所在组的 items 数组
+            items.forEach(pItem => {
+                const pCode = pItem.code || pItem; 
+                let pName = pItem.name;
+
+                // 【修复重点 2】：名称缺失兜底逻辑，保证名称能获取到
+                if (!pName || pName === '未知') {
+                    if (eeiFlow30DaysData && eeiFlow30DaysData[pCode] && eeiFlow30DaysData[pCode].length > 0) {
+                        pName = eeiFlow30DaysData[pCode][0]['名称'] || '未知';
+                    } else {
+                        pName = '未知';
+                    }
                 }
-                html += `<tr style="border-bottom:1px solid #333;">
-                    <td style="padding:${cellPadding}; color:#aaa; font-family:monospace;">${p}</td>
-                    <td style="padding:${cellPadding}; color:#ddd;">${pName}</td>
+
+                const pInd = (hasIndustryData && industryData[pCode]) ? industryData[pCode] : '未知';
+                
+                // 让当前正在查看的标的行稍微高亮，增强对比体验
+                const isCurrent = (pCode === metricTargetCode);
+                const rowStyle = isCurrent ? 'background:#333;' : '';
+                const codeColor = isCurrent ? '#4ECDC4' : '#aaa';
+                const textColor = isCurrent ? '#fff' : '#ddd';
+
+                html += `<tr style="border-bottom:1px solid #333; ${rowStyle}">
+                    <td style="padding:${cellPadding}; color:${codeColor}; font-family:monospace;">${pCode}</td>
+                    <td style="padding:${cellPadding}; color:${textColor};">${pName}</td>
+                    <td style="padding:${cellPadding}; color:${textColor};">${pInd}</td>
                 </tr>`;
             });
             html += `</tbody></table>`;
@@ -539,7 +565,7 @@ function openDetailChart(items, item, color) {
             html += `</tbody></table>`;
         } 
         else if (state.metric === 'ind_lag') {
-            const res = runIndustryLagged(metricTargetCode, 3); // 固定 lag_days = 3
+            const res = runIndustryLagged(metricTargetCode, 3); 
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
 
             html += `<div style="padding:8px; color:#FF6B6B; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; line-height:1.4; position:sticky; top:0; z-index:2;">
@@ -573,7 +599,6 @@ function openDetailChart(items, item, color) {
         tableDiv.innerHTML = html;
     }
 
-
     // --- 4. 主渲染内容 ---
     function renderContent() {
         if (currentChartInstance) { currentChartInstance.destroy(); currentChartInstance = null; }
@@ -590,17 +615,14 @@ function openDetailChart(items, item, color) {
         if (isMobile) container.style.padding = "0 2px";
         else container.style.padding = "5px 0 0 0";
 
-        // 【修改点】：直接拦截分析视图，中断图表构建流
         if (['industry', 'manifold', 'ind_lag'].includes(state.metric)) {
-            state.playing = false; // 强行断开播放流
+            state.playing = false; 
             renderAnalysisTable(code);
             return;
         }
 
-        // ================= 常规表格/图表流 =================
         const dataObj = getData();
 
-        // 4.1 播放按钮
         if (state.view === 'chart') {
             const playBtn = document.createElement('button');
             playBtn.style.cssText = isMobile 
@@ -617,7 +639,6 @@ function openDetailChart(items, item, color) {
             controlsContainer.appendChild(playBtn);
         }
 
-        // 4.2 视图切换按钮
         const viewBtn = document.createElement('button');
         viewBtn.style.cssText = isMobile
             ? "padding:3px 8px; background:#444; color:white; border:none; border-radius:3px; cursor:pointer; font-size:10px; flex:1; min-width: 60px;"
@@ -649,7 +670,6 @@ function openDetailChart(items, item, color) {
             return;
         }
 
-        // 常规表格
         if (state.view === 'table') {
             canvas.style.display = 'none';
             tableDiv.style.display = 'block';
@@ -683,7 +703,6 @@ function openDetailChart(items, item, color) {
             html += `</tbody></table>`;
             tableDiv.innerHTML = html;
         } 
-        // 常规图表
         else {
             tableDiv.style.display = 'none';
             canvas.style.display = 'block';
@@ -835,6 +854,5 @@ function openDetailChart(items, item, color) {
         }
     }
 
-    // 首次渲染
     renderContent();
 }
