@@ -88,14 +88,10 @@ function runManifoldApproximation(targetCode, topN = 10) {
     const validDates = targetData.map(d => d['日期']);
     
     // 【修复】：从近30天数据中寻找首个非空的有效名称，防某天空白
-    let targetName = "未知";
-    const validTargetRow = targetData.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-    if (validTargetRow) targetName = validTargetRow['名称'];
-
     // let targetName = "未知";
     // const validTargetRow = targetData.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
     // if (validTargetRow) targetName = validTargetRow['名称'];
-        // === 替换为 ===
+    // === 替换为 ===
     let targetName = getStockNameFromAllStocks(targetCode);
     
     // 构建目标向量
