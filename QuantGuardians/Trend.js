@@ -54,7 +54,7 @@ function euclideanDistance(vecA, vecB) {
     return Math.sqrt(sumSq);
 }
 
-// [新功能 1] 流形近似逻辑计算
+//[新功能 1] 流形近似逻辑计算
 function runManifoldApproximation(targetCode, topN = 10) {
     if (!eeiFlow30DaysData) return { error: "基础30天数据尚未加载完成" };
     
@@ -66,7 +66,11 @@ function runManifoldApproximation(targetCode, topN = 10) {
     // 截取最近的最多30个交易日数据
     const targetData = targetDataRaw.slice(-30);
     const validDates = targetData.map(d => d['日期']);
-    const targetName = targetData[0]['名称'] || "未知";
+    
+    // 【修复】：从近30天数据中寻找首个非空的有效名称，防某天空白
+    let targetName = "未知";
+    const validTargetRow = targetData.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+    if (validTargetRow) targetName = validTargetRow['名称'];
 
     // 构建目标向量
     let targetVec =[];
@@ -89,10 +93,15 @@ function runManifoldApproximation(targetCode, topN = 10) {
             candVec.push(...zScoreNormalize(series));
         }
 
+        // 【修复】：寻找首个非空的有效名称
+        let candName = "未知";
+        const validCandRow = alignedRows.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+        if (validCandRow) candName = validCandRow['名称'];
+
         const dist = euclideanDistance(targetVec, candVec);
         distances.push({ 
             code, 
-            name: alignedRows[0]['名称'] || '未知', 
+            name: candName, 
             dist 
         });
     }
@@ -131,7 +140,10 @@ function runIndustryLagged(targetCode, lagDays = 3, topN = 10) {
         return { error: `目标 ${targetCode} 领先期内数据不完整，无法建立对比基准` };
     }
 
-    const targetName = targetDf[0]['名称'] || "未知";
+    // 【修复】：从目标数据中寻找首个非空的有效名称
+    let targetName = "未知";
+    const validTargetRow = targetDf.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+    if (validTargetRow) targetName = validTargetRow['名称'];
 
     let targetVec =[];
     for (let f of features) {
@@ -153,10 +165,15 @@ function runIndustryLagged(targetCode, lagDays = 3, topN = 10) {
             candVec.push(...zScoreNormalize(series));
         }
 
+        // 【修复】：从对齐组中寻找首个非空的有效名称
+        let candName = "未知";
+        const validCandRow = group.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+        if (validCandRow) candName = validCandRow['名称'];
+
         const dist = euclideanDistance(targetVec, candVec);
         distances.push({ 
             code, 
-            name: group[0]['名称'] || '未知', 
+            name: candName, 
             dist 
         });
     }
@@ -232,7 +249,6 @@ async function loadEEIFlow30DaysData() {
     }
 }
 
-// ================= 图表详情函数 (完整优化版) =================
 // ================= 图表详情函数 (完整优化版) =================
 function openDetailChart(items, item, color) {
     const rawCode = item.code || item; 
@@ -492,7 +508,6 @@ function openDetailChart(items, item, color) {
         let html = '';
 
         if (state.metric === 'industry') {
-            // 【修复重点 1】：设计意图为显示所在组（items）的每个标的对应的行业情况
             const hasIndustryData = typeof industryData !== 'undefined';
             const targetInd = (hasIndustryData && industryData[metricTargetCode]) ? industryData[metricTargetCode] : '未知';
 
@@ -508,23 +523,20 @@ function openDetailChart(items, item, color) {
                          </tr>
                      </thead><tbody>`;
             
-            // 遍历传入的所在组的 items 数组
             items.forEach(pItem => {
                 const pCode = pItem.code || pItem; 
                 let pName = pItem.name;
 
-                // 【修复重点 2】：名称缺失兜底逻辑，保证名称能获取到
                 if (!pName || pName === '未知') {
                     if (eeiFlow30DaysData && eeiFlow30DaysData[pCode] && eeiFlow30DaysData[pCode].length > 0) {
-                        pName = eeiFlow30DaysData[pCode][0]['名称'] || '未知';
+                        const validRow = eeiFlow30DaysData[pCode].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
+                        pName = validRow ? validRow['名称'] : '未知';
                     } else {
                         pName = '未知';
                     }
                 }
 
                 const pInd = (hasIndustryData && industryData[pCode]) ? industryData[pCode] : '未知';
-                
-                // 让当前正在查看的标的行稍微高亮，增强对比体验
                 const isCurrent = (pCode === metricTargetCode);
                 const rowStyle = isCurrent ? 'background:#333;' : '';
                 const codeColor = isCurrent ? '#4ECDC4' : '#aaa';
@@ -555,10 +567,24 @@ function openDetailChart(items, item, color) {
                          </tr>
                      </thead><tbody>`;
             res.data.forEach((r, i) => {
+                // 【修复点】：增加名称双重兜底逻辑 (30天数据寻找 + items列表回填兜底)
+                let finalName = r.name;
+                if (!finalName || finalName === '未知' || finalName === '') {
+                    if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
+                        const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
+                        if (validRow) finalName = validRow['名称'];
+                    }
+                    if ((!finalName || finalName === '未知' || finalName === '') && items) {
+                        const match = items.find(itm => (itm.code || itm) === r.code);
+                        if (match && match.name) finalName = match.name;
+                    }
+                    if (!finalName || finalName === '') finalName = '未知';
+                }
+
                 html += `<tr style="border-bottom:1px solid #333;">
                     <td style="padding:${cellPadding}; text-align:center; color:#888;">${i + 1}</td>
                     <td style="padding:${cellPadding}; color:#aaa; font-family:monospace;">${r.code}</td>
-                    <td style="padding:${cellPadding}; color:#ddd;">${r.name}</td>
+                    <td style="padding:${cellPadding}; color:#ddd;">${finalName}</td>
                     <td style="padding:${cellPadding}; text-align:right; color:#4ECDC4; font-family:monospace;">${r.dist.toFixed(4)}</td>
                 </tr>`;
             });
@@ -585,10 +611,24 @@ function openDetailChart(items, item, color) {
                  html += `<tr><td colspan="4" style="padding:20px; text-align:center;">未找到符合条件的同板块标的</td></tr>`;
             } else {
                 res.data.forEach((r, i) => {
+                    // 【修复点】：增加名称双重兜底逻辑 (30天数据寻找 + items列表回填兜底)
+                    let finalName = r.name;
+                    if (!finalName || finalName === '未知' || finalName === '') {
+                        if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
+                            const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
+                            if (validRow) finalName = validRow['名称'];
+                        }
+                        if ((!finalName || finalName === '未知' || finalName === '') && items) {
+                            const match = items.find(itm => (itm.code || itm) === r.code);
+                            if (match && match.name) finalName = match.name;
+                        }
+                        if (!finalName || finalName === '') finalName = '未知';
+                    }
+
                     html += `<tr style="border-bottom:1px solid #333;">
                         <td style="padding:${cellPadding}; text-align:center; color:#888;">${i + 1}</td>
                         <td style="padding:${cellPadding}; color:#aaa; font-family:monospace;">${r.code}</td>
-                        <td style="padding:${cellPadding}; color:#ddd;">${r.name}</td>
+                        <td style="padding:${cellPadding}; color:#ddd;">${finalName}</td>
                         <td style="padding:${cellPadding}; text-align:right; color:#4ECDC4; font-family:monospace;">${r.dist.toFixed(4)}</td>
                     </tr>`;
                 });
