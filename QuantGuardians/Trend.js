@@ -543,7 +543,7 @@ function openDetailChart(items, item, color) {
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
             
             html += `<div style="padding:8px; color:#FFD700; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2;">
-                        基准: <b style="color:#fff;">${res.targetName}</b> | 30天多维走势最接近标的
+                        基准: <b style="color:#fff;"> 30天多维走势最接近标的
                      </div>
                      <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
                      <thead style="background:#2d2d2d; position:sticky; top:33px;">
@@ -569,7 +569,7 @@ function openDetailChart(items, item, color) {
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
 
             html += `<div style="padding:8px; color:#FF6B6B; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; line-height:1.4; position:sticky; top:0; z-index:2;">
-                        🎯 标的: <b style="color:#fff;">${res.targetName}</b> (${res.targetL2Name})<br>
+                        🎯 标的所在行业: <b style="color:#fff;">${res.targetL2Name}<br>
                         ⏳ 寻找近27天内复刻标的 [早3天] 走势的同板块股票
                      </div>
                      <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
