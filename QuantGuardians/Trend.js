@@ -4,6 +4,26 @@ const modalState = {};         // 记录每个股票的状态
 let currentChartInstance = null; // 当前图表实例
 let currentPlaybackTimer = null; // 当前播放定时器
 
+
+// ================= 新增：从 allStocks 获取名称的高效工具 =================
+let allStocksMapCache = null; // 字典缓存，避免每次遍历数组
+
+function getStockNameFromAllStocks(code, defaultName = '未知') {
+    if (typeof allStocks === 'undefined' || !Array.isArray(allStocks)) {
+        return defaultName;
+    }
+    // 初始化字典缓存，将数组查询 O(N) 转为对象键值查询 O(1)
+    if (!allStocksMapCache || Object.keys(allStocksMapCache).length !== allStocks.length) {
+        allStocksMapCache = {};
+        for (let i = 0; i < allStocks.length; i++) {
+            if (allStocks[i] && allStocks[i].code) {
+                allStocksMapCache[allStocks[i].code] = allStocks[i].name;
+            }
+        }
+    }
+    return allStocksMapCache[code] || defaultName;
+}
+
 // ================= 新增：多维特征与相似度计算工具函数 =================
 
 // 【修复重点 2】：极其严谨的 Z-score 标准化函数 (JS 复刻版)
@@ -72,6 +92,12 @@ function runManifoldApproximation(targetCode, topN = 10) {
     const validTargetRow = targetData.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
     if (validTargetRow) targetName = validTargetRow['名称'];
 
+    // let targetName = "未知";
+    // const validTargetRow = targetData.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+    // if (validTargetRow) targetName = validTargetRow['名称'];
+        // === 替换为 ===
+    let targetName = getStockNameFromAllStocks(targetCode);
+    
     // 构建目标向量
     let targetVec =[];
     for (let f of features) {
@@ -94,9 +120,11 @@ function runManifoldApproximation(targetCode, topN = 10) {
         }
 
         // 【修复】：寻找首个非空的有效名称
-        let candName = "未知";
-        const validCandRow = alignedRows.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-        if (validCandRow) candName = validCandRow['名称'];
+        // let candName = "未知";
+        // const validCandRow = alignedRows.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+        // if (validCandRow) candName = validCandRow['名称'];
+        // === 替换为 ===
+        let candName = getStockNameFromAllStocks(code);
 
         const dist = euclideanDistance(targetVec, candVec);
         distances.push({ 
@@ -141,9 +169,11 @@ function runIndustryLagged(targetCode, lagDays = 3, topN = 10) {
     }
 
     // 【修复】：从目标数据中寻找首个非空的有效名称
-    let targetName = "未知";
-    const validTargetRow = targetDf.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-    if (validTargetRow) targetName = validTargetRow['名称'];
+    // let targetName = "未知";
+    // const validTargetRow = targetDf.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+    // if (validTargetRow) targetName = validTargetRow['名称'];
+    // === 替换为 ===
+    let targetName = getStockNameFromAllStocks(targetCode);;
 
     let targetVec =[];
     for (let f of features) {
@@ -166,10 +196,12 @@ function runIndustryLagged(targetCode, lagDays = 3, topN = 10) {
         }
 
         // 【修复】：从对齐组中寻找首个非空的有效名称
-        let candName = "未知";
-        const validCandRow = group.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-        if (validCandRow) candName = validCandRow['名称'];
-
+        // let candName = "未知";
+        // const validCandRow = group.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
+        // if (validCandRow) candName = validCandRow['名称'];
+        // === 替换为 ===
+        let candName = getStockNameFromAllStocks(code);
+        
         const dist = euclideanDistance(targetVec, candVec);
         distances.push({ 
             code, 
@@ -256,10 +288,9 @@ function openDetailChart(items, item, color) {
     
     // 【修复重点 2】：确保标的名称被成功获取，防止头部显示缺失
     if (!item.name || item.name === '未知') {
-        if (eeiFlow30DaysData && eeiFlow30DaysData[code] && eeiFlow30DaysData[code].length > 0) {
-            item.name = eeiFlow30DaysData[code][0]['名称'] || '未知';
-        } else {
-            // 尝试通过 items 传入的列表获取名称兜底
+        item.name = getStockNameFromAllStocks(code);
+        // 如果 allStocks 里依然没找到，尝试通过传进来的 items 列表兜底
+        if (item.name === '未知' && items) {
             const match = items.find(i => (i.code || i) === code);
             item.name = (match && match.name) ? match.name : '未知';
         }
@@ -527,13 +558,18 @@ function openDetailChart(items, item, color) {
                 const pCode = pItem.code || pItem; 
                 let pName = pItem.name;
 
+                // if (!pName || pName === '未知') {
+                //     if (eeiFlow30DaysData && eeiFlow30DaysData[pCode] && eeiFlow30DaysData[pCode].length > 0) {
+                //         const validRow = eeiFlow30DaysData[pCode].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
+                //         pName = validRow ? validRow['名称'] : '未知';
+                //     } else {
+                //         pName = '未知';
+                //     }
+                // }
+    
+                // === 替换为 ===
                 if (!pName || pName === '未知') {
-                    if (eeiFlow30DaysData && eeiFlow30DaysData[pCode] && eeiFlow30DaysData[pCode].length > 0) {
-                        const validRow = eeiFlow30DaysData[pCode].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
-                        pName = validRow ? validRow['名称'] : '未知';
-                    } else {
-                        pName = '未知';
-                    }
+                    pName = getStockNameFromAllStocks(pCode);
                 }
 
                 const pInd = (hasIndustryData && industryData[pCode]) ? industryData[pCode] : '未知';
@@ -568,17 +604,27 @@ function openDetailChart(items, item, color) {
                      </thead><tbody>`;
             res.data.forEach((r, i) => {
                 // 【修复点】：增加名称双重兜底逻辑 (30天数据寻找 + items列表回填兜底)
-                let finalName = r.name;
+                // let finalName = r.name;
+                // if (!finalName || finalName === '未知' || finalName === '') {
+                //     if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
+                //         const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
+                //         if (validRow) finalName = validRow['名称'];
+                //     }
+                //     if ((!finalName || finalName === '未知' || finalName === '') && items) {
+                //         const match = items.find(itm => (itm.code || itm) === r.code);
+                //         if (match && match.name) finalName = match.name;
+                //     }
+                //     if (!finalName || finalName === '') finalName = '未知';
+                // }
+
+                // === 替换为清爽的代码 ===
+                let finalName = r.name; // 这里 r.name 其实在第二步已经是从 allStocks 获取的了
                 if (!finalName || finalName === '未知' || finalName === '') {
-                    if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
-                        const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
-                        if (validRow) finalName = validRow['名称'];
-                    }
-                    if ((!finalName || finalName === '未知' || finalName === '') && items) {
+                    finalName = getStockNameFromAllStocks(r.code);
+                    if ((!finalName || finalName === '未知') && items) {
                         const match = items.find(itm => (itm.code || itm) === r.code);
                         if (match && match.name) finalName = match.name;
                     }
-                    if (!finalName || finalName === '') finalName = '未知';
                 }
 
                 html += `<tr style="border-bottom:1px solid #333;">
@@ -612,17 +658,27 @@ function openDetailChart(items, item, color) {
             } else {
                 res.data.forEach((r, i) => {
                     // 【修复点】：增加名称双重兜底逻辑 (30天数据寻找 + items列表回填兜底)
-                    let finalName = r.name;
+                    // let finalName = r.name;
+                    // if (!finalName || finalName === '未知' || finalName === '') {
+                    //     if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
+                    //         const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
+                    //         if (validRow) finalName = validRow['名称'];
+                    //     }
+                    //     if ((!finalName || finalName === '未知' || finalName === '') && items) {
+                    //         const match = items.find(itm => (itm.code || itm) === r.code);
+                    //         if (match && match.name) finalName = match.name;
+                    //     }
+                    //     if (!finalName || finalName === '') finalName = '未知';
+                    // }
+    
+                    // === 替换为清爽的代码 ===
+                    let finalName = r.name; // 这里 r.name 其实在第二步已经是从 allStocks 获取的了
                     if (!finalName || finalName === '未知' || finalName === '') {
-                        if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
-                            const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
-                            if (validRow) finalName = validRow['名称'];
-                        }
-                        if ((!finalName || finalName === '未知' || finalName === '') && items) {
+                        finalName = getStockNameFromAllStocks(r.code);
+                        if ((!finalName || finalName === '未知') && items) {
                             const match = items.find(itm => (itm.code || itm) === r.code);
                             if (match && match.name) finalName = match.name;
                         }
-                        if (!finalName || finalName === '') finalName = '未知';
                     }
 
                     html += `<tr style="border-bottom:1px solid #333;">
