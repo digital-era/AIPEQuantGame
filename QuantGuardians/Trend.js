@@ -233,7 +233,7 @@ async function loadEEIFlow30DaysData() {
 }
 
 // ================= 图表详情函数 (完整优化版) =================
-function openDetailChart(item, color) {
+function openDetailChart(items, item, color) {
     const rawCode = item.code;
     const code = rawCode; 
     
