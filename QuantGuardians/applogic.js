@@ -357,12 +357,15 @@ function onSparkClick(event, key, type, idx) {
     switch(type) {
         case 'strategy':
             item = guardian.strategy[idx];
+            items = guardian.strategy;
             break;
         case 'portfolio':
             item = guardian.portfolio[idx];
+            items = guardian.portfolio;
             break;
         case 'adhocObservations':               // ← 新增这个分支
             item = guardian.adhocObservations[idx];
+            items = guardian.adhocObservations;
             break;
         default:
             console.warn('Unknown sparkline type:', type);
@@ -375,7 +378,7 @@ function onSparkClick(event, key, type, idx) {
     }
 
     const color = GUARDIAN_COLORS[key] || '#fff';
-    openDetailChart(item, color);
+    openDetailChart(items, item, color);
 }
 
 // ================= LOGIC =================
