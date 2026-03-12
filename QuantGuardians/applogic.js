@@ -88,6 +88,8 @@ let hasClosedPrices = false;    // 标识收盘价格是否已获取并锁定
 // [新增] 全局变量存储当前时间范围选择状态
 let currentChartRange = 'all'; // 可选值: 'all', 'ytd', '1w'
 
+// [新增] 行业数据存储（使用无原型对象极其节省内存）
+let industryData = Object.create(null);
 
 // 页面加载逻辑
 document.addEventListener('DOMContentLoaded', function() {
@@ -1657,6 +1659,43 @@ async function loadHistoryData() {
     renderHistoryChart();
 }
 
+// [新增] 加载行业数据
+async function loadIndustryData() {
+    log("Loading Industry Data...", "#88f");
+    
+    // 使用你封装的代理/源获取链接
+    const url = getResourceUrl('a_industry_l2.json');
+    
+    try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error("IndustryData fetch failed");
+        
+        const json = await res.json();
+        
+        // 内存优化：创建行业字符串池，避免为每个股票创建重复的字符串对象
+        const sharedStrings = Object.create(null);
+        
+        // 清空旧数据(如果有)
+        industryData = Object.create(null);
+
+        let count = 0;
+        for (const code in json) {
+            const ind = json[code];
+            // 如果字符串池中还没有这个行业名称，则放入池中
+            if (!sharedStrings[ind]) {
+                sharedStrings[ind] = ind;
+            }
+            // 将股票代码映射到池中唯一的字符串引用上
+            industryData[code] = sharedStrings[ind];
+            count++;
+        }
+        
+        log(`Industry Data Loaded: ${count} stocks`, "#0f0");
+    } catch (e) { 
+        log("IndustryData Err: " + e.message, "orange"); 
+    }
+}
+
 // 辅助函数：将JSON数据映射到对齐的日期数组
 function mapJsonToData(json, sortedDates) {
     if (!json || !json.每日评估数据) return [];
@@ -2134,7 +2173,8 @@ async function initSystem() {
         await Promise.all([
             initOSS(),
             loadStrategies(),
-            loadHistoryData()
+            loadHistoryData(),
+            loadIndustryData() // <-- [新增的函数调用]
         ]);
 
         // ============================================================
