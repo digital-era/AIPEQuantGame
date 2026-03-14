@@ -439,9 +439,10 @@ function openDetailChart(items, item, color) {
             canvas.parentNode.appendChild(tableDiv);
         }
         
+        // 【修复重点 1】: 将外层容器直接设置为 overflow:auto，并去除原有导致 sticky 错位的内层包裹层
         tableDiv.style.cssText = isMobile 
-            ? `flex:1; width:100%; max-height:calc(95vh - 120px); overflow-y:auto; overflow-x:hidden; display:block; background:#181818; color:#ddd; margin-top:6px; -webkit-overflow-scrolling: touch; border:1px solid #333;`
-            : "flex:1; width:100%; max-height:45vh; overflow-y:auto; overflow-x:hidden; display:block; background:#181818; color:#ddd; margin-top:8px; border:1px solid #333;";
+            ? `flex:1; width:100%; max-height:calc(95vh - 120px); overflow:auto; display:block; background:#181818; color:#ddd; margin-top:6px; -webkit-overflow-scrolling: touch; border:1px solid #333;`
+            : "flex:1; width:100%; max-height:45vh; overflow:auto; display:block; background:#181818; color:#ddd; margin-top:8px; border:1px solid #333;";
         canvas.style.display = 'none';
         controlsContainer.innerHTML = ''; 
         
@@ -454,7 +455,6 @@ function openDetailChart(items, item, color) {
         const tableFontSize = isMobile ? '11px' : '13px';
         const cellPadding = isMobile ? '6px 4px' : '8px 10px';
         
-        // 【提取公共方法】使三个模块共享
         const hasIndustryData = typeof industryData !== 'undefined';
         const fmt = (v) => (v === null || v === undefined) ? '--' : Number(v).toFixed(2);
         
@@ -463,13 +463,15 @@ function openDetailChart(items, item, color) {
         if (state.metric === 'industry') {
             const targetInd = (hasIndustryData && industryData[metricTargetCode]) ? industryData[metricTargetCode] : '未知';
 
-            html += `<div style="padding:8px; color:#4ECDC4; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2; white-space:nowrap;">
-                        当前标的行业: <b style="color:#fff;">${targetInd}</b> | 所在组共涵括 ${items.length} 支标的
-                     </div>
-                     <div style="width:100%; overflow-x:auto;">
-                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
-                     <thead style="background:#2d2d2d; position:sticky; top:33px; z-index:1;">
-                         <tr>
+            // 【修复重点 2】: 提示栏合并进 thead 作为一个跨列（colspan="7"）的首行，统统 top: 0
+            html += `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
+                     <thead style="position:sticky; top:0; z-index:2; box-shadow:0 2px 4px rgba(0,0,0,0.3);">
+                         <tr style="background:#222; border-bottom:1px solid #333;">
+                             <th colspan="7" style="padding:8px; color:#4ECDC4; font-weight:normal; text-align:left; white-space:normal; font-size:${tableFontSize};">
+                                 当前标的行业: <b style="color:#fff;">${targetInd}</b> | 所在组共涵括 ${items.length} 支标的
+                             </th>
+                         </tr>
+                         <tr style="background:#2d2d2d; border-bottom:1px solid #333;">
                              <th style="padding:${cellPadding}; text-align:left;">代码</th>
                              <th style="padding:${cellPadding}; text-align:left;">名称</th>
                              <th style="padding:${cellPadding}; text-align:left;">所属行业</th>
@@ -503,20 +505,20 @@ function openDetailChart(items, item, color) {
                     <td style="padding:${cellPadding}; color:${textColor}; text-align:right; font-family:monospace;">${fmt(metrics[3])}</td>
                 </tr>`;
             });
-            html += `</tbody></table></div>`;
+            html += `</tbody></table>`;
         } 
         else if (state.metric === 'manifold') {
             const res = runManifoldApproximation(metricTargetCode);
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
             
-            // 【流形相似】补充：所属行业、PB、PE、ROE、DY
-            html += `<div style="padding:8px; color:#FFD700; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2; white-space:nowrap;">
-                        基准: <b style="color:#fff;"> 30天多维走势最接近标的
-                     </div>
-                     <div style="width:100%; overflow-x:auto;">
-                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
-                     <thead style="background:#2d2d2d; position:sticky; top:33px; z-index:1;">
-                         <tr>
+            html += `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
+                     <thead style="position:sticky; top:0; z-index:2; box-shadow:0 2px 4px rgba(0,0,0,0.3);">
+                         <tr style="background:#222; border-bottom:1px solid #333;">
+                             <th colspan="9" style="padding:8px; color:#FFD700; font-weight:normal; text-align:left; white-space:normal; font-size:${tableFontSize};">
+                                 基准: <b style="color:#fff;"> 30天多维走势最接近标的</b>
+                             </th>
+                         </tr>
+                         <tr style="background:#2d2d2d; border-bottom:1px solid #333;">
                              <th style="padding:${cellPadding}; text-align:center;">排名</th>
                              <th style="padding:${cellPadding}; text-align:left;">代码</th>
                              <th style="padding:${cellPadding}; text-align:left;">名称</th>
@@ -538,7 +540,6 @@ function openDetailChart(items, item, color) {
                     }
                 }
 
-                // 提取行业与财务指标
                 const pInd = (hasIndustryData && industryData[r.code]) ? industryData[r.code] : '未知';
                 const metrics = getStockMetrics(r.code);
 
@@ -554,21 +555,21 @@ function openDetailChart(items, item, color) {
                     <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[3])}</td>
                 </tr>`;
             });
-            html += `</tbody></table></div>`;
+            html += `</tbody></table>`;
         } 
         else if (state.metric === 'ind_lag') {
             const res = runIndustryLagged(metricTargetCode, 3); 
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
 
-            // 【行业滑窗】补充：PB、PE、ROE、DY（因为本就是同行业，所以省去"所属行业"列让表格更清爽）
-            html += `<div style="padding:8px; color:#FF6B6B; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; line-height:1.4; position:sticky; top:0; z-index:2; white-space:nowrap;">
-                        🎯 标的所在行业: <b style="color:#fff;">${res.targetL2Name}</b><br>
-                        ⏳ 寻找近27天内复刻标的[早3天] 走势的同板块股票
-                     </div>
-                     <div style="width:100%; overflow-x:auto;">
-                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
-                     <thead style="background:#2d2d2d; position:sticky; top:48px; z-index:1;">
-                         <tr>
+            html += `<table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
+                     <thead style="position:sticky; top:0; z-index:2; box-shadow:0 2px 4px rgba(0,0,0,0.3);">
+                         <tr style="background:#222; border-bottom:1px solid #333;">
+                             <th colspan="8" style="padding:8px; color:#FF6B6B; font-weight:normal; text-align:left; line-height:1.4; white-space:normal; font-size:${tableFontSize};">
+                                 🎯 标的所在行业: <b style="color:#fff;">${res.targetL2Name}</b><br>
+                                 ⏳ 寻找近27天内复刻标的[早3天] 走势的同板块股票
+                             </th>
+                         </tr>
+                         <tr style="background:#2d2d2d; border-bottom:1px solid #333;">
                              <th style="padding:${cellPadding}; text-align:center;">排名</th>
                              <th style="padding:${cellPadding}; text-align:left;">代码</th>
                              <th style="padding:${cellPadding}; text-align:left;">名称</th>
@@ -592,7 +593,6 @@ function openDetailChart(items, item, color) {
                         }
                     }
 
-                    // 提取财务指标
                     const metrics = getStockMetrics(r.code);
 
                     html += `<tr style="border-bottom:1px solid #333;">
@@ -607,12 +607,12 @@ function openDetailChart(items, item, color) {
                     </tr>`;
                 });
             }
-            html += `</tbody></table></div>`;
+            html += `</tbody></table>`;
         }
         
         tableDiv.innerHTML = html;
     }
-
+    
     function renderContent() {
         if (currentChartInstance) { currentChartInstance.destroy(); currentChartInstance = null; }
         if (currentPlaybackTimer) { clearInterval(currentPlaybackTimer); currentPlaybackTimer = null; }
