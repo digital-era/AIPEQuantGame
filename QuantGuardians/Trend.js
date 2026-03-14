@@ -4,15 +4,13 @@ const modalState = {};         // 记录每个股票的状态
 let currentChartInstance = null; // 当前图表实例
 let currentPlaybackTimer = null; // 当前播放定时器
 
-
 // ================= 新增：从 allStocks 获取名称的高效工具 =================
-let allStocksMapCache = null; // 字典缓存，避免每次遍历数组
+let allStocksMapCache = null; 
 
 function getStockNameFromAllStocks(code, defaultName = '未知') {
     if (typeof allStocks === 'undefined' || !Array.isArray(allStocks)) {
         return defaultName;
     }
-    // 初始化字典缓存，将数组查询 O(N) 转为对象键值查询 O(1)
     if (!allStocksMapCache || Object.keys(allStocksMapCache).length !== allStocks.length) {
         allStocksMapCache = {};
         for (let i = 0; i < allStocks.length; i++) {
@@ -24,38 +22,33 @@ function getStockNameFromAllStocks(code, defaultName = '未知') {
     return allStocksMapCache[code] || defaultName;
 }
 
-// ================= 新增：多维特征与相似度计算工具函数 =================
+// ================= 新增：财务指标高效读取工具 =================
+// 严格对应 JSON 中 "_x" 后缀数组的索引顺序，O(1) 访问
+const METRIC_IDX = { PB: 0, PE: 1, ROE: 2, DY: 3 };
 
-// 【修复重点 2】：极其严谨的 Z-score 标准化函数 (JS 复刻版)
+function getStockMetrics(code) {
+    if (typeof industryData === 'undefined') return [null, null, null, null];
+    return industryData[code + '_x'] || [null, null, null, null];
+}
+
+// ================= 多维特征与相似度计算工具函数 =================
 function zScoreNormalize(arr) {
     let sum = 0, count = 0;
-    // 忽略 NaN 计算均值
     for (let i = 0; i < arr.length; i++) {
         let v = Number(arr[i]);
-        if (!isNaN(v) && isFinite(v)) {
-            sum += v;
-            count++;
-        }
+        if (!isNaN(v) && isFinite(v)) { sum += v; count++; }
     }
     if (count === 0) return new Array(arr.length).fill(0);
     const mean = sum / count;
 
-    // 忽略 NaN 计算标准差
     let sumSq = 0, countSq = 0;
     for (let i = 0; i < arr.length; i++) {
         let v = Number(arr[i]);
-        if (!isNaN(v) && isFinite(v)) {
-            sumSq += Math.pow(v - mean, 2);
-            countSq++;
-        }
+        if (!isNaN(v) && isFinite(v)) { sumSq += Math.pow(v - mean, 2); countSq++; }
     }
     const std = countSq > 0 ? Math.sqrt(sumSq / countSq) : 0;
+    if (std === 0 || !isFinite(std)) return new Array(arr.length).fill(0);
 
-    if (std === 0 || !isFinite(std)) {
-        return new Array(arr.length).fill(0);
-    }
-
-    // 标准化，兜底 NaN/Inf 强制转 0.0
     return arr.map(val => {
         let v = Number(val);
         if (isNaN(v) || !isFinite(v)) return 0;
@@ -65,36 +58,22 @@ function zScoreNormalize(arr) {
     });
 }
 
-// 欧式距离计算
 function euclideanDistance(vecA, vecB) {
     let sumSq = 0;
-    for (let i = 0; i < vecA.length; i++) {
-        sumSq += Math.pow(vecA[i] - vecB[i], 2);
-    }
+    for (let i = 0; i < vecA.length; i++) { sumSq += Math.pow(vecA[i] - vecB[i], 2); }
     return Math.sqrt(sumSq);
 }
 
-//[新功能 1] 流形近似逻辑计算
 function runManifoldApproximation(targetCode, topN = 10) {
     if (!eeiFlow30DaysData) return { error: "基础30天数据尚未加载完成" };
-    
     const features =['PotScore', '涨跌幅', '超大单净流入-净占比', '大单净流入-净占比'];
     const targetDataRaw = eeiFlow30DaysData[targetCode] ||[];
-    
     if (targetDataRaw.length === 0) return { error: `未找到目标代码 ${targetCode} 的近期数据！` };
     
-    // 截取最近的最多30个交易日数据
     const targetData = targetDataRaw.slice(-30);
     const validDates = targetData.map(d => d['日期']);
-    
-    // 【修复】：从近30天数据中寻找首个非空的有效名称，防某天空白
-    // let targetName = "未知";
-    // const validTargetRow = targetData.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-    // if (validTargetRow) targetName = validTargetRow['名称'];
-    // === 替换为 ===
     let targetName = getStockNameFromAllStocks(targetCode);
     
-    // 构建目标向量
     let targetVec =[];
     for (let f of features) {
         const series = targetData.map(r => r[f]);
@@ -104,73 +83,41 @@ function runManifoldApproximation(targetCode, topN = 10) {
     let distances = [];
     for (const [code, rows] of Object.entries(eeiFlow30DaysData)) {
         if (code === targetCode) continue;
-
-        // 对齐日期
         const alignedRows = rows.filter(r => validDates.includes(r['日期']));
-        if (alignedRows.length !== validDates.length) continue; // 只有天数完全一致的才参与
-
+        if (alignedRows.length !== validDates.length) continue; 
         let candVec =[];
         for (let f of features) {
             const series = alignedRows.map(r => r[f]);
             candVec.push(...zScoreNormalize(series));
         }
-
-        // 【修复】：寻找首个非空的有效名称
-        // let candName = "未知";
-        // const validCandRow = alignedRows.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-        // if (validCandRow) candName = validCandRow['名称'];
-        // === 替换为 ===
         let candName = getStockNameFromAllStocks(code);
-
         const dist = euclideanDistance(targetVec, candVec);
-        distances.push({ 
-            code, 
-            name: candName, 
-            dist 
-        });
+        distances.push({ code, name: candName, dist });
     }
-
     distances.sort((a, b) => a.dist - b.dist);
     return { targetName, data: distances.slice(0, topN) };
 }
 
-// [新功能 2] 行业滑窗逻辑计算 (避免溢出，窗口限定 27 天)
 function runIndustryLagged(targetCode, lagDays = 3, topN = 10) {
     if (!eeiFlow30DaysData || !industryData) return { error: "数据或行业字典尚未就绪" };
-    
-    const windowSize = 27; // 修改为27天，配合领先3天，正好容纳在30天数据内
+    const windowSize = 27; 
     const features =['PotScore', '涨跌幅', '超大单净流入-净占比', '大单净流入-净占比'];
-    
     const targetL2Name = industryData[targetCode];
     if (!targetL2Name) return { error: `无法获取 ${targetCode} 的所属行业板块` };
 
-    // 获取全市场排序好的所有日期
     let allDatesSet = new Set();
     Object.values(eeiFlow30DaysData).forEach(rows => rows.forEach(r => allDatesSet.add(r['日期'])));
     const allValidDates = Array.from(allDatesSet).sort();
+    if (allValidDates.length < windowSize + lagDays) return { error: `全集交易天数(${allValidDates.length})不足 ${windowSize + lagDays} 天` };
 
-    if (allValidDates.length < windowSize + lagDays) {
-        return { error: `全集交易天数(${allValidDates.length})不足 ${windowSize + lagDays} 天` };
-    }
-
-    // 时间窗错配分配
     const candidateDates = allValidDates.slice(-windowSize);
-    const targetDates = allValidDates.slice(-(windowSize + lagDays), -lagDays); // 提取老数据
+    const targetDates = allValidDates.slice(-(windowSize + lagDays), -lagDays); 
 
     const targetDataRaw = eeiFlow30DaysData[targetCode] ||[];
     const targetDf = targetDataRaw.filter(r => targetDates.includes(r['日期']));
-    
-    if (targetDf.length < windowSize) {
-        return { error: `目标 ${targetCode} 领先期内数据不完整，无法建立对比基准` };
-    }
+    if (targetDf.length < windowSize) return { error: `目标 ${targetCode} 领先期内数据不完整，无法建立对比基准` };
 
-    // 【修复】：从目标数据中寻找首个非空的有效名称
-    // let targetName = "未知";
-    // const validTargetRow = targetDf.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-    // if (validTargetRow) targetName = validTargetRow['名称'];
-    // === 替换为 ===
-    let targetName = getStockNameFromAllStocks(targetCode);;
-
+    let targetName = getStockNameFromAllStocks(targetCode);
     let targetVec =[];
     for (let f of features) {
         const series = targetDf.map(r => r[f]);
@@ -180,47 +127,31 @@ function runIndustryLagged(targetCode, lagDays = 3, topN = 10) {
     let distances = [];
     for (const [code, rows] of Object.entries(eeiFlow30DaysData)) {
         if (code === targetCode) continue;
-        if (industryData[code] !== targetL2Name) continue; // 必须是同板块
+        if (industryData[code] !== targetL2Name) continue; 
 
         const group = rows.filter(r => candidateDates.includes(r['日期']));
         if (group.length !== windowSize) continue;
-
         let candVec =[];
         for (let f of features) {
             const series = group.map(r => r[f]);
             candVec.push(...zScoreNormalize(series));
         }
-
-        // 【修复】：从对齐组中寻找首个非空的有效名称
-        // let candName = "未知";
-        // const validCandRow = group.find(r => r['名称'] && r['名称'] !== '未知' && r['名称'] !== '');
-        // if (validCandRow) candName = validCandRow['名称'];
-        // === 替换为 ===
         let candName = getStockNameFromAllStocks(code);
-        
         const dist = euclideanDistance(targetVec, candVec);
-        distances.push({ 
-            code, 
-            name: candName, 
-            dist 
-        });
+        distances.push({ code, name: candName, dist });
     }
-
     distances.sort((a, b) => a.dist - b.dist);
     return { targetName, targetL2Name, data: distances.slice(0, topN) };
 }
 
-
 // ================= 数据加载函数 =================
 async function loadEEIFlow30DaysData() {
     if (eeiFlow30DaysData !== null) return; 
-
     const filename = 'month/EEIFlow30Days.xlsx'; 
     const url = getResourceUrl(filename); 
 
     try {
         log(">> INITIATING DATA STREAM: 30-DAY FLOW ANALYSIS...", "#0ff");
-        
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -245,7 +176,6 @@ async function loadEEIFlow30DaysData() {
                 dateStr = String(dateStr || '').trim().split(' ')[0];
             }
 
-            // 【重点修改】：在此处拦截并缓存股票 '名称' 以供后续分析表格使用
             const cleanRow = {
                 '代码': code,
                 '名称': row['名称'] ? String(row['名称']) : '',
@@ -282,10 +212,8 @@ function openDetailChart(items, item, color) {
     const rawCode = item.code || item; 
     const code = rawCode; 
     
-    // 【修复重点 2】：确保标的名称被成功获取，防止头部显示缺失
     if (!item.name || item.name === '未知') {
         item.name = getStockNameFromAllStocks(code);
-        // 如果 allStocks 里依然没找到，尝试通过传进来的 items 列表兜底
         if (item.name === '未知' && items) {
             const match = items.find(i => (i.code || i) === code);
             item.name = (match && match.name) ? match.name : '未知';
@@ -295,17 +223,11 @@ function openDetailChart(items, item, color) {
     log(`>> ENGAGING VISUAL LINK: TARGET [${code}]...`, "#ffff00");
 
     const isMobile = window.innerWidth <= 768;
-    
     const oldModalCode = document.getElementById('modalCode');
     if (oldModalCode) oldModalCode.remove();
 
     if (!modalState[code]) {
-        modalState[code] = {
-            metric: '1min',
-            view: 'chart',
-            playing: true,
-            progress: 0
-        };
+        modalState[code] = { metric: '1min', view: 'chart', playing: true, progress: 0 };
     }
     const state = modalState[code];
 
@@ -467,7 +389,6 @@ function openDetailChart(items, item, color) {
         modalContent.appendChild(controlsContainer);
     }
 
-    // --- 3. 数据获取 (仅服务于传统折线图/普通表) ---
     function getData() {
         let labels = [], values = [], pctChanges =[];
         let refValue = 0, yLabel = '', lineColor = color, currentValue = 0;
@@ -508,7 +429,6 @@ function openDetailChart(items, item, color) {
         return { labels, values, pctChanges, refValue, yLabel, lineColor, currentValue };
     }
 
-    // --- 【修改点】：新增针对 3个新增分析选项的专用表格渲染函数 ---
     function renderAnalysisTable(metricTargetCode) {
         const canvas = document.getElementById('detailChartCanvas');
         let tableDiv = document.getElementById('detailTableContainer');
@@ -519,8 +439,8 @@ function openDetailChart(items, item, color) {
         }
         
         tableDiv.style.cssText = isMobile 
-            ? `flex:1; width:100%; max-height:calc(95vh - 120px); overflow-y:auto; display:block; background:#181818; color:#ddd; margin-top:6px; -webkit-overflow-scrolling: touch; border:1px solid #333;`
-            : "flex:1; width:100%; max-height:45vh; overflow-y:auto; display:block; background:#181818; color:#ddd; margin-top:8px; border:1px solid #333;";
+            ? `flex:1; width:100%; max-height:calc(95vh - 120px); overflow-y:auto; overflow-x:hidden; display:block; background:#181818; color:#ddd; margin-top:6px; -webkit-overflow-scrolling: touch; border:1px solid #333;`
+            : "flex:1; width:100%; max-height:45vh; overflow-y:auto; overflow-x:hidden; display:block; background:#181818; color:#ddd; margin-top:8px; border:1px solid #333;";
         canvas.style.display = 'none';
         controlsContainer.innerHTML = ''; 
         
@@ -538,37 +458,35 @@ function openDetailChart(items, item, color) {
             const hasIndustryData = typeof industryData !== 'undefined';
             const targetInd = (hasIndustryData && industryData[metricTargetCode]) ? industryData[metricTargetCode] : '未知';
 
-            html += `<div style="padding:8px; color:#4ECDC4; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2;">
+            // 【核心修改】：利用我们上面 O(1) 的提取方法在此增加展示了四列新数据 (且增加了外层防溢出包裹 div)
+            html += `<div style="padding:8px; color:#4ECDC4; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2; white-space:nowrap;">
                         当前标的行业: <b style="color:#fff;">${targetInd}</b> | 所在组共涵括 ${items.length} 支标的
                      </div>
-                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
-                     <thead style="background:#2d2d2d; position:sticky; top:33px;">
+                     <div style="width:100%; overflow-x:auto;">
+                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
+                     <thead style="background:#2d2d2d; position:sticky; top:33px; z-index:1;">
                          <tr>
                              <th style="padding:${cellPadding}; text-align:left;">代码</th>
                              <th style="padding:${cellPadding}; text-align:left;">名称</th>
                              <th style="padding:${cellPadding}; text-align:left;">所属行业</th>
+                             <th style="padding:${cellPadding}; text-align:right;">PB</th>
+                             <th style="padding:${cellPadding}; text-align:right;">PE</th>
+                             <th style="padding:${cellPadding}; text-align:right;">ROE</th>
+                             <th style="padding:${cellPadding}; text-align:right;">DY</th>
                          </tr>
                      </thead><tbody>`;
             
             items.forEach(pItem => {
                 const pCode = pItem.code || pItem; 
                 let pName = pItem.name;
-
-                // if (!pName || pName === '未知') {
-                //     if (eeiFlow30DaysData && eeiFlow30DaysData[pCode] && eeiFlow30DaysData[pCode].length > 0) {
-                //         const validRow = eeiFlow30DaysData[pCode].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
-                //         pName = validRow ? validRow['名称'] : '未知';
-                //     } else {
-                //         pName = '未知';
-                //     }
-                // }
-    
-                // === 替换为 ===
-                if (!pName || pName === '未知') {
-                    pName = getStockNameFromAllStocks(pCode);
-                }
+                if (!pName || pName === '未知') pName = getStockNameFromAllStocks(pCode);
 
                 const pInd = (hasIndustryData && industryData[pCode]) ? industryData[pCode] : '未知';
+                
+                // 拿取财务指标 (O(1)读取)
+                const metrics = getStockMetrics(pCode);
+                const fmt = (v) => (v === null || v === undefined) ? '--' : Number(v).toFixed(2);
+
                 const isCurrent = (pCode === metricTargetCode);
                 const rowStyle = isCurrent ? 'background:#333;' : '';
                 const codeColor = isCurrent ? '#4ECDC4' : '#aaa';
@@ -578,9 +496,13 @@ function openDetailChart(items, item, color) {
                     <td style="padding:${cellPadding}; color:${codeColor}; font-family:monospace;">${pCode}</td>
                     <td style="padding:${cellPadding}; color:${textColor};">${pName}</td>
                     <td style="padding:${cellPadding}; color:${textColor};">${pInd}</td>
+                    <td style="padding:${cellPadding}; color:${textColor}; text-align:right; font-family:monospace;">${fmt(metrics[0])}</td>
+                    <td style="padding:${cellPadding}; color:${textColor}; text-align:right; font-family:monospace;">${fmt(metrics[1])}</td>
+                    <td style="padding:${cellPadding}; color:${textColor}; text-align:right; font-family:monospace;">${fmt(metrics[2])}</td>
+                    <td style="padding:${cellPadding}; color:${textColor}; text-align:right; font-family:monospace;">${fmt(metrics[3])}</td>
                 </tr>`;
             });
-            html += `</tbody></table>`;
+            html += `</tbody></table></div>`;
         } 
         else if (state.metric === 'manifold') {
             const res = runManifoldApproximation(metricTargetCode);
@@ -599,22 +521,7 @@ function openDetailChart(items, item, color) {
                          </tr>
                      </thead><tbody>`;
             res.data.forEach((r, i) => {
-                // 【修复点】：增加名称双重兜底逻辑 (30天数据寻找 + items列表回填兜底)
-                // let finalName = r.name;
-                // if (!finalName || finalName === '未知' || finalName === '') {
-                //     if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
-                //         const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
-                //         if (validRow) finalName = validRow['名称'];
-                //     }
-                //     if ((!finalName || finalName === '未知' || finalName === '') && items) {
-                //         const match = items.find(itm => (itm.code || itm) === r.code);
-                //         if (match && match.name) finalName = match.name;
-                //     }
-                //     if (!finalName || finalName === '') finalName = '未知';
-                // }
-
-                // === 替换为清爽的代码 ===
-                let finalName = r.name; // 这里 r.name 其实在第二步已经是从 allStocks 获取的了
+                let finalName = r.name;
                 if (!finalName || finalName === '未知' || finalName === '') {
                     finalName = getStockNameFromAllStocks(r.code);
                     if ((!finalName || finalName === '未知') && items) {
@@ -653,22 +560,7 @@ function openDetailChart(items, item, color) {
                  html += `<tr><td colspan="4" style="padding:20px; text-align:center;">未找到符合条件的同板块标的</td></tr>`;
             } else {
                 res.data.forEach((r, i) => {
-                    // 【修复点】：增加名称双重兜底逻辑 (30天数据寻找 + items列表回填兜底)
-                    // let finalName = r.name;
-                    // if (!finalName || finalName === '未知' || finalName === '') {
-                    //     if (eeiFlow30DaysData && eeiFlow30DaysData[r.code]) {
-                    //         const validRow = eeiFlow30DaysData[r.code].find(row => row['名称'] && row['名称'] !== '未知' && row['名称'] !== '');
-                    //         if (validRow) finalName = validRow['名称'];
-                    //     }
-                    //     if ((!finalName || finalName === '未知' || finalName === '') && items) {
-                    //         const match = items.find(itm => (itm.code || itm) === r.code);
-                    //         if (match && match.name) finalName = match.name;
-                    //     }
-                    //     if (!finalName || finalName === '') finalName = '未知';
-                    // }
-    
-                    // === 替换为清爽的代码 ===
-                    let finalName = r.name; // 这里 r.name 其实在第二步已经是从 allStocks 获取的了
+                    let finalName = r.name; 
                     if (!finalName || finalName === '未知' || finalName === '') {
                         finalName = getStockNameFromAllStocks(r.code);
                         if ((!finalName || finalName === '未知') && items) {
@@ -691,7 +583,6 @@ function openDetailChart(items, item, color) {
         tableDiv.innerHTML = html;
     }
 
-    // --- 4. 主渲染内容 ---
     function renderContent() {
         if (currentChartInstance) { currentChartInstance.destroy(); currentChartInstance = null; }
         if (currentPlaybackTimer) { clearInterval(currentPlaybackTimer); currentPlaybackTimer = null; }
