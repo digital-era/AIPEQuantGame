@@ -429,6 +429,7 @@ function openDetailChart(items, item, color) {
         return { labels, values, pctChanges, refValue, yLabel, lineColor, currentValue };
     }
 
+    // --- 针对 3个新增分析选项的专用表格渲染函数 ---
     function renderAnalysisTable(metricTargetCode) {
         const canvas = document.getElementById('detailChartCanvas');
         let tableDiv = document.getElementById('detailTableContainer');
@@ -452,13 +453,16 @@ function openDetailChart(items, item, color) {
 
         const tableFontSize = isMobile ? '11px' : '13px';
         const cellPadding = isMobile ? '6px 4px' : '8px 10px';
+        
+        // 【提取公共方法】使三个模块共享
+        const hasIndustryData = typeof industryData !== 'undefined';
+        const fmt = (v) => (v === null || v === undefined) ? '--' : Number(v).toFixed(2);
+        
         let html = '';
 
         if (state.metric === 'industry') {
-            const hasIndustryData = typeof industryData !== 'undefined';
             const targetInd = (hasIndustryData && industryData[metricTargetCode]) ? industryData[metricTargetCode] : '未知';
 
-            // 【核心修改】：利用我们上面 O(1) 的提取方法在此增加展示了四列新数据 (且增加了外层防溢出包裹 div)
             html += `<div style="padding:8px; color:#4ECDC4; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2; white-space:nowrap;">
                         当前标的行业: <b style="color:#fff;">${targetInd}</b> | 所在组共涵括 ${items.length} 支标的
                      </div>
@@ -482,10 +486,7 @@ function openDetailChart(items, item, color) {
                 if (!pName || pName === '未知') pName = getStockNameFromAllStocks(pCode);
 
                 const pInd = (hasIndustryData && industryData[pCode]) ? industryData[pCode] : '未知';
-                
-                // 拿取财务指标 (O(1)读取)
                 const metrics = getStockMetrics(pCode);
-                const fmt = (v) => (v === null || v === undefined) ? '--' : Number(v).toFixed(2);
 
                 const isCurrent = (pCode === metricTargetCode);
                 const rowStyle = isCurrent ? 'background:#333;' : '';
@@ -508,16 +509,23 @@ function openDetailChart(items, item, color) {
             const res = runManifoldApproximation(metricTargetCode);
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
             
-            html += `<div style="padding:8px; color:#FFD700; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2;">
+            // 【流形相似】补充：所属行业、PB、PE、ROE、DY
+            html += `<div style="padding:8px; color:#FFD700; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; position:sticky; top:0; z-index:2; white-space:nowrap;">
                         基准: <b style="color:#fff;"> 30天多维走势最接近标的
                      </div>
-                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
-                     <thead style="background:#2d2d2d; position:sticky; top:33px;">
+                     <div style="width:100%; overflow-x:auto;">
+                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
+                     <thead style="background:#2d2d2d; position:sticky; top:33px; z-index:1;">
                          <tr>
                              <th style="padding:${cellPadding}; text-align:center;">排名</th>
                              <th style="padding:${cellPadding}; text-align:left;">代码</th>
                              <th style="padding:${cellPadding}; text-align:left;">名称</th>
+                             <th style="padding:${cellPadding}; text-align:left;">所属行业</th>
                              <th style="padding:${cellPadding}; text-align:right;">差异度距离</th>
+                             <th style="padding:${cellPadding}; text-align:right;">PB</th>
+                             <th style="padding:${cellPadding}; text-align:right;">PE</th>
+                             <th style="padding:${cellPadding}; text-align:right;">ROE</th>
+                             <th style="padding:${cellPadding}; text-align:right;">DY</th>
                          </tr>
                      </thead><tbody>`;
             res.data.forEach((r, i) => {
@@ -530,34 +538,49 @@ function openDetailChart(items, item, color) {
                     }
                 }
 
+                // 提取行业与财务指标
+                const pInd = (hasIndustryData && industryData[r.code]) ? industryData[r.code] : '未知';
+                const metrics = getStockMetrics(r.code);
+
                 html += `<tr style="border-bottom:1px solid #333;">
                     <td style="padding:${cellPadding}; text-align:center; color:#888;">${i + 1}</td>
                     <td style="padding:${cellPadding}; color:#aaa; font-family:monospace;">${r.code}</td>
                     <td style="padding:${cellPadding}; color:#ddd;">${finalName}</td>
+                    <td style="padding:${cellPadding}; color:#ddd;">${pInd}</td>
                     <td style="padding:${cellPadding}; text-align:right; color:#4ECDC4; font-family:monospace;">${r.dist.toFixed(4)}</td>
+                    <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[0])}</td>
+                    <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[1])}</td>
+                    <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[2])}</td>
+                    <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[3])}</td>
                 </tr>`;
             });
-            html += `</tbody></table>`;
+            html += `</tbody></table></div>`;
         } 
         else if (state.metric === 'ind_lag') {
             const res = runIndustryLagged(metricTargetCode, 3); 
             if (res.error) { tableDiv.innerHTML = `<div style="padding:20px; text-align:center; color:#ff4444;">${res.error}</div>`; return; }
 
-            html += `<div style="padding:8px; color:#FF6B6B; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; line-height:1.4; position:sticky; top:0; z-index:2;">
-                        🎯 标的所在行业: <b style="color:#fff;">${res.targetL2Name}<br>
-                        ⏳ 寻找近27天内复刻标的 [早3天] 走势的同板块股票
+            // 【行业滑窗】补充：PB、PE、ROE、DY（因为本就是同行业，所以省去"所属行业"列让表格更清爽）
+            html += `<div style="padding:8px; color:#FF6B6B; background:#222; border-bottom:1px solid #333; font-size:${tableFontSize}; line-height:1.4; position:sticky; top:0; z-index:2; white-space:nowrap;">
+                        🎯 标的所在行业: <b style="color:#fff;">${res.targetL2Name}</b><br>
+                        ⏳ 寻找近27天内复刻标的[早3天] 走势的同板块股票
                      </div>
-                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize};">
-                     <thead style="background:#2d2d2d; position:sticky; top:48px;">
+                     <div style="width:100%; overflow-x:auto;">
+                     <table style="width:100%; border-collapse:collapse; font-size:${tableFontSize}; white-space:nowrap;">
+                     <thead style="background:#2d2d2d; position:sticky; top:48px; z-index:1;">
                          <tr>
                              <th style="padding:${cellPadding}; text-align:center;">排名</th>
                              <th style="padding:${cellPadding}; text-align:left;">代码</th>
                              <th style="padding:${cellPadding}; text-align:left;">名称</th>
                              <th style="padding:${cellPadding}; text-align:right;">差异度距离</th>
+                             <th style="padding:${cellPadding}; text-align:right;">PB</th>
+                             <th style="padding:${cellPadding}; text-align:right;">PE</th>
+                             <th style="padding:${cellPadding}; text-align:right;">ROE</th>
+                             <th style="padding:${cellPadding}; text-align:right;">DY</th>
                          </tr>
                      </thead><tbody>`;
             if (res.data.length === 0) {
-                 html += `<tr><td colspan="4" style="padding:20px; text-align:center;">未找到符合条件的同板块标的</td></tr>`;
+                 html += `<tr><td colspan="8" style="padding:20px; text-align:center;">未找到符合条件的同板块标的</td></tr>`;
             } else {
                 res.data.forEach((r, i) => {
                     let finalName = r.name; 
@@ -569,15 +592,22 @@ function openDetailChart(items, item, color) {
                         }
                     }
 
+                    // 提取财务指标
+                    const metrics = getStockMetrics(r.code);
+
                     html += `<tr style="border-bottom:1px solid #333;">
                         <td style="padding:${cellPadding}; text-align:center; color:#888;">${i + 1}</td>
                         <td style="padding:${cellPadding}; color:#aaa; font-family:monospace;">${r.code}</td>
                         <td style="padding:${cellPadding}; color:#ddd;">${finalName}</td>
                         <td style="padding:${cellPadding}; text-align:right; color:#4ECDC4; font-family:monospace;">${r.dist.toFixed(4)}</td>
+                        <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[0])}</td>
+                        <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[1])}</td>
+                        <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[2])}</td>
+                        <td style="padding:${cellPadding}; color:#ddd; text-align:right; font-family:monospace;">${fmt(metrics[3])}</td>
                     </tr>`;
                 });
             }
-            html += `</tbody></table>`;
+            html += `</tbody></table></div>`;
         }
         
         tableDiv.innerHTML = html;
