@@ -299,7 +299,7 @@
 		.tab-pane { display: none; flex-direction: column; gap: 10px; padding: 0 10px; }
 		.tab-pane.active { display: flex; }
 		
-		.auth-form { display: flex; flex-direction: column; gap: 10px; }
+		.auth-form { display: flex; flex-direction: column; gap: 10px; padding: 0 10px; }
 		.auth-hidden { display: none !important; }
 
 		.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #333; font-family: 'Roboto Mono'; }
@@ -498,7 +498,8 @@
             <div id="tab-admin" class="tab-pane active">
                 <div class="setting-row" style="padding: 5px 10px 15px 10px;">
                     <span class="switch-label">Github Proxy</span>
-                    <input type="checkbox" id="chkGitProxy" checked onchange="toggleProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
+                    <!-- 此处修改 onchange 的触发函数 -->
+        			<input type="checkbox" id="chkGitProxy" checked onchange="syncProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">		
                 </div>
                 
                 <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 10px;">
@@ -532,7 +533,12 @@
 
             <!-- USER 面板：JWT登录与修改密码 -->
             <div id="tab-user" class="tab-pane">
-                
+				<!-- 新增：同步显示 Github Proxy -->
+			    <div class="setting-row" style="padding: 5px 10px 15px 10px;">
+			        <span class="switch-label">Github Proxy</span>
+			        <input type="checkbox" id="chkGitProxyUser" checked onchange="syncProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
+			    </div>
+			                
                 <!-- 未登录时显示 -->
                 <div id="loginSection" class="auth-form">
                     <div style="display:flex; align-items: center;">
