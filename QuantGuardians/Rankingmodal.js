@@ -4,6 +4,24 @@
 		    // 同步 checkbox 状态
 		    document.getElementById('chkGitProxy').checked = gitproxy;
 		}
+
+		// === 新增：同步两个 Tab 中 Github Proxy 状态的函数 ===
+		function syncProxy(checkboxElement) {
+		    const adminProxy = document.getElementById('chkGitProxy');
+		    const userProxy = document.getElementById('chkGitProxyUser');
+		    
+		    // 保持两个界面的开关状态绝对一致
+		    if (checkboxElement.id === 'chkGitProxy' && userProxy) {
+		        userProxy.checked = checkboxElement.checked;
+		    } else if (checkboxElement.id === 'chkGitProxyUser' && adminProxy) {
+		        adminProxy.checked = checkboxElement.checked;
+		    }
+		
+		    // 调用你原有的 toggleProxy 业务逻辑 (它可能写在 applogic.js 中)
+		    if (typeof toggleProxy === 'function') {
+		        toggleProxy(checkboxElement);
+		    }
+		}
 		
 		function toggleProxy(checkbox) {
 		    gitproxy = checkbox.checked;
