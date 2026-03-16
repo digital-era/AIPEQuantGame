@@ -26,7 +26,7 @@ export async function onRequestPost(context) {
         }
 
         // 从 Cloudflare KV 中读取密码
-        const storedPassword = await env.USERS_KV.get(username);
+        const storedPassword = await env.aipeusers.get(username);
 
         if (storedPassword && storedPassword === password) {
             // 签发真实 JWT，有效期 2 小时
