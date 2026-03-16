@@ -549,7 +549,12 @@
                         <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">PASS:</span>
                         <input type="password" id="auth_password" class="cmd-input" style="flex: 1; color:#fff;" placeholder="Enter Password">
                     </div>
-                    <button class="cmd-btn buy-btn" style="width: 100% !important; padding: 10px; font-size: 0.6em; margin-top:10px;" onclick="handleLogin()">ACCESS TERMINAL</button>
+                    <!-- 替换为带有 80px 占位的结构： -->
+					<div style="display:flex; align-items: center; margin-top: 10px;">
+					    <!-- 这里放一个看不见的占位，宽度和上方 USER: 标签一样 -->
+					    <span style="width: 80px; margin-right: 10px;"></span>
+					    <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 10px; font-size: 0.6em;" onclick="handleLogin()">ACCESS TERMINAL</button>
+					</div>
                 </div>
 
                 <!-- 登录后显示 -->
