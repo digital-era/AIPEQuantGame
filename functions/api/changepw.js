@@ -39,14 +39,14 @@ export async function onRequestPost(context) {
         }
 
         const { oldPassword, newPassword } = await request.json();
-        const storedPassword = await env.USERS_KV.get(decoded.user);
+        const storedPassword = await env.aipeusers.get(decoded.user);
 
         if (storedPassword !== oldPassword) {
             return new Response(JSON.stringify({ error: "Old password incorrect" }), { status: 403 });
         }
 
         // 更新 KV 中的密码
-        await env.USERS_KV.put(decoded.user, newPassword);
+        await env.aipeusers.put(decoded.user, newPassword);
         
         return new Response(JSON.stringify({ success: true }), { status: 200 });
     } catch (e) {
