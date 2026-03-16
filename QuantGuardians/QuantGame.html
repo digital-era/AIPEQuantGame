@@ -484,18 +484,18 @@
         <div class="modal-content" style="height:auto; max-width:450px; border-color:#888;" onclick="event.stopPropagation()">
             
             <div class="modal-header">
-                <span class="pixel-font" style="color:#fff;">SYSTEM SETTINGS</span>
+                <span class="pixel-font" style="color:#fff;">LOGIN</span>
                 <button class="close-btn" onclick="document.getElementById('settingsModal').style.display='none'">[X]</button>
             </div>
 
             <!-- Tabs: Admin & User -->
             <div class="settings-tabs">
-                <button class="tab-btn active" onclick="switchSettingsTab('admin')">ADMIN</button>
-                <button class="tab-btn" onclick="switchSettingsTab('user')">USER</button>
+                <button class="tab-btn" onclick="switchSettingsTab('admin')">ADMIN</button>
+                <button class="tab-btn active" onclick="switchSettingsTab('user')">USER</button>
             </div>
             
             <!-- ADMIN 面板：Github Proxy 与原 OSS 设定 -->
-            <div id="tab-admin" class="tab-pane active">
+            <div id="tab-admin" class="tab-pane">
                 <div class="setting-row" style="padding: 5px 10px 15px 10px;">
                     <span class="switch-label">Github Proxy</span>
                     <!-- 此处修改 onchange 的触发函数 -->
@@ -532,7 +532,7 @@
             </div>
 
             <!-- USER 面板：JWT登录与修改密码 -->
-            <div id="tab-user" class="tab-pane">
+            <div id="tab-user" class="tab-pane active">
 				<!-- 新增：同步显示 Github Proxy -->
 			    <div class="setting-row" style="padding: 5px 10px 15px 10px;">
 			        <span class="switch-label">Github Proxy</span>
@@ -571,10 +571,10 @@
                         <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">NEW PASS:</span>
                         <input type="password" id="cpw_new" class="cmd-input" style="flex: 1; color:#fff;" placeholder="New Password">
                     </div>
-                    <div style="display:flex; gap: 10px; margin-top:10px;">
-                        <button class="cmd-btn sell-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleLogout()">LOGOUT</button>
-                        <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleChangePassword()">UPDATE PASSWORD</button>
-                    </div>
+					<div style="display:flex; gap: 10px; margin-top:10px;">
+					    <button class="cmd-btn sell-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleLogout()">LOGOUT</button>
+					    <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleChangePassword()">UPDATE PASSWORD</button>
+					</div>
                 </div>
 
                 <!-- Auth 信息反馈区 -->
