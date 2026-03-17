@@ -46,8 +46,7 @@ const HISTORY_FILES = {
 // 【新增】额外的综合评估文件定义
 const EXTRA_HISTORY_FILES = {
     guardians: 'QuantGuardians综合评估.json',
-    //user: 'User模型综合评估.json'
-    user: getSecureOssPath(USER_REPORT_FILE)
+    user: getSecureOssPath('User模型综合评估.json')
 };
 
 // 用于存储当前选择的指标，默认为累计收益率
