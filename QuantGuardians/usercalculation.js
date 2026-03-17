@@ -665,35 +665,31 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             return;
         }
 
-        // === 1. 日期处理 ===
+        // --- 1. 准备基础数据 ---
+        // 获取任一引擎的日期基准
         const sampleEngineKey = Object.keys(enginesCache)[0];
         const sampleEngine = enginesCache[sampleEngineKey];
-
+        
+        // JS 引擎里的日期存放在 timeline 中 (格式: YYYY-MM-DD)
         const rawDate = sampleEngine.timeline[sampleEngine.timeline.length - 1];
-        if (!rawDate) throw new Error("引擎 timeline 为空");
+        if (!rawDate) throw new Error("引擎 timeline 为空，无法获取最新日期");
 
+        // 将 'YYYY-MM-DD' 转换为 'YYYYMMDD'
         const latestDate8 = rawDate.replace(/-/g, '');
         const targetTimestamp = latestDate8 + "1630";
 
-        log(`📅 更新日期: ${latestDate8}`, "#ccc");
+        log(`📅 更新目标日期: ${latestDate8} (时间戳: ${targetTimestamp})`, "#ccc");
 
-        // === 2. 价格表 ===
+        // 准备价格查询表 (获取该日期全市场价格)
         const rawMarket = sampleEngine.marketMap[rawDate] || {};
         const priceLookup = {};
-
         for (const [k, v] of Object.entries(rawMarket)) {
+            // 价格 Key 统一处理为纯数字/字符，去除可能的 .SZ/.SH 后缀
             const cleanCode = String(k).split('.')[0].trim();
             priceLookup[cleanCode] = parseFloat(v);
         }
 
-        const getFmtCode = (rawCode) => String(rawCode).split('.')[0].trim();
-        const getPrice = (code) => {
-            const c = getFmtCode(code);
-            if (c === '100000') return 1.0;
-            return priceLookup[c] || 0.0;
-        };
-
-        // === 3. sheet 映射 ===
+        // 建立 Sheet 名称到策略 Key 的映射 (根据 GUARDIAN_CONFIG)
         const sheetToStrategyKey = {};
         if (typeof GUARDIAN_CONFIG !== 'undefined') {
             for (const [k, v] of Object.entries(GUARDIAN_CONFIG)) {
@@ -701,185 +697,190 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             }
         }
 
-        const sheetsToProcess = ['ADHOC', '低波', '大成', '流入', '大智'];
+        const sheetsToProcess =['ADHOC', '低波', '大成', '流入', '大智'];
 
-        // =========================================================
-        // 🔥 主循环
-        // =========================================================
+        // 辅助函数
+        const getFmtCode = (rawCode) => String(rawCode).split('.')[0].trim();
+        const getPrice = (code) => {
+            const c = getFmtCode(code);
+            if (c === '100000') return 1.0; // 现金恒定为 1
+            return priceLookup[c] || 0.0;
+        };
+
+        // --- 2. 遍历处理每个 Sheet ---
         for (const sheetName of sheetsToProcess) {
             const ws = workbook.getWorksheet(sheetName);
             if (!ws) continue;
 
-            let headers = [];
-            const rowsData = [];
-
-            // =====================================================
-            // ✅ 关键修复：读取时过滤“重复表头”
-            // =====================================================
+            // 读取表头和数据
+            let headers =[];
+            const rowsData =[];
+            
             ws.eachRow((row, rowNum) => {
-                const firstCell = row.getCell(1).value;
+				const firstCell = row.getCell(1).value;
 
-                // 🚨 跳过重复表头
-                if (rowNum !== 1 && String(firstCell).includes('组合名称')) {
-                    return;
-                }
+				// ✅ 关键修复1：跳过重复表头
+				if (rowNum !== 1 && String(firstCell).includes('组合名称')) {
+					return;
+				}
 
-                if (rowNum === 1) {
-                    row.eachCell((cell, colNum) => {
-                        headers[colNum] = cell.value ? String(cell.value).trim() : null;
-                    });
-                } else {
-                    const rowObj = {};
+				if (rowNum === 1) {
+					row.eachCell((cell, colNum) => {
+						headers[colNum] = cell.value ? String(cell.value).trim() : null;
+					});
+				} else {
+					const rowObj = {};
+					row.eachCell((cell, colNum) => {
+						const header = headers[colNum];
+						if (header) {
+							let val = cell.value;
 
-                    row.eachCell((cell, colNum) => {
-                        const header = headers[colNum];
-                        if (!header) return;
+							// 处理 ExcelJS 公式对象
+							if (val && typeof val === 'object') {
+								if (val.result !== undefined) val = val.result;
+								else if (val.text !== undefined) val = val.text;
+							}
 
-                        let val = cell.value;
+							if (header === '修改时间' || header === '股票代码') {
+								val = String(val).trim();
+							}
 
-                        if (val && typeof val === 'object') {
-                            if (val.result !== undefined) val = val.result;
-                            else if (val.text !== undefined) val = val.text;
-                        }
+							rowObj[header] = val;
+						}
+					});
 
-                        if (header === '修改时间' || header === '股票代码') {
-                            val = String(val).trim();
-                        }
+					// ✅ 关键修复2：过滤“伪数据行”（表头被读成数据）
+					if (
+						rowObj['股票代码'] &&
+						rowObj['股票代码'] !== '股票代码'
+					) {
+						rowsData.push(rowObj);
+					}
+				}
+			});
 
-                        rowObj[header] = val;
-                    });
+            if (headers.length === 0) {
+                log(`⚠️ 页面 '${sheetName}' 表头无效，跳过`, "orange");
+                continue;
+            }
+            if (rowsData.length === 0 && sheetName !== 'ADHOC') {
+                log(`⚠️ 页面 '${sheetName}' 无数据，跳过`, "orange");
+                continue;
+            }
 
-                    // 🚨 过滤非法行（核心）
-                    if (
-                        rowObj['股票代码'] &&
-                        rowObj['股票代码'] !== '股票代码'
-                    ) {
-                        rowsData.push(rowObj);
-                    }
-                }
-            });
-
-            if (headers.length === 0) continue;
-
-            // =====================================================
-            // 4. 计算权重
-            // =====================================================
-            const weightMap = {};
+            // --- 3. 计算策略当前的持仓权重 ---
+            const weightMap = {}; 
             const strategyKey = sheetToStrategyKey[sheetName];
 
             if (strategyKey && enginesCache[strategyKey]) {
                 const eng = enginesCache[strategyKey];
-
-                let equity = eng.cash;
-
-                for (const [code, qty] of Object.entries(eng.positions)) {
-                    equity += qty * getPrice(code);
+                
+                // 计算总资产 (使用最新价格)
+                let currentEquity = eng.cash;
+                for (const [pCode, pQty] of Object.entries(eng.positions)) {
+                    currentEquity += (pQty * getPrice(pCode));
                 }
 
-                if (equity > 0) {
-                    weightMap['100000'] = (eng.cash / equity) * 100;
-
-                    for (const [code, qty] of Object.entries(eng.positions)) {
-                        const fmt = getFmtCode(code);
-                        weightMap[fmt] = (qty * getPrice(code)) / equity * 100;
+                if (currentEquity > 0) {
+                    weightMap['100000'] = (eng.cash / currentEquity) * 100.0;
+                    for (const [pCode, pQty] of Object.entries(eng.positions)) {
+                        const fmtKey = getFmtCode(pCode);
+                        const marketVal = pQty * getPrice(pCode);
+                        weightMap[fmtKey] = (marketVal / currentEquity) * 100.0;
                     }
+                    console.log(`   ⚖️[${sheetName}] 权重计算完毕，总资产: ${currentEquity.toFixed(0)}，持仓数: ${Object.keys(eng.positions).length}`);
+                } else {
+                    console.log(`   ⚠️[${sheetName}] 总资产为 0，跳过权重计算`);
                 }
             }
 
+            // --- 4. 准备更新的数据行 (判定覆盖或追加) ---
+            const existingDates = rowsData.map(r => String(r['修改时间'] || '').substring(0, 8));
+            const hasSameDate = existingDates.includes(latestDate8);
             const hasWeightCol = headers.includes('配置比例 (%)');
 
+            let finalData =[];
+
+            // 执行单行更新操作的辅助闭包
             const applyRowUpdate = (rowObj) => {
                 const fmtCode = getFmtCode(rowObj['股票代码']);
-
                 rowObj['收盘价格'] = getPrice(fmtCode);
                 rowObj['修改时间'] = targetTimestamp;
 
-                if (hasWeightCol) {
-                    rowObj['配置比例 (%)'] = weightMap[fmtCode] || 0;
+                if (hasWeightCol && Object.keys(weightMap).length > 0) {
+                    const w = weightMap[fmtCode] || 0.0;
+                    rowObj['配置比例 (%)'] = w;
                 }
-
                 return rowObj;
             };
 
-            let finalData = [];
-
-            // =====================================================
-            // ✅ ADHOC：只保留最新时间
-            // =====================================================
             if (sheetName === 'ADHOC') {
+                // ADHOC 全量更新
                 finalData = rowsData.map(r => applyRowUpdate(r));
-
-                // 👉 只保留当前时间
-                finalData = finalData.filter(r =>
-                    String(r['修改时间']) === targetTimestamp
-                );
             } else {
-                // =================================================
-                // 其他策略：保留历史 + 去重
-                // =================================================
-                const updated = rowsData.map(r => {
-                    if (String(r['修改时间']).substring(0, 8) === latestDate8) {
-                        return applyRowUpdate(r);
+                if (hasSameDate) {
+                    // 场景A: 日期已存在 -> 更新它
+                    console.log(`   ℹ️ [${sheetName}] 更新现有日期: ${latestDate8}`);
+                    finalData = rowsData.map(r => {
+                        if (String(r['修改时间'] || '').substring(0, 8) === latestDate8) {
+                            return applyRowUpdate(r);
+                        }
+                        return r; // 非当日历史数据原样保留
+                    });
+                } else {
+                    // 场景B: 日期不存在 -> 复制最后一天作为模板新增
+                    if (rowsData.length > 0) {
+                        // 找到目前表里的最大日期
+                        const maxDate = existingDates.reduce((a, b) => a > b ? a : b);
+                        console.log(`   🆕 [${sheetName}] 新增日期: ${latestDate8} (复制自 ${maxDate})`);
+                        
+                        const targetRows = rowsData.filter(r => String(r['修改时间'] || '').substring(0, 8) === maxDate);
+                        
+                        // 深拷贝目标行以追加新的一天
+                        const clonedRows = targetRows.map(r => ({ ...r }));
+                        const updatedClonedRows = clonedRows.map(r => applyRowUpdate(r));
+
+                        finalData =[...rowsData, ...updatedClonedRows];
+                    } else {
+                        continue;
                     }
-                    return r;
-                });
-
-                // 👉 如果当天不存在 → 新增
-                const hasToday = updated.some(r =>
-                    String(r['修改时间']).startsWith(latestDate8)
-                );
-
-                if (!hasToday && updated.length > 0) {
-                    const maxDate = Math.max(...updated.map(r => Number(r['修改时间'])));
-                    const baseRows = updated.filter(r => Number(r['修改时间']) === maxDate);
-
-                    const cloned = baseRows.map(r => applyRowUpdate({ ...r }));
-                    updated.push(...cloned);
                 }
-
-                // =================================================
-                // 🚨 去重（核心）
-                // key: 组合+股票+时间
-                // =================================================
-                const uniqMap = new Map();
-
-                updated.forEach(r => {
-                    const key = `${r['组合名称']}_${r['股票代码']}_${r['修改时间']}`;
-                    uniqMap.set(key, r);
-                });
-
-                finalData = Array.from(uniqMap.values());
             }
 
-            // =====================================================
-            // 5. 写回 Excel
-            // =====================================================
-            if (ws.rowCount > 0) {
-                ws.spliceRows(1, ws.rowCount);
+            // --- 5. 清空重写 Excel Sheet ---
+            const rowCount = ws.rowCount;
+            if (rowCount >= 1) {
+                // 删除原有的所有数据和表头，使用 spliceRows 清除
+                ws.spliceRows(1, rowCount);
             }
 
+            // 写入表头
             ws.addRow(headers);
 
-            finalData.forEach(r => {
-                const arr = headers.map(h => r[h] ?? null);
-                ws.addRow(arr);
+            // 写入数据
+            finalData.forEach(rData => {
+                const rowArr =[];
+                headers.forEach((h, i) => {
+                    // 根据表头顺序组装数组
+                    rowArr[i] = rData[h] !== undefined ? rData[h] : null; 
+                });
+                ws.addRow(rowArr);
             });
 
-            log(`✅ ${sheetName} 处理完成`, "#0f0");
+            log(`✅ 页面 '${sheetName}' 同步处理完成`, "#0f0");
         }
 
-        // === 上传 OSS ===
+        // --- 6. 将更新后的 Workbook 转化为 Blob 并上传 ---
+        log("\n正在保存文件并上传 OSS...", "#88f");
         const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], {
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        });
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
+        // 使用全局定义的 OSS 文件路径        
         await ossClient.put(getSecureOssPath(OSS_FILE_NAME), blob);
-
-        log("🚀 上传成功", "#0f0");
+        log(`🚀 Portofolio 附件已成功更新并上传至: ${getSecureOssPath(OSS_FILE_NAME)}`, "#0f0");
 
     } catch (e) {
-        log(`❌ 崩溃: ${e.message}`, "red");
+        log(`❌ 同步更新 Excel 数据崩溃: ${e.message}`, "red");
         console.error(e);
     }
 }
