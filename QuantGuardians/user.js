@@ -203,8 +203,13 @@ async function initOSS() {
         // 管理员 → 强制使用 window.OSS_CONFIG
         ossCredentials = window.OSS_CONFIG || {};
     } else {
-        // 普通用户 → 使用 cloudflare（若存在），否则回退到空对象
-        ossCredentials = (typeof cloudflare !== 'undefined' && cloudflare) || {};
+        // 普通用户 → 从 Cloudflare Pages Functions 的 env 对象读取
+        ossCredentials = {
+            ACCESS_KEY_ID:     env.OSS_CONFIG.ACCESS_KEY_ID     || '',
+            ACCESS_KEY_SECRET: env.OSS_CONFIG.ACCESS_KEY_SECRET || '',
+            STS_ROLE_ARN:      env.OSS_CONFIG.STS_ROLE_ARN      || '',
+            OSS_REGION:        env.OSS_CONFIG.OSS_REGION        || ''
+        };
     }
     
     // 辅助函数：获取非空字符串值，否则返回 undefined（不会出现在最终 JSON 中）
