@@ -615,7 +615,7 @@ async function loadCloudPortfolio() {
     log("Syncing Cloud Portfolio...", "#88f");
     if (!await initOSS()) return;
     try {
-        const result = await ossClient.get(OSS_FILE_NAME);
+        const result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
         const wb = XLSX.read(result.content, { type: 'array' });
         
         for (let key in GUARDIAN_CONFIG) {
