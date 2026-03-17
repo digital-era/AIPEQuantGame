@@ -648,7 +648,7 @@ let todayInitialAssets = 100000; // 假设每日初始资金
 async function loadTodayFlows() {
     if (!ossClient) return;
     try {
-        const result = await ossClient.get(OSS_FILE_NAME);
+        const result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
         const wb = XLSX.read(result.content, { type: 'array' });
         const todayStr = getOpTime().substring(0, 8); // 获取 YYYYMMDD
         
@@ -1325,7 +1325,7 @@ async function loadAdhocFromCloud() {
     log("Loading ADHOC Suggestions...", "#da70d6");
     if (!ossClient) return;
     try {
-        const result = await ossClient.get(OSS_FILE_NAME);
+        const result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
         const wb = XLSX.read(result.content, { type: 'array' });
         const sheet = wb.Sheets["ADHOC"];
         
@@ -1374,7 +1374,7 @@ async function syncToCloud() {
     try {
         let wb;
         try {
-            const r = await ossClient.get(OSS_FILE_NAME);
+            const r = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
             wb = XLSX.read(r.content, { type: 'array' });
         } catch { wb = XLSX.utils.book_new(); }
 
@@ -1508,7 +1508,7 @@ async function syncToCloud() {
         const wopts = { bookType:'xlsx', bookSST:false, type:'array' };
         const wbout = XLSX.write(wb, wopts);
         const blob = new Blob([wbout], {type:"application/octet-stream"});
-        await ossClient.put(OSS_FILE_NAME, blob);
+        await ossClient.put(getSecureOssPath(OSS_FILE_NAME), blob);
         
         dot.className = "oss-status done";
         log("Cloud Sync Success.", "#0f0");
