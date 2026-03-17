@@ -91,7 +91,11 @@ function checkAuthStatus() {
             document.getElementById('loggedInUser').innerText = decoded.user.toUpperCase();
             return true;
         } else {
+            // Token 过期或无效（被动登出）
             localStorage.removeItem('qgr_jwt_token'); 
+            // [必须新增] 清理内存中的 OSS 客户端及路径
+            if (typeof ossClient !== 'undefined') ossClient = null;
+            window.CURRENT_OSS_PREFIX = '';
         }
     }
     document.getElementById('loginSection').classList.remove('auth-hidden');
@@ -116,6 +120,10 @@ async function handleLogin() {
         const data = await response.json();
 
         if (response.ok && data.success) {
+            / [新增] 强制重置之前的 OSS 状态，防止不刷新页面直接换号导致的串号越权
+            if (typeof ossClient !== 'undefined') ossClient = null;
+            window.CURRENT_OSS_PREFIX = '';
+            // 写入新的 Token
             localStorage.setItem('qgr_jwt_token', data.token);
             showAuthMsg("ACCESS GRANTED", "#10B981");
             document.getElementById('auth_password').value = '';
@@ -130,9 +138,22 @@ async function handleLogin() {
 }
 
 function handleLogout() {
+    // 1. 清除 JWT Token
     localStorage.removeItem('qgr_jwt_token');
+    
+    // 2. [新增] 强制清除 OSS 客户端实例，防止 STS Token 泄露或被下个登录者复用
+    if (typeof ossClient !== 'undefined') {
+        ossClient = null; 
+    }
+    
+    // 3. [新增] 清除用户目录隔离前缀
+    window.CURRENT_OSS_PREFIX = '';
+
+    // 4. 更新 UI 状态
     checkAuthStatus();
     showAuthMsg("LOGGED OUT SUCCESSFULLY", "#10B981");
+
+    log(`> [SYSTEM] 用户已登出，OSS 会话已销毁。`, '#9CA3AF');
 }
 
 async function handleChangePassword() {
