@@ -120,7 +120,7 @@ async function handleLogin() {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            / [新增] 强制重置之前的 OSS 状态，防止不刷新页面直接换号导致的串号越权
+            // [新增] 强制重置之前的 OSS 状态，防止不刷新页面直接换号导致的串号越权
             if (typeof ossClient !== 'undefined') ossClient = null;
             window.CURRENT_OSS_PREFIX = '';
             // 写入新的 Token
