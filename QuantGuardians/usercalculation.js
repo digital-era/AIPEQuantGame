@@ -372,9 +372,9 @@ async function generateAndUploadJsonReport(resultsDict) {
         // 从 OSS 获取旧版文件
         if (!jsonStr) {
             try {
-                const result = await ossClient.get(USER_REPORT_FILE);
+                const result = await ossClient.get(getSecureOssPath(USER_REPORT_FILE));
                 jsonStr = result.content ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) : "";
-                if(jsonStr) console.log(`✅ 已从 OSS 获取历史数据: ${USER_REPORT_FILE}`);
+                if(jsonStr) console.log(`✅ 已从 OSS 获取历史数据: ${getSecureOssPath(USER_REPORT_FILE)}`);
             } catch (e) {
                 console.log(`ℹ️ OSS 未找到历史文件 (可能是首次运行或文件不存在)`);
             }
@@ -633,8 +633,8 @@ async function generateAndUploadJsonReport(resultsDict) {
     try {
         const jsonString = JSON.stringify(outputData, null, 4);
         const blob = new Blob([jsonString], { type: 'application/json' });
-        await ossClient.put(USER_REPORT_FILE, blob);
-        console.log(`✅ [User模型] 成功合并历史并上传至: ${USER_REPORT_FILE}`);
+        await ossClient.put(getSecureOssPath(USER_REPORT_FILE), blob);
+        console.log(`✅ [User模型] 成功合并历史并上传至: ${getSecureOssPath(USER_REPORT_FILE)}`);
     } catch (e) {
         console.error("OSS上传失败", e);
     }
