@@ -171,6 +171,131 @@ async function handleChangePassword() {
     }
 }
 
+// ================= initOSS LOGIC =================
+async function initOSS() {
+    if (ossClient) return true;
+    
+    // --- 新增：获取当前用户 Token 和身份信息 ---
+    const token = localStorage.getItem('qgr_jwt_token');
+    if (!token) {
+        console.error("初始化 OSS 失败：用户未登录");
+        return false;
+    }
+
+    const decoded = parseJWTClientSide(token);
+    if (!decoded || Date.now() > decoded.exp) {
+        console.error("初始化 OSS 失败：Token无效或已过期");
+        return false;
+    }
+
+    const username = decoded.user; // 获取用户名，例如 "admin" 或 "user000001"
+    const isAdmin = username === 'admin';
+    
+    // 全局记录当前用户的 OSS 操作目录前缀
+    // 非管理员的操作会被强制限制在该目录下，如果传错目录会触发 403 权限拒绝
+    window.CURRENT_OSS_PREFIX = isAdmin ? '' : `${username}/`
+
+    // ────────────────────────────────────────────────
+    // 凭证来源选择逻辑
+    let ossCredentials;
+    
+    if (isAdmin) {
+        // 管理员 → 强制使用 window.OSS_CONFIG
+        ossCredentials = window.OSS_CONFIG || {};
+    } else {
+        // 普通用户 → 使用 cloudflare（若存在），否则回退到空对象
+        ossCredentials = (typeof cloudflare !== 'undefined' && cloudflare) || {};
+    }
+    
+    // 辅助函数：获取非空字符串值，否则返回 undefined（不会出现在最终 JSON 中）
+    function getValidCredential(value) {
+        if (typeof value === 'string' && value.trim().length > 0) {
+            return value.trim();
+        }
+        return undefined;
+    }
+    
+    // 构建发送用的 body（只包含有效凭证字段）
+    const postBody = JSON.stringify({
+        OSS_ACCESS_KEY_ID:     getValidCredential(ossCredentials.ACCESS_KEY_ID),
+        OSS_ACCESS_KEY_SECRET: getValidCredential(ossCredentials.ACCESS_KEY_SECRET),
+        OSS_STS_ROLE_ARN:      getValidCredential(ossCredentials.STS_ROLE_ARN),
+        OSS_REGION:            getValidCredential(ossCredentials.OSS_REGION)
+    });
+
+    // 可选：发送前做完整性检查（根据业务需求决定是否启用）
+    if (!postBody || postBody === '{}') {
+        console.error('No valid OSS credentials available for current user');
+        // 根据实际场景可抛出错误、显示提示或禁用相关功能
+        // throw new Error('Missing OSS credentials');
+    }
+
+    // --- 新增：构造带有鉴权信息的 Headers ---
+    const reqHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // 让后端知道当前是哪个用户申请STS凭证
+    };
+
+    try {
+        // --- 第一次获取 Token ---
+        const res = await fetch(STS_API_URL, {
+            method: 'POST',
+            headers: reqHeaders,
+            body: postBody 
+        });
+
+        if (!res.ok) throw new Error(`STS fetch failed: ${res.status}`);
+        const data = await res.json();
+
+        // --- 初始化 OSS 客户端 ---
+        ossClient = new OSS({
+            region: window.OSS_CONFIG.OSS_REGION.startsWith('oss-') 
+                    ? window.OSS_CONFIG.OSS_REGION 
+                    : `oss-${window.OSS_CONFIG.OSS_REGION}`, 
+            accessKeyId: data.AccessKeyId,
+            accessKeySecret: data.AccessKeySecret,
+            stsToken: data.SecurityToken,
+            bucket: window.OSS_CONFIG.OSS_BUCKET || OSS_BUCKET, 
+            
+            // --- 刷新 Token 的逻辑 ---
+            refreshSTSToken: async () => {
+                console.log("正在刷新 STS Token...");
+                // 刷新时也要重新获取本地最新 Token，防止期间发生改变
+                const currentToken = localStorage.getItem('qgr_jwt_token');
+                
+                const r = await fetch(STS_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}` // 刷新同样需要携带JWT
+                    },
+                    body: postBody 
+                });
+                
+                if (!r.ok) throw new Error("Refresh token failed");
+                const d = await r.json();
+                
+                return {
+                    accessKeyId: d.AccessKeyId,
+                    accessKeySecret: d.AccessKeySecret,
+                    stsToken: d.SecurityToken
+                };
+            }
+        });
+        
+        console.log(`OSS 初始化成功 [角色: ${isAdmin ? '管理员' : '普通用户'}, 专属目录: /${window.CURRENT_OSS_PREFIX}]`);
+        return true;
+    } catch (e) { 
+        console.error(e);
+        const logBox = document.getElementById('systemLog');
+        if (logBox) {
+            logBox.innerHTML += `<div class="log-line" style="color:red">> OSS Init Fail</div>`;
+        }
+        return false; 
+    }
+}
+
+
 // ==========================================
 // OSS 路径辅助函数 (新增)
 // ==========================================
