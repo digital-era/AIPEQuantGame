@@ -50,13 +50,13 @@ async function triggerCalculation() {
         // 使用现有的 fetchPrice 逻辑太慢(逐个请求)，这里我们并发加载或简化处理
         // 为简单起见，本次计算优先使用 Excel 内的价格，缺失的使用当前 API
         
-        // 3. 下载云端主文件 (使用全局变量 OSS_FILE_NAME)
-        log(`正在下载云端文件: ${OSS_FILE_NAME}...`, "#88f");
+        // 3. 下载云端主文件 (使用全局变量 getSecureOssPath(OSS_FILE_NAME))
+        log(`正在下载云端文件: ${getSecureOssPath(OSS_FILE_NAME)}...`, "#88f");
         
         let result;
         try {
             // 直接复用全局 ossClient
-            result = await ossClient.get(OSS_FILE_NAME);
+            result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
         } catch (ossErr) {
             console.error(ossErr);
             throw new Error("下载文件失败。请确保您已点击过 'Sync Cloud' 或配置正确。");
@@ -112,6 +112,11 @@ async function triggerCalculation() {
             await loadHistoryData();
         }
 
+        if (getSecureOssPath(OSS_FILE_NAME) !== OSS_FILE_NAME) {
+            log("正在将最新持仓比例与价格同步至私有 Excel...", "#88f");
+            await updateSnapshotsAndSyncOSS(workbook, enginesCache);
+        }
+        
     } catch (e) {
         log(`❌ 计算错误: ${e.message}`, "red");
         console.error(e);
@@ -637,5 +642,229 @@ async function generateAndUploadJsonReport(resultsDict) {
         console.log(`✅ [User模型] 成功合并历史并上传至: ${getSecureOssPath(USER_REPORT_FILE)}`);
     } catch (e) {
         console.error("OSS上传失败", e);
+    }
+}
+
+
+// ==================================================================================
+// 6. 新增：更新投资组合快照配置并同步上传至 OSS
+// ==================================================================================
+
+/**
+ * 将回测引擎计算出的最新持仓权重和价格，更新回 Excel，并上传至 OSS
+ * @param {ExcelJS.Workbook} workbook 已加载的 Excel 工作簿实例
+ * @param {Object} enginesCache 包含所有策略引擎实例的字典
+ */
+async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
+    console.log("\n" + "=".repeat(50));
+    log("🚀 正在执行组合数据处理（含配置比例更新）...", "#00ccff");
+
+    try {
+        if (!enginesCache || Object.keys(enginesCache).length === 0) {
+            log("❌ 错误: enginesCache 为空，无法更新数据", "red");
+            return;
+        }
+
+        // --- 1. 准备基础数据 ---
+        // 获取任一引擎的日期基准
+        const sampleEngineKey = Object.keys(enginesCache)[0];
+        const sampleEngine = enginesCache[sampleEngineKey];
+        
+        // JS 引擎里的日期存放在 timeline 中 (格式: YYYY-MM-DD)
+        const rawDate = sampleEngine.timeline[sampleEngine.timeline.length - 1];
+        if (!rawDate) throw new Error("引擎 timeline 为空，无法获取最新日期");
+
+        // 将 'YYYY-MM-DD' 转换为 'YYYYMMDD'
+        const latestDate8 = rawDate.replace(/-/g, '');
+        const targetTimestamp = latestDate8 + "1630";
+
+        log(`📅 更新目标日期: ${latestDate8} (时间戳: ${targetTimestamp})`, "#ccc");
+
+        // 准备价格查询表 (获取该日期全市场价格)
+        const rawMarket = sampleEngine.marketMap[rawDate] || {};
+        const priceLookup = {};
+        for (const [k, v] of Object.entries(rawMarket)) {
+            // 价格 Key 统一处理为纯数字/字符，去除可能的 .SZ/.SH 后缀
+            const cleanCode = String(k).split('.')[0].trim();
+            priceLookup[cleanCode] = parseFloat(v);
+        }
+
+        // 建立 Sheet 名称到策略 Key 的映射 (根据 GUARDIAN_CONFIG)
+        const sheetToStrategyKey = {};
+        if (typeof GUARDIAN_CONFIG !== 'undefined') {
+            for (const [k, v] of Object.entries(GUARDIAN_CONFIG)) {
+                sheetToStrategyKey[v.simpleName] = k;
+            }
+        }
+
+        const sheetsToProcess =['ADHOC', '低波', '大成', '流入', '大智'];
+
+        // 辅助函数
+        const getFmtCode = (rawCode) => String(rawCode).split('.')[0].trim();
+        const getPrice = (code) => {
+            const c = getFmtCode(code);
+            if (c === '100000') return 1.0; // 现金恒定为 1
+            return priceLookup[c] || 0.0;
+        };
+
+        // --- 2. 遍历处理每个 Sheet ---
+        for (const sheetName of sheetsToProcess) {
+            const ws = workbook.getWorksheet(sheetName);
+            if (!ws) continue;
+
+            // 读取表头和数据
+            let headers =[];
+            const rowsData =[];
+            
+            ws.eachRow((row, rowNum) => {
+                if (rowNum === 1) {
+                    row.eachCell((cell, colNum) => {
+                        headers[colNum] = cell.value ? String(cell.value).trim() : null;
+                    });
+                } else {
+                    const rowObj = {};
+                    row.eachCell((cell, colNum) => {
+                        const header = headers[colNum];
+                        if (header) {
+                            let val = cell.value;
+                            // 处理 ExcelJS 公式对象
+                            if (val && typeof val === 'object') {
+                                if (val.result !== undefined) val = val.result;
+                                else if (val.text !== undefined) val = val.text;
+                            }
+                            // 如果是修改时间或代码，强制转字符串防止科学计数法或格式错乱
+                            if (header === '修改时间' || header === '股票代码') {
+                                val = String(val).trim();
+                            }
+                            rowObj[header] = val;
+                        }
+                    });
+                    rowsData.push(rowObj);
+                }
+            });
+
+            if (headers.length === 0) {
+                log(`⚠️ 页面 '${sheetName}' 表头无效，跳过`, "orange");
+                continue;
+            }
+            if (rowsData.length === 0 && sheetName !== 'ADHOC') {
+                log(`⚠️ 页面 '${sheetName}' 无数据，跳过`, "orange");
+                continue;
+            }
+
+            // --- 3. 计算策略当前的持仓权重 ---
+            const weightMap = {}; 
+            const strategyKey = sheetToStrategyKey[sheetName];
+
+            if (strategyKey && enginesCache[strategyKey]) {
+                const eng = enginesCache[strategyKey];
+                
+                // 计算总资产 (使用最新价格)
+                let currentEquity = eng.cash;
+                for (const [pCode, pQty] of Object.entries(eng.positions)) {
+                    currentEquity += (pQty * getPrice(pCode));
+                }
+
+                if (currentEquity > 0) {
+                    weightMap['100000'] = (eng.cash / currentEquity) * 100.0;
+                    for (const [pCode, pQty] of Object.entries(eng.positions)) {
+                        const fmtKey = getFmtCode(pCode);
+                        const marketVal = pQty * getPrice(pCode);
+                        weightMap[fmtKey] = (marketVal / currentEquity) * 100.0;
+                    }
+                    console.log(`   ⚖️[${sheetName}] 权重计算完毕，总资产: ${currentEquity.toFixed(0)}，持仓数: ${Object.keys(eng.positions).length}`);
+                } else {
+                    console.log(`   ⚠️[${sheetName}] 总资产为 0，跳过权重计算`);
+                }
+            }
+
+            // --- 4. 准备更新的数据行 (判定覆盖或追加) ---
+            const existingDates = rowsData.map(r => String(r['修改时间'] || '').substring(0, 8));
+            const hasSameDate = existingDates.includes(latestDate8);
+            const hasWeightCol = headers.includes('配置比例 (%)');
+
+            let finalData =[];
+
+            // 执行单行更新操作的辅助闭包
+            const applyRowUpdate = (rowObj) => {
+                const fmtCode = getFmtCode(rowObj['股票代码']);
+                rowObj['收盘价格'] = getPrice(fmtCode);
+                rowObj['修改时间'] = targetTimestamp;
+
+                if (hasWeightCol && Object.keys(weightMap).length > 0) {
+                    const w = weightMap[fmtCode] || 0.0;
+                    rowObj['配置比例 (%)'] = w;
+                }
+                return rowObj;
+            };
+
+            if (sheetName === 'ADHOC') {
+                // ADHOC 全量更新
+                finalData = rowsData.map(r => applyRowUpdate(r));
+            } else {
+                if (hasSameDate) {
+                    // 场景A: 日期已存在 -> 更新它
+                    console.log(`   ℹ️ [${sheetName}] 更新现有日期: ${latestDate8}`);
+                    finalData = rowsData.map(r => {
+                        if (String(r['修改时间'] || '').substring(0, 8) === latestDate8) {
+                            return applyRowUpdate(r);
+                        }
+                        return r; // 非当日历史数据原样保留
+                    });
+                } else {
+                    // 场景B: 日期不存在 -> 复制最后一天作为模板新增
+                    if (rowsData.length > 0) {
+                        // 找到目前表里的最大日期
+                        const maxDate = existingDates.reduce((a, b) => a > b ? a : b);
+                        console.log(`   🆕 [${sheetName}] 新增日期: ${latestDate8} (复制自 ${maxDate})`);
+                        
+                        const targetRows = rowsData.filter(r => String(r['修改时间'] || '').substring(0, 8) === maxDate);
+                        
+                        // 深拷贝目标行以追加新的一天
+                        const clonedRows = targetRows.map(r => ({ ...r }));
+                        const updatedClonedRows = clonedRows.map(r => applyRowUpdate(r));
+
+                        finalData =[...rowsData, ...updatedClonedRows];
+                    } else {
+                        continue;
+                    }
+                }
+            }
+
+            // --- 5. 清空重写 Excel Sheet ---
+            const rowCount = ws.rowCount;
+            if (rowCount >= 1) {
+                // 删除原有的所有数据和表头，使用 spliceRows 清除
+                ws.spliceRows(1, rowCount);
+            }
+
+            // 写入表头
+            ws.addRow(headers);
+
+            // 写入数据
+            finalData.forEach(rData => {
+                const rowArr =[];
+                headers.forEach((h, i) => {
+                    // 根据表头顺序组装数组
+                    rowArr[i] = rData[h] !== undefined ? rData[h] : null; 
+                });
+                ws.addRow(rowArr);
+            });
+
+            log(`✅ 页面 '${sheetName}' 同步处理完成`, "#0f0");
+        }
+
+        // --- 6. 将更新后的 Workbook 转化为 Blob 并上传 ---
+        log("\n正在保存文件并上传 OSS...", "#88f");
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        // 使用全局定义的 OSS 文件路径        
+        await ossClient.put(getSecureOssPath(OSS_FILE_NAME), blob);
+        log(`🚀 Portofolio 附件已成功更新并上传至: ${getSecureOssPath(OSS_FILE_NAME)}`, "#0f0");
+
+    } catch (e) {
+        log(`❌ 同步更新 Excel 数据崩溃: ${e.message}`, "red");
+        console.error(e);
     }
 }
