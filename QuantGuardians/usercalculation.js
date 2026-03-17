@@ -665,7 +665,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             return;
         }
 
-        // 🔥 FIX 1：统一解析函数（新增，不影响原逻辑）
+        // 🔥 FIX 1：统一解析函数
         const getCellValue = (val) => {
             if (val && typeof val === 'object') {
                 if (val.result !== undefined) return val.result;
@@ -706,7 +706,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             }
         }
 
-        const sheetsToProcess = ['ADHOC', '低波', '大成', '流入', '大智'];
+        const sheetsToProcess =['ADHOC', '低波', '大成', '流入', '大智'];
 
         const getFmtCode = (rawCode) => String(rawCode).split('.')[0].trim();
         const getPrice = (code) => {
@@ -720,8 +720,8 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             const ws = workbook.getWorksheet(sheetName);
             if (!ws) continue;
 
-            let headers = [];
-            const rowsData = [];
+            let headers =[];
+            const rowsData =[];
             
             ws.eachRow((row, rowNum) => {
                 if (rowNum === 1) {
@@ -733,7 +733,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                     row.eachCell((cell, colNum) => {
                         const header = headers[colNum];
                         if (header) {
-                            let val = getCellValue(cell.value); // 🔥 FIX 2：统一入口
+                            let val = getCellValue(cell.value);
 
                             if (header === '修改时间' || header === '股票代码') {
                                 val = String(val || '').trim();
@@ -764,7 +764,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 const eng = enginesCache[strategyKey];
                 
                 let currentEquity = eng.cash;
-                for (const [pCode, pQty] of Object.entries(eng.positions)) {
+                for (const[pCode, pQty] of Object.entries(eng.positions)) {
                     currentEquity += (pQty * getPrice(pCode));
                 }
 
@@ -779,11 +779,14 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             }
 
             // --- 4. 更新逻辑 ---
-            const existingDates = rowsData.map(r => getDateStr(r['修改时间'])); // 🔥 FIX 3
+            const existingDates = rowsData.map(r => getDateStr(r['修改时间']));
             const hasSameDate = existingDates.includes(latestDate8);
-            const hasWeightCol = headers.includes('配置比例 (%)');
+            
+            // 🔥 FIX 2：兼容表头可能叫 "配置比例" 或 "配置比例 (%)" 的情况
+            const weightColName = headers.find(h => h && h.includes('配置比例'));
+            const hasWeightCol = !!weightColName;
 
-            let finalData = [];
+            let finalData =[];
 
             const applyRowUpdate = (rowObj) => {
                 const fmtCode = getFmtCode(rowObj['股票代码']);
@@ -791,7 +794,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 rowObj['修改时间'] = targetTimestamp;
 
                 if (hasWeightCol && Object.keys(weightMap).length > 0) {
-                    rowObj['配置比例 (%)'] = weightMap[fmtCode] || 0.0;
+                    rowObj[weightColName] = weightMap[fmtCode] || 0.0;
                 }
                 return rowObj;
             };
@@ -800,7 +803,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 finalData = rowsData.map(r => applyRowUpdate(r));
             } else {
                 if (hasSameDate) {
-                    console.log(`   ℹ️ [${sheetName}] 更新现有日期: ${latestDate8}`);
+                    console.log(`   ℹ️[${sheetName}] 更新现有日期: ${latestDate8}`);
                     finalData = rowsData.map(r => {
                         if (getDateStr(r['修改时间']) === latestDate8) {
                             return applyRowUpdate(r);
@@ -819,28 +822,36 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                         const clonedRows = targetRows.map(r => ({ ...r }));
                         const updatedClonedRows = clonedRows.map(r => applyRowUpdate(r));
 
-                        finalData = [...rowsData, ...updatedClonedRows];
+                        finalData =[...rowsData, ...updatedClonedRows];
                     } else {
                         continue;
                     }
                 }
             }
 
-            // --- 5. 写回 ---
-            const rowCount = ws.rowCount;
-            if (rowCount >= 1) {
-                ws.spliceRows(1, rowCount);
-            }
-
-            ws.addRow(headers);
-
-            finalData.forEach(rData => {
-                const rowArr = [];
-                headers.forEach((h, i) => {
-                    rowArr[i] = rData[h] !== undefined ? rData[h] : null;
-                });
-                ws.addRow(rowArr);
+            // --- 5. 写回 (🔥 FIX 3: 放弃 addRow，直接精准覆盖单元格，彻底解决追加重复 Bug) ---
+            
+            // 5.1 覆盖写入表头 (第 1 行)
+            headers.forEach((h, i) => {
+                ws.getCell(1, i + 1).value = h;
             });
+
+            // 5.2 覆盖写入数据 (从第 2 行开始)
+            finalData.forEach((rData, rIdx) => {
+                const rowIndex = rIdx + 2; 
+                headers.forEach((h, cIdx) => {
+                    ws.getCell(rowIndex, cIdx + 1).value = rData[h] !== undefined ? rData[h] : null;
+                });
+            });
+
+            // 5.3 清理底部多余的旧行（如果新数据行数比老数据少，从下往上删除防止越界）
+            const totalNeededRows = finalData.length + 1; // 数据行 + 1列表头
+            const currentRowCount = ws.rowCount;
+            if (currentRowCount > totalNeededRows) {
+                for (let i = currentRowCount; i > totalNeededRows; i--) {
+                    ws.spliceRows(i, 1);
+                }
+            }
 
             log(`✅ 页面 '${sheetName}' 同步处理完成`, "#0f0");
         }
