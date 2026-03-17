@@ -337,6 +337,10 @@ class PortfolioBacktestEngine {
         console.log(`✅ 回测结束. 最终资产: ${history[history.length-1]['总资产'].toFixed(2)}`);
         console.log('====================================================');
 
+         // ✅ 关键修复：将最终状态保存到实例属性
+        this.cash = currentCash;
+        this.positions = positions;
+    
         return history;
     }
 }
