@@ -327,7 +327,7 @@ function getSecureOssPath(filename) {
     const isAdmin = username === 'admin';
     if (isAdmin) {
         // 如果是管理员，直接存根目录，使用新文件名
-        return newFilename;
+        return filename;
     } else {
         // 2. 处理文件名：在扩展名前面增加 "_用户ID" 后缀
         const lastDotIndex = filename.lastIndexOf('.');
