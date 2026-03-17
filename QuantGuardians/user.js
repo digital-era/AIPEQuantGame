@@ -170,3 +170,52 @@ async function handleChangePassword() {
         console.error('Change password error:', error);
     }
 }
+
+// ==========================================
+// OSS 路径辅助函数 (新增)
+// ==========================================
+/**
+ * 自动根据用户权限拼接安全的 OSS 路径
+ * @param {string} filename 文件名，例如 "AIPEQuantGuardiansPortfolio.xlsx"
+ * @returns {string} 完整的 OSS Object Key
+ */
+function getSecureOssPath(filename) {
+    // 1. 获取当前用户ID (username)
+    const token = localStorage.getItem('qgr_jwt_token');
+    let username = '';
+    
+    if (token) {
+        const decoded = parseJWTClientSide(token);
+        if (decoded) {
+            username = decoded.user; // 例如 "user000001" 或 "admin"
+        }
+    }
+
+    // 防御性拦截：如果未拿到用户名，默认使用原文件名（理论上前面已经被拦截）
+    if (!username) return filename;
+
+    // 2. 处理文件名：在扩展名前面增加 "_用户ID" 后缀
+    const lastDotIndex = filename.lastIndexOf('.');
+    let newFilename = '';
+    
+    // 确保找到了 '.' 并且不是隐藏文件（如 ".gitignore"）
+    if (lastDotIndex > 0) {
+        const namePart = filename.substring(0, lastDotIndex); // 拿到 "AIPEQuantGuardiansPortfolio"
+        const extPart = filename.substring(lastDotIndex);     // 拿到 ".xlsx"
+        newFilename = `${namePart}_${username}${extPart}`;    // 组装："AIPEQuantGuardiansPortfolio_user000001.xlsx"
+    } else {
+        // 如果文件没有扩展名
+        newFilename = `${filename}_${username}`;
+    }
+
+    // 3. 拼接最终 OSS 路径
+    const isAdmin = username === 'admin';
+    if (isAdmin) {
+        // 如果是管理员，直接存根目录，使用新文件名
+        return newFilename;
+    } else {
+        // 如果是非管理员，按照您要求的格式增加双斜杠: { userID }//{新文件名}
+        // 注意：这里的 // 符合后端 Policy "user000001/*" 的通配符规则
+        return `${username}//${newFilename}`; 
+    }
+}
