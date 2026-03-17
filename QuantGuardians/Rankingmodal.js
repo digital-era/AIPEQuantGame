@@ -5,30 +5,62 @@
 		    document.getElementById('chkGitProxy').checked = gitproxy;
 		}
 
-		// === 新增：同步两个 Tab 中 Github Proxy 状态的函数 ===
+	
+		// === 新增：同步两个 Tab 中 Github Proxy 状态的函数，并保存到localStorage ===
 		function syncProxy(checkboxElement) {
-		    const adminProxy = document.getElementById('chkGitProxy');
-		    const userProxy = document.getElementById('chkGitProxyUser');
-		    
-		    // 保持两个界面的开关状态绝对一致
-		    if (checkboxElement.id === 'chkGitProxy' && userProxy) {
-		        userProxy.checked = checkboxElement.checked;
-		    } else if (checkboxElement.id === 'chkGitProxyUser' && adminProxy) {
-		        adminProxy.checked = checkboxElement.checked;
-		    }
+			const adminProxy = document.getElementById('chkGitProxy');
+			const userProxy = document.getElementById('chkGitProxyUser');
+			
+			// 保持两个界面的开关状态绝对一致
+			if (checkboxElement.id === 'chkGitProxy' && userProxy) {
+				userProxy.checked = checkboxElement.checked;
+			} else if (checkboxElement.id === 'chkGitProxyUser' && adminProxy) {
+				adminProxy.checked = checkboxElement.checked;
+			}
 		
-		    // 调用你原有的 toggleProxy 业务逻辑 (它可能写在 applogic.js 中)
-		    if (typeof toggleProxy === 'function') {
-		        toggleProxy(checkboxElement);
-		    }
-		}
+			// 调用你原有的 toggleProxy 业务逻辑 (它可能写在 applogic.js 中)
+			if (typeof toggleProxy === 'function') {
+				toggleProxy(checkboxElement);
+			}
 		
-		function toggleProxy(checkbox) {
-		    gitproxy = checkbox.checked;
-		    console.log("Github Proxy set to:", gitproxy);
-		    // 可选：添加提示
-		    log(`System Setting: Proxy ${gitproxy ? 'ENABLED' : 'DISABLED'}`, "#fff");
+			// 保存到 localStorage
+			localStorage.setItem('gitProxyEnabled', checkboxElement.checked);
+	}
+	
+	function toggleProxy(checkbox) {
+		gitproxy = checkbox.checked;
+		console.log("Github Proxy set to:", gitproxy);
+		// 可选：添加提示
+		log(`System Setting: Proxy ${gitproxy ? 'ENABLED' : 'DISABLED'}`, "#fff");
+	}
+	
+	// === 新增：从localStorage恢复代理状态 ===
+	function loadProxyFromStorage() {
+		const saved = localStorage.getItem('gitProxyEnabled');
+		// 如果没有保存过，默认为 false
+		const defaultChecked = saved === 'true'; // localStorage 存储为字符串，所以比较 'true'
+	
+		const adminProxy = document.getElementById('chkGitProxy');
+		const userProxy = document.getElementById('chkGitProxyUser');
+	
+		// 设置复选框状态
+		if (adminProxy) {
+			adminProxy.checked = defaultChecked;
 		}
+		if (userProxy) {
+			userProxy.checked = defaultChecked;
+		}
+	
+		// 应用设置：调用 toggleProxy，传入任何一个存在的复选框
+		if (adminProxy && typeof toggleProxy === 'function') {
+			toggleProxy(adminProxy);
+		} else if (userProxy && typeof toggleProxy === 'function') {
+			toggleProxy(userProxy);
+		}
+	}
+	
+	// 在页面加载完成后恢复状态
+	document.addEventListener('DOMContentLoaded', loadProxyFromStorage);
 		
 		// --- 功能 2: 排序展示相关 ---
 		function openRanking() {
