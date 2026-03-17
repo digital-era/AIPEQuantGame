@@ -120,14 +120,22 @@ async function handleLogin() {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            // [新增] 强制重置之前的 OSS 状态，防止不刷新页面直接换号导致的串号越权
+            // 1. 手动重置 OSS 状态 (非常严谨)
             if (typeof ossClient !== 'undefined') ossClient = null;
             window.CURRENT_OSS_PREFIX = '';
-            // 写入新的 Token
+            
+            // 2. 写入新的 Token
             localStorage.setItem('qgr_jwt_token', data.token);
-            showAuthMsg("ACCESS GRANTED", "#10B981");
+            
+            // 3. 提示并清空密码框
+            showAuthMsg("ACCESS GRANTED. RELOADING...", "#10B981");
             document.getElementById('auth_password').value = '';
-            setTimeout(checkAuthStatus, 500);
+            
+            // 4. [推荐] 延迟 800ms 刷新页面，彻底把上个用户的日志、DOM 残留全部干掉
+            setTimeout(() => {
+                window.location.reload(); 
+            }, 800);
+            
         } else {
             showAuthMsg(data.error || "ACCESS DENIED", "#EF4444");
         }
