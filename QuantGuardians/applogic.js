@@ -381,11 +381,98 @@ function onSparkClick(event, key, type, idx) {
     openDetailChart(items, item, color);
 }
 
+// // ================= LOGIC =================
+// async function initOSS() {
+//     if (ossClient) return true;
+    
+//     // 提取配置参数，避免重复写
+//     const postBody = JSON.stringify({
+//         OSS_ACCESS_KEY_ID: window.OSS_CONFIG.ACCESS_KEY_ID,
+//         OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.ACCESS_KEY_SECRET,
+//         OSS_STS_ROLE_ARN: window.OSS_CONFIG.STS_ROLE_ARN,
+//         OSS_REGION: window.OSS_CONFIG.OSS_REGION
+//     });
+
+//     try {
+//         // --- 第一次获取 Token ---
+//         const res = await fetch(STS_API_URL, {
+//             method: 'POST',
+//             headers: {
+//                 'Content-Type': 'application/json',
+//             },
+//             body: postBody // 发送参数
+//         });
+
+//         if (!res.ok) throw new Error(`STS fetch failed: ${res.status}`);
+//         const data = await res.json();
+
+//         // --- 初始化 OSS 客户端 ---
+//         ossClient = new OSS({
+//             // 关键修改：OSS SDK 的 region 必须带 "oss-" 前缀
+//             // 如果你的配置已经是 "oss-cn-hangzhou"，这里直接用即可。
+//             // 如果配置只有 "cn-hangzhou"，则需要手动加上 "oss-"。
+//             region: window.OSS_CONFIG.OSS_REGION.startsWith('oss-') 
+//                     ? window.OSS_CONFIG.OSS_REGION 
+//                     : `oss-${window.OSS_CONFIG.OSS_REGION}`, 
+//             accessKeyId: data.AccessKeyId,
+//             accessKeySecret: data.AccessKeySecret,
+//             stsToken: data.SecurityToken,
+//             bucket: window.OSS_CONFIG.OSS_BUCKET || OSS_BUCKET, // 确保 bucket 变量存在
+            
+//             // --- 关键修复：刷新 Token 的逻辑 ---
+//             refreshSTSToken: async () => {
+//                 console.log("正在刷新 STS Token...");
+//                 const r = await fetch(STS_API_URL, {
+//                     method: 'POST',
+//                     headers: {
+//                         'Content-Type': 'application/json',
+//                     },
+//                     body: postBody // <--- 这里必须补上，否则刷新会失败！
+//                 });
+                
+//                 if (!r.ok) throw new Error("Refresh token failed");
+//                 const d = await r.json();
+                
+//                 return {
+//                     accessKeyId: d.AccessKeyId,
+//                     accessKeySecret: d.AccessKeySecret,
+//                     stsToken: d.SecurityToken
+//                 };
+//             }
+//         });
+//         return true;
+//     } catch (e) { 
+//         console.error(e);
+//         log("OSS Init Fail", "red"); 
+//         return false; 
+//     }
+// }
+
 // ================= LOGIC =================
 async function initOSS() {
     if (ossClient) return true;
     
-    // 提取配置参数，避免重复写
+    // --- 新增：获取当前用户 Token 和身份信息 ---
+    const token = localStorage.getItem('qgr_jwt_token');
+    if (!token) {
+        console.error("初始化 OSS 失败：用户未登录");
+        return false;
+    }
+
+    const decoded = parseJWTClientSide(token);
+    if (!decoded || Date.now() > decoded.exp) {
+        console.error("初始化 OSS 失败：Token无效或已过期");
+        return false;
+    }
+
+    const username = decoded.user; // 获取用户名，例如 "admin" 或 "user000001"
+    const isAdmin = username === 'admin';
+    
+    // 全局记录当前用户的 OSS 操作目录前缀
+    // 非管理员的操作会被强制限制在该目录下，如果传错目录会触发 403 权限拒绝
+    window.CURRENT_OSS_PREFIX = isAdmin ? '' : `${username}/`; 
+    
+    // 提取配置参数
     const postBody = JSON.stringify({
         OSS_ACCESS_KEY_ID: window.OSS_CONFIG.ACCESS_KEY_ID,
         OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.ACCESS_KEY_SECRET,
@@ -393,14 +480,18 @@ async function initOSS() {
         OSS_REGION: window.OSS_CONFIG.OSS_REGION
     });
 
+    // --- 新增：构造带有鉴权信息的 Headers ---
+    const reqHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // 让后端知道当前是哪个用户申请STS凭证
+    };
+
     try {
         // --- 第一次获取 Token ---
         const res = await fetch(STS_API_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: postBody // 发送参数
+            headers: reqHeaders,
+            body: postBody 
         });
 
         if (!res.ok) throw new Error(`STS fetch failed: ${res.status}`);
@@ -408,26 +499,27 @@ async function initOSS() {
 
         // --- 初始化 OSS 客户端 ---
         ossClient = new OSS({
-            // 关键修改：OSS SDK 的 region 必须带 "oss-" 前缀
-            // 如果你的配置已经是 "oss-cn-hangzhou"，这里直接用即可。
-            // 如果配置只有 "cn-hangzhou"，则需要手动加上 "oss-"。
             region: window.OSS_CONFIG.OSS_REGION.startsWith('oss-') 
                     ? window.OSS_CONFIG.OSS_REGION 
                     : `oss-${window.OSS_CONFIG.OSS_REGION}`, 
             accessKeyId: data.AccessKeyId,
             accessKeySecret: data.AccessKeySecret,
             stsToken: data.SecurityToken,
-            bucket: window.OSS_CONFIG.OSS_BUCKET || OSS_BUCKET, // 确保 bucket 变量存在
+            bucket: window.OSS_CONFIG.OSS_BUCKET || OSS_BUCKET, 
             
-            // --- 关键修复：刷新 Token 的逻辑 ---
+            // --- 刷新 Token 的逻辑 ---
             refreshSTSToken: async () => {
                 console.log("正在刷新 STS Token...");
+                // 刷新时也要重新获取本地最新 Token，防止期间发生改变
+                const currentToken = localStorage.getItem('qgr_jwt_token');
+                
                 const r = await fetch(STS_API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}` // 刷新同样需要携带JWT
                     },
-                    body: postBody // <--- 这里必须补上，否则刷新会失败！
+                    body: postBody 
                 });
                 
                 if (!r.ok) throw new Error("Refresh token failed");
@@ -440,10 +532,15 @@ async function initOSS() {
                 };
             }
         });
+        
+        console.log(`OSS 初始化成功 [角色: ${isAdmin ? '管理员' : '普通用户'}, 专属目录: /${window.CURRENT_OSS_PREFIX}]`);
         return true;
     } catch (e) { 
         console.error(e);
-        log("OSS Init Fail", "red"); 
+        const logBox = document.getElementById('systemLog');
+        if (logBox) {
+            logBox.innerHTML += `<div class="log-line" style="color:red">> OSS Init Fail</div>`;
+        }
         return false; 
     }
 }
