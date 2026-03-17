@@ -199,26 +199,21 @@ async function initOSS() {
     // 凭证来源选择逻辑
     let ossCredentials;
     
+     // 只有 admin 才传 OSS_CONFIG
     if (isAdmin) {
-        // 管理员 → 强制使用 window.OSS_CONFIG
-        ossCredentials = window.OSS_CONFIG || {};
-    } else {
-        // 普通用户 → 从 Cloudflare Pages Functions 的 env 对象读取
-        ossCredentials = {
-            ACCESS_KEY_ID:     env.OSS_CONFIG.ACCESS_KEY_ID     || '',
-            ACCESS_KEY_SECRET: env.OSS_CONFIG.ACCESS_KEY_SECRET || '',
-            STS_ROLE_ARN:      env.OSS_CONFIG.STS_ROLE_ARN      || '',
-            OSS_REGION:        env.OSS_CONFIG.OSS_REGION        || ''
-        };
-    }
-    
-    // 辅助函数：获取非空字符串值，否则返回 undefined（不会出现在最终 JSON 中）
-    function getValidCredential(value) {
-        if (typeof value === 'string' && value.trim().length > 0) {
-            return value.trim();
+        const ossCredentials = window.OSS_CONFIG || {};
+          // 辅助函数：获取非空字符串值，否则返回 undefined（不会出现在最终 JSON 中）
+        function getValidCredential(value) {
+            return (typeof value === 'string' && value.trim()) ? value.trim() : undefined;
         }
-        return undefined;
-    }
+    
+        postBody = {
+            OSS_ACCESS_KEY_ID:     getValidCredential(ossCredentials.ACCESS_KEY_ID),
+            OSS_ACCESS_KEY_SECRET: getValidCredential(ossCredentials.ACCESS_KEY_SECRET),
+            OSS_STS_ROLE_ARN:      getValidCredential(ossCredentials.STS_ROLE_ARN),
+            OSS_REGION:            getValidCredential(ossCredentials.OSS_REGION)
+        };
+    } 
     
     // 构建发送用的 body（只包含有效凭证字段）
     const postBody = JSON.stringify({
@@ -227,14 +222,7 @@ async function initOSS() {
         OSS_STS_ROLE_ARN:      getValidCredential(ossCredentials.STS_ROLE_ARN),
         OSS_REGION:            getValidCredential(ossCredentials.OSS_REGION)
     });
-
-    // 可选：发送前做完整性检查（根据业务需求决定是否启用）
-    if (!postBody || postBody === '{}') {
-        console.error('No valid OSS credentials available for current user');
-        // 根据实际场景可抛出错误、显示提示或禁用相关功能
-        // throw new Error('Missing OSS credentials');
-    }
-
+ 
     // --- 新增：构造带有鉴权信息的 Headers ---
     const reqHeaders = {
         'Content-Type': 'application/json',
