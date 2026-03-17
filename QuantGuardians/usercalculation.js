@@ -699,6 +699,12 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             priceLookup[cleanCode] = parseFloat(v);
         }
 
+        // ========== 调试打印1: 价格数据 ==========
+        console.log('--- 调试信息: 价格数据 ---');
+        console.log('rawDate:', rawDate);
+        console.log('rawMarket (sampleEngine):', rawMarket);
+        console.log('priceLookup (清理后):', priceLookup);
+
         const sheetToStrategyKey = {};
         if (typeof GUARDIAN_CONFIG !== 'undefined') {
             for (const [k, v] of Object.entries(GUARDIAN_CONFIG)) {
@@ -760,13 +766,27 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             const weightMap = {}; 
             const strategyKey = sheetToStrategyKey[sheetName];
 
+            // ========== 调试打印2: 策略映射 ==========
+            console.log(`\n--- [${sheetName}] 策略映射 ---`);
+            console.log('strategyKey:', strategyKey);
+
             if (strategyKey && enginesCache[strategyKey]) {
                 const eng = enginesCache[strategyKey];
                 
+                // ========== 调试打印3: 引擎原始数据 ==========
+                console.log(`引擎 cash: ${eng.cash}`);
+                console.log('引擎 positions:', eng.positions);
+
                 let currentEquity = eng.cash;
-                for (const[pCode, pQty] of Object.entries(eng.positions)) {
-                    currentEquity += (pQty * getPrice(pCode));
+                // ========== 调试打印4: 计算持仓市值 ==========
+                for (const [pCode, pQty] of Object.entries(eng.positions)) {
+                    const price = getPrice(pCode);
+                    const marketVal = pQty * price;
+                    console.log(`  持仓 ${pCode} 数量 ${pQty} 价格 ${price} 市值 ${marketVal}`);
+                    currentEquity += marketVal;
                 }
+
+                console.log(`总权益 currentEquity: ${currentEquity}`);
 
                 if (currentEquity > 0) {
                     weightMap['100000'] = (eng.cash / currentEquity) * 100.0;
@@ -776,6 +796,10 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                         weightMap[fmtKey] = (marketVal / currentEquity) * 100.0;
                     }
                 }
+                // ========== 调试打印5: 生成的权重映射 ==========
+                console.log('weightMap:', weightMap);
+            } else {
+                console.log('⚠️ 未找到对应引擎，weightMap 为空');
             }
 
             // --- 4. 更新逻辑 ---
@@ -786,6 +810,9 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             const weightColName = headers.find(h => h && h.includes('配置比例'));
             const hasWeightCol = !!weightColName;
 
+            // ========== 调试打印6: 配置比例列 ==========
+            console.log('weightColName:', weightColName, 'hasWeightCol:', hasWeightCol);
+
             let finalData =[];
 
             const applyRowUpdate = (rowObj) => {
@@ -794,7 +821,10 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 rowObj['修改时间'] = targetTimestamp;
 
                 if (hasWeightCol && Object.keys(weightMap).length > 0) {
-                    rowObj[weightColName] = weightMap[fmtCode] || 0.0;
+                    const newWeight = weightMap[fmtCode] || 0.0;
+                    // ========== 调试打印7: 每行权重赋值 ==========
+                    console.log(`  行代码 ${fmtCode} 权重设为 ${newWeight} (weightMap中的值: ${weightMap[fmtCode]})`);
+                    rowObj[weightColName] = newWeight;
                 }
                 return rowObj;
             };
