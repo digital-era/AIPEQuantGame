@@ -312,7 +312,12 @@ async function initOSS() {
                     body: JSON.stringify(postBody)
                 });
 
-                if (!r.ok) throw new Error("Refresh token failed");
+                if (!r.ok) {
+                    // [新增] 如果刷新 STS 失败（通常是因为 JWT 过期），直接强制退出
+                    alert("会话已失效，请重新登录");
+                    handleLogout(); // 调用上面写好的登出函数
+                    throw new Error("Refresh token failed");
+                }
 
                 const d = await r.json();
 
