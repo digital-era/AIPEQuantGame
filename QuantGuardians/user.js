@@ -91,11 +91,15 @@ function checkAuthStatus() {
             document.getElementById('loggedInUser').innerText = decoded.user.toUpperCase();
             return true;
         } else {
-            // Token 过期或无效（被动登出）
+            // [修改] Token 存在但是解析失败或已过期 (被动登出)
             localStorage.removeItem('qgr_jwt_token'); 
-            // [必须新增] 清理内存中的 OSS 客户端及路径
             if (typeof ossClient !== 'undefined') ossClient = null;
             window.CURRENT_OSS_PREFIX = '';
+            
+            // 提示用户登录已过期，并刷新页面清空残留数据
+            alert("登录已过期，请重新登录。");
+            window.location.reload();
+            return false;
         }
     }
     document.getElementById('loginSection').classList.remove('auth-hidden');
@@ -160,8 +164,10 @@ function handleLogout() {
     // 4. 更新 UI 状态
     checkAuthStatus();
     showAuthMsg("LOGGED OUT SUCCESSFULLY", "#10B981");
-
     log(`> [SYSTEM] 用户已登出，OSS 会话已销毁。`, '#9CA3AF');
+    setTimeout(() => {
+        window.location.reload(); 
+    }, 500); // 半秒后刷新回到干净的初始状态
 }
 
 async function handleChangePassword() {
@@ -188,9 +194,17 @@ async function handleChangePassword() {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showAuthMsg("PASSWORD UPDATED", "#10B981");
-            document.getElementById('cpw_old').value = '';
-            document.getElementById('cpw_new').value = '';
+            showAuthMsg("PASSWORD UPDATED. PLEASE RELOGIN...", "#10B981");
+            
+            // [新增] 密码修改成功后，强制登出并重载页面
+            localStorage.removeItem('qgr_jwt_token');
+            if (typeof ossClient !== 'undefined') ossClient = null;
+            window.CURRENT_OSS_PREFIX = '';
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000); // 留1秒钟给用户看“修改成功”的提示
+            
         } else {
             showAuthMsg(data.error || "UPDATE FAILED", "#EF4444");
         }
