@@ -736,12 +736,14 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             ws.eachRow((row, rowNum) => {
                 if (rowNum === 1) {
                     row.eachCell((cell, colNum) => {
-                        headers[colNum] = cell.value ? String(getCellValue(cell.value)).trim() : null;
+                        // 🔥 修复点 1：将 1-based 转换为 0-based 数组，防止向右平移 Bug
+                        headers[colNum - 1] = cell.value ? String(getCellValue(cell.value)).trim() : null;
                     });
                 } else {
                     const rowObj = {};
                     row.eachCell((cell, colNum) => {
-                        const header = headers[colNum];
+                        // 🔥 修复点 2：同步使用 0-based 索引去取表头
+                        const header = headers[colNum - 1]; 
                         if (header) {
                             let val = getCellValue(cell.value);
 
