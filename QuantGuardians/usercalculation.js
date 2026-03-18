@@ -731,19 +731,24 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             if (!ws) continue;
 
             let headers =[];
+            let headerColMapping = {}; // 记录：真实的列索引 -> 表头名称
             const rowsData =[];
             
-            ws.eachRow((row, rowNum) => {
+           ws.eachRow((row, rowNum) => {
                 if (rowNum === 1) {
                     row.eachCell((cell, colNum) => {
-                        // 🔥 修复点 1：将 1-based 转换为 0-based 数组，防止向右平移 Bug
-                        headers[colNum - 1] = cell.value ? String(getCellValue(cell.value)).trim() : null;
+                        // 🔥 终极修复 1：提取有效表头，强制推入紧凑数组，无视前面的空白列
+                        let headerName = cell.value ? String(getCellValue(cell.value)).trim() : "";
+                        if (headerName) {
+                            headers.push(headerName);
+                            headerColMapping[colNum] = headerName; // 绑定读取时的真实列号
+                        }
                     });
                 } else {
                     const rowObj = {};
                     row.eachCell((cell, colNum) => {
-                        // 🔥 修复点 2：同步使用 0-based 索引去取表头
-                        const header = headers[colNum - 1]; 
+                        // 🔥 终极修复 2：精准通过列号找表头，完全杜绝错位
+                        const header = headerColMapping[colNum];
                         if (header) {
                             let val = getCellValue(cell.value);
 
@@ -754,8 +759,11 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                             rowObj[header] = val;
                         }
                     });
-
-                    rowsData.push(rowObj);
+                    
+                    // 只有当这行真的有数据时才存入
+                    if (Object.keys(rowObj).length > 0) {
+                        rowsData.push(rowObj);
+                    }
                 }
             });
 
@@ -878,14 +886,22 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 }
             }
 
-            // --- 5. 写回 (🔥 FIX 3: 放弃 addRow，直接精准覆盖单元格，彻底解决追加重复 Bug) ---
+            // --- 5. 写回 
+            (🔥 FIX 3: 放弃 addRow，直接精准覆盖单元格，彻底解决追加重复 Bug) ---
             
-            // 5.1 覆盖写入表头 (第 1 行)
+// 🔥 终极修复 3：在覆盖写入之前，清理整个工作表的所有旧数据（擦除隐藏在右侧的残影）
+            ws.eachRow((row) => {
+                row.eachCell((cell) => {
+                    cell.value = null;
+                });
+            });
+
+            // 5.1 覆盖写入表头 (第 1 行)，严格从最左侧的 A 列 (索引 1) 开始依次填充
             headers.forEach((h, i) => {
                 ws.getCell(1, i + 1).value = h;
             });
 
-            // 5.2 覆盖写入数据 (从第 2 行开始)
+            // 5.2 覆盖写入数据 (从第 2 行开始)，同样严格从 A 列开始对其
             finalData.forEach((rData, rIdx) => {
                 const rowIndex = rIdx + 2; 
                 headers.forEach((h, cIdx) => {
@@ -893,8 +909,8 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 });
             });
 
-            // 5.3 清理底部多余的旧行（如果新数据行数比老数据少，从下往上删除防止越界）
-            const totalNeededRows = finalData.length + 1; // 数据行 + 1列表头
+            // 5.3 清理底部多余的旧行
+            const totalNeededRows = finalData.length + 1; 
             const currentRowCount = ws.rowCount;
             if (currentRowCount > totalNeededRows) {
                 for (let i = currentRowCount; i > totalNeededRows; i--) {
