@@ -766,6 +766,19 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 continue;
             }
 
+            // ========== 🔥 新增：自动添加缺失的“收盘价格”列 ==========
+            if (!headers.includes('收盘价格')) {
+                headers.push('收盘价格');
+                // 为所有现有行初始化“收盘价格”字段（默认 0，可根据需要改为 null）
+                rowsData.forEach(row => {
+                    if (row['收盘价格'] === undefined) {
+                        row['收盘价格'] = 0; // 历史行默认 0（可自定义）
+                    }
+                });
+                log(`📌 页面 '${sheetName}' 自动添加了“收盘价格”列`, "cyan");
+            }
+            // ========================================================
+
             // --- 3. 权重计算 ---
             const weightMap = {}; 
             const strategyKey = sheetToStrategyKey[sheetName];
