@@ -887,9 +887,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             }
 
             // --- 5. 写回 
-            (🔥 FIX 3: 放弃 addRow，直接精准覆盖单元格，彻底解决追加重复 Bug) ---
-            
-// 🔥 终极修复 3：在覆盖写入之前，清理整个工作表的所有旧数据（擦除隐藏在右侧的残影）
+            // 🔥 终极修复 3：在覆盖写入之前，清理整个工作表的所有旧数据（擦除隐藏在右侧的残影）
             ws.eachRow((row) => {
                 row.eachCell((cell) => {
                     cell.value = null;
