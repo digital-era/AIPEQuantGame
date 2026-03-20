@@ -695,7 +695,6 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             return;
         }
 
-        // 🔥 FIX 1：统一解析函数
         const getCellValue = (val) => {
             if (val && typeof val === 'object') {
                 if (val.result !== undefined) return val.result;
@@ -722,18 +721,21 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
 
         log(`📅 更新目标日期: ${latestDate8} (时间戳: ${targetTimestamp})`, "#ccc");
 
-        const rawMarket = sampleEngine.marketMap[rawDate] || {};
+        // 🔥 FIX 2：遍历所有引擎的 marketMap，聚合所有策略涵盖的股票价格！
+        // 之前只取了 sampleEngine（第一个引擎）的价格，导致其他引擎的专属股票查不到价格变成 0。
         const priceLookup = {};
-        for (const [k, v] of Object.entries(rawMarket)) {
-            const cleanCode = String(k).split('.')[0].trim();
-            priceLookup[cleanCode] = parseFloat(v);
+        for (const engineKey in enginesCache) {
+            const rawMarket = enginesCache[engineKey].marketMap[rawDate] || {};
+            for (const [k, v] of Object.entries(rawMarket)) {
+                const cleanCode = String(k).split('.')[0].trim();
+                priceLookup[cleanCode] = parseFloat(v);
+            }
         }
 
         // ========== 调试打印1: 价格数据 ==========
-        console.log('--- 调试信息: 价格数据 ---');
+        console.log('--- 调试信息: 全局聚合价格数据 ---');
         console.log('rawDate:', rawDate);
-        console.log('rawMarket (sampleEngine):', rawMarket);
-        console.log('priceLookup (清理后):', priceLookup);
+        console.log(`共收集到 ${Object.keys(priceLookup).length} 只标的的价格信息`);
 
         const sheetToStrategyKey = {};
         if (typeof GUARDIAN_CONFIG !== 'undefined') {
@@ -742,7 +744,7 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             }
         }
 
-        const sheetsToProcess =['ADHOC', '低波', '大成', '流入', '大智'];
+        const sheetsToProcess = ['ADHOC', '低波', '大成', '流入', '大智'];
 
         const getFmtCode = (rawCode) => String(rawCode).split('.')[0].trim();
         const getPrice = (code) => {
@@ -756,37 +758,32 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             const ws = workbook.getWorksheet(sheetName);
             if (!ws) continue;
 
-            let headers =[];
-            let headerColMapping = {}; // 记录：真实的列索引 -> 表头名称
-            const rowsData =[];
+            let headers = [];
+            let headerColMapping = {}; 
+            const rowsData = [];
             
-           ws.eachRow((row, rowNum) => {
+            ws.eachRow((row, rowNum) => {
                 if (rowNum === 1) {
                     row.eachCell((cell, colNum) => {
-                        // 🔥 终极修复 1：提取有效表头，强制推入紧凑数组，无视前面的空白列
                         let headerName = cell.value ? String(getCellValue(cell.value)).trim() : "";
                         if (headerName) {
                             headers.push(headerName);
-                            headerColMapping[colNum] = headerName; // 绑定读取时的真实列号
+                            headerColMapping[colNum] = headerName; 
                         }
                     });
                 } else {
                     const rowObj = {};
                     row.eachCell((cell, colNum) => {
-                        // 🔥 终极修复 2：精准通过列号找表头，完全杜绝错位
                         const header = headerColMapping[colNum];
                         if (header) {
                             let val = getCellValue(cell.value);
-
                             if (header === '修改时间' || header === '股票代码') {
                                 val = String(val || '').trim();
                             }
-
                             rowObj[header] = val;
                         }
                     });
                     
-                    // 只有当这行真的有数据时才存入
                     if (Object.keys(rowObj).length > 0) {
                         rowsData.push(rowObj);
                     }
@@ -802,13 +799,12 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 continue;
             }
 
-            // ========== 🔥 新增：自动添加缺失的“收盘价格”列 ==========
+            // ========== 自动添加缺失的“收盘价格”列 ==========
             if (!headers.includes('收盘价格')) {
                 headers.push('收盘价格');
-                // 为所有现有行初始化“收盘价格”字段（默认 0，可根据需要改为 null）
                 rowsData.forEach(row => {
                     if (row['收盘价格'] === undefined) {
-                        row['收盘价格'] = 0; // 历史行默认 0（可自定义）
+                        row['收盘价格'] = 0;
                     }
                 });
                 log(`📌 页面 '${sheetName}' 自动添加了“收盘价格”列`, "cyan");
@@ -819,19 +815,16 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             const weightMap = {}; 
             const strategyKey = sheetToStrategyKey[sheetName];
 
-            // ========== 调试打印2: 策略映射 ==========
             console.log(`\n--- [${sheetName}] 策略映射 ---`);
             console.log('strategyKey:', strategyKey);
 
             if (strategyKey && enginesCache[strategyKey]) {
                 const eng = enginesCache[strategyKey];
                 
-                // ========== 调试打印3: 引擎原始数据 ==========
                 console.log(`引擎 cash: ${eng.cash}`);
                 console.log('引擎 positions:', eng.positions);
 
                 let currentEquity = eng.cash;
-                // ========== 调试打印4: 计算持仓市值 ==========
                 for (const [pCode, pQty] of Object.entries(eng.positions)) {
                     const price = getPrice(pCode);
                     const marketVal = pQty * price;
@@ -849,33 +842,34 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                         weightMap[fmtKey] = (marketVal / currentEquity) * 100.0;
                     }
                 }
-                // ========== 调试打印5: 生成的权重映射 ==========
                 console.log('weightMap:', weightMap);
             } else {
                 console.log('⚠️ 未找到对应引擎，weightMap 为空');
             }
 
-           // --- 4. 更新逻辑 (含自动清理脏数据机制) ---
+            // --- 4. 更新逻辑 ---
             
-            // 🔥 核心修复：自动清理未来的脏数据 (大于有效交易日 latestDate8 的记录)
-            const cleanRowsData = rowsData.filter(r => {
-                const rowDate = getDateStr(r['修改时间']);
-                return rowDate <= latestDate8; 
-            });
-
-            if (cleanRowsData.length < rowsData.length) {
-                console.log(`🧹 [${sheetName}] 发现并清理了 ${rowsData.length - cleanRowsData.length} 条未来的脏数据!`);
+            // 🔥 FIX 1：对于 ADHOC 页面，不做日期清理过滤！只更新当前所有行的修改时间
+            let cleanRowsData = [];
+            if (sheetName === 'ADHOC') {
+                cleanRowsData = rowsData; // ADHOC 原封不动保留当前行
+            } else {
+                cleanRowsData = rowsData.filter(r => {
+                    const rowDate = getDateStr(r['修改时间']);
+                    return rowDate <= latestDate8; 
+                });
+                
+                if (cleanRowsData.length < rowsData.length) {
+                    console.log(`🧹 [${sheetName}] 发现并清理了 ${rowsData.length - cleanRowsData.length} 条未来的脏数据!`);
+                }
             }
 
-            // 使用清理后的数据判断日期是否存在
             const existingDates = cleanRowsData.map(r => getDateStr(r['修改时间']));
             const hasSameDate = existingDates.includes(latestDate8);
             
-            // 兼容表头可能叫 "配置比例" 或 "配置比例 (%)" 的情况
             const weightColName = headers.find(h => h && h.includes('配置比例'));
             const hasWeightCol = !!weightColName;
 
-            // ========== 调试打印6: 配置比例列 ==========
             console.log('weightColName:', weightColName, 'hasWeightCol:', hasWeightCol);
 
             let finalData = [];
@@ -893,7 +887,9 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
             };
 
             if (sheetName === 'ADHOC') {
+                // ADHOC：直接把保留下来的数据强制全部执行 applyRowUpdate（刷新时间和最新价格）
                 finalData = cleanRowsData.map(r => applyRowUpdate(r));
+                console.log(`   ℹ️ [ADHOC] 强制刷新了 ${finalData.length} 行记录的修改时间和最新价格`);
             } else {
                 if (hasSameDate) {
                     console.log(`   ℹ️ [${sheetName}] 更新现有日期: ${latestDate8}`);
@@ -922,21 +918,17 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 }
             }
 
-
-            // --- 5. 写回 
-            // 🔥 终极修复 3：在覆盖写入之前，清理整个工作表的所有旧数据（擦除隐藏在右侧的残影）
+            // --- 5. 写回 ---
             ws.eachRow((row) => {
                 row.eachCell((cell) => {
                     cell.value = null;
                 });
             });
 
-            // 5.1 覆盖写入表头 (第 1 行)，严格从最左侧的 A 列 (索引 1) 开始依次填充
             headers.forEach((h, i) => {
                 ws.getCell(1, i + 1).value = h;
             });
 
-            // 5.2 覆盖写入数据 (从第 2 行开始)，同样严格从 A 列开始对其
             finalData.forEach((rData, rIdx) => {
                 const rowIndex = rIdx + 2; 
                 headers.forEach((h, cIdx) => {
@@ -944,7 +936,6 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 });
             });
 
-            // 5.3 清理底部多余的旧行
             const totalNeededRows = finalData.length + 1; 
             const currentRowCount = ws.rowCount;
             if (currentRowCount > totalNeededRows) {
