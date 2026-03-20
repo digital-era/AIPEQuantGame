@@ -26,7 +26,8 @@ window.OSS_CONFIG = {
 const GITHUB_USER = 'digital-era';
 const GITHUB_REPO = 'AIPEQModel';
 const GITHUB_BRANCH = 'main';
-const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
+// const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
+const REAL_API_URL = '/api/query';
 
 // 1. 定义甜点文件名常量
 const SWEET_POINT_FILE = 'SweetPoint_New.json';
