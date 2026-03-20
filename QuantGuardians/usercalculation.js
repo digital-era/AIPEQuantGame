@@ -204,16 +204,42 @@ class PortfolioBacktestEngine {
             weight: parseFloat(r['配置比例 (%)'] || 0)
         }));
 
+        // ----------------- 🔥 修复：动态获取真实结束日期 -----------------
+        // 1. 获取 MarketMap 中包含的最新的一个交易日历日期
+        let latestMarketDate = null;
+        if (this.marketMap && Object.keys(this.marketMap).length > 0) {
+            const marketDates = Object.keys(this.marketMap)
+                .filter(d => d.match(/^\d{4}-\d{2}-\d{2}$/)) // 仅提取有效的日期格式
+                .sort();
+            if (marketDates.length > 0) {
+                latestMarketDate = marketDates[marketDates.length - 1];
+            }
+        }
+
+        // 2. 设定回测的结束日期 (endDate)
+        // 优先使用行情表中的最新交易日；若行情表为空，才降级使用本地系统时间
+        let endDate = latestMarketDate || new Date().toISOString().split('T')[0];
+
+        // 兜底逻辑：如果用户 Excel 里记录了一笔当天的最新交易（但云端 MarketMap 还没更新）
+        // 则强制将 endDate 延展到流水的最后一天，防止用户的最新交易被截断漏算
+        if (this.flows.length > 0) {
+            const maxFlowDate = this.flows[this.flows.length - 1].dateFmt;
+            if (maxFlowDate > endDate) {
+                endDate = maxFlowDate;
+            }
+        }
+
+        // 3. 生成 timeline
         this.timeline = [];
         if (this.flows.length > 0) {
             const startDate = this.flows[0].dateFmt;
-            const endDate = new Date().toISOString().split('T')[0];
             this.timeline = this.generateDateRange(startDate, endDate);
         } else {
-            const endDate = new Date().toISOString().split('T')[0];
-            const startDate = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
+            // 如果既没有流水，也要算出个时间轴（倒推30天）
+            const startDate = new Date(new Date(endDate).getTime() - 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
             this.timeline = this.generateDateRange(startDate, endDate);
         }
+        // --------------------------------------------------------------
     }
 
     generateDateRange(start, end) {
