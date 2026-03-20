@@ -855,18 +855,30 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
                 console.log('⚠️ 未找到对应引擎，weightMap 为空');
             }
 
-            // --- 4. 更新逻辑 ---
-            const existingDates = rowsData.map(r => getDateStr(r['修改时间']));
+           // --- 4. 更新逻辑 (含自动清理脏数据机制) ---
+            
+            // 🔥 核心修复：自动清理未来的脏数据 (大于有效交易日 latestDate8 的记录)
+            const cleanRowsData = rowsData.filter(r => {
+                const rowDate = getDateStr(r['修改时间']);
+                return rowDate <= latestDate8; 
+            });
+
+            if (cleanRowsData.length < rowsData.length) {
+                console.log(`🧹 [${sheetName}] 发现并清理了 ${rowsData.length - cleanRowsData.length} 条未来的脏数据!`);
+            }
+
+            // 使用清理后的数据判断日期是否存在
+            const existingDates = cleanRowsData.map(r => getDateStr(r['修改时间']));
             const hasSameDate = existingDates.includes(latestDate8);
             
-            // 🔥 FIX 2：兼容表头可能叫 "配置比例" 或 "配置比例 (%)" 的情况
+            // 兼容表头可能叫 "配置比例" 或 "配置比例 (%)" 的情况
             const weightColName = headers.find(h => h && h.includes('配置比例'));
             const hasWeightCol = !!weightColName;
 
             // ========== 调试打印6: 配置比例列 ==========
             console.log('weightColName:', weightColName, 'hasWeightCol:', hasWeightCol);
 
-            let finalData =[];
+            let finalData = [];
 
             const applyRowUpdate = (rowObj) => {
                 const fmtCode = getFmtCode(rowObj['股票代码']);
@@ -875,42 +887,41 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
 
                 if (hasWeightCol && Object.keys(weightMap).length > 0) {
                     const newWeight = weightMap[fmtCode] || 0.0;
-                    // ========== 调试打印7: 每行权重赋值 ==========
-                    console.log(`  行代码 ${fmtCode} 权重设为 ${newWeight} (weightMap中的值: ${weightMap[fmtCode]})`);
                     rowObj[weightColName] = newWeight;
                 }
                 return rowObj;
             };
 
             if (sheetName === 'ADHOC') {
-                finalData = rowsData.map(r => applyRowUpdate(r));
+                finalData = cleanRowsData.map(r => applyRowUpdate(r));
             } else {
                 if (hasSameDate) {
-                    console.log(`   ℹ️[${sheetName}] 更新现有日期: ${latestDate8}`);
-                    finalData = rowsData.map(r => {
+                    console.log(`   ℹ️ [${sheetName}] 更新现有日期: ${latestDate8}`);
+                    finalData = cleanRowsData.map(r => {
                         if (getDateStr(r['修改时间']) === latestDate8) {
                             return applyRowUpdate(r);
                         }
                         return r;
                     });
                 } else {
-                    if (rowsData.length > 0) {
+                    if (cleanRowsData.length > 0) {
                         const maxDate = existingDates.reduce((a, b) => a > b ? a : b);
                         console.log(`   🆕 [${sheetName}] 新增日期: ${latestDate8} (复制自 ${maxDate})`);
                         
-                        const targetRows = rowsData.filter(
+                        const targetRows = cleanRowsData.filter(
                             r => getDateStr(r['修改时间']) === maxDate
                         );
 
                         const clonedRows = targetRows.map(r => ({ ...r }));
                         const updatedClonedRows = clonedRows.map(r => applyRowUpdate(r));
 
-                        finalData =[...rowsData, ...updatedClonedRows];
+                        finalData = [...cleanRowsData, ...updatedClonedRows];
                     } else {
-                        continue;
+                        continue; // 如果清理后没数据了，直接跳过
                     }
                 }
             }
+
 
             // --- 5. 写回 
             // 🔥 终极修复 3：在覆盖写入之前，清理整个工作表的所有旧数据（擦除隐藏在右侧的残影）
