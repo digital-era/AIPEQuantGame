@@ -369,15 +369,15 @@ async function loadMarketDate() {
             if (marketData && marketData.date) {
                 gmarketdate = marketData.date;
                 // 成功日志替换：使用 cyan (或 green) 颜色
-                log(`✅ MarketDate 加载完成，全局日期: ${gmarketdate}`, "cyan");
+                log(`MarketDate 加载完成，全局日期: ${gmarketdate}`, "cyan");
             } else {
                 // 警告日志替换：作为错误处理，使用 red (如果你的 log 支持 yellow 也可以换成 yellow)
-                log(`⚠️ MarketDate.json 异常: 未找到 'date' 字段`, "red");
+                log(`MarketDate.json 异常: 未找到 'date' 字段`, "red");
             }
         }
     } catch (e) {
         // 错误日志替换：使用 red 颜色
-        log(`❌ 读取 MarketDate 失败: ${e.message}`, "red");
+        log(`读取 MarketDate 失败: ${e.message}`, "red");
     }
 }
 
