@@ -461,6 +461,15 @@ async function loadStrategies() {
             const res = await fetch(url, { cache: 'no-store' });
             const json = await res.json();            
             const data = json.结果 || json;
+            
+            // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            // 优雅新增: 如果全局日期大于策略决策日期，则跳过后续加载 (Early Return)
+            if (gmarketdate && gmarketdate > data.风控因子信息.决策日期) {
+                log(`[${key}] Skipped: Date ${data.风控因子信息.决策日期} Outdated`, "yellow");
+                return; 
+            }
+            // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+          
             // 后续代码保持不变
             gameState.guardians[key].power = parseFloat(data.风控因子信息.综合建议仓位因子);
             gameState.guardians[key].strategy = data.最优投资组合配置.配置详情.map(p => ({
