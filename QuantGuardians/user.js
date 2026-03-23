@@ -1,3 +1,6 @@
+// 定义全局变量
+let gmarketdate = null;
+
 // ==========================================
 // UI 逻辑：Settings Tab 切换
 // ==========================================
@@ -347,6 +350,64 @@ async function initOSS() {
     }
 }
 
+// ================= 独立函数: 读取 MarketData.json 获取最大日期 =================
+async function loadmarketdata() {
+    try {
+        // 请求 MarketData.json 文件 (确保文件名与你上传时的一致)
+        const result = await ossClient.get('MarketData.json');
+        
+        // 兼容处理 OSS 返回的 content (字符串或 Buffer)
+        const jsonStr = result.content 
+            ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) 
+            : "";
+        
+        if (jsonStr) {
+            // 解析 JSON
+            const marketData = JSON.parse(jsonStr);
+            
+            // 提取 date 字段并赋值给全局变量
+            if (marketData && marketData.date) {
+                gmarketdate = marketData.date;
+                console.log(`✅ MarketData 加载完成，全局市场日期 (gmarketdate) 已设置为: ${gmarketdate}`);
+            } else {
+                console.warn(`⚠️ MarketData.json 内容异常，未找到 'date' 字段。`);
+            }
+        }
+    } catch (e) {
+        console.error(`❌ 读取 MarketData.json 失败: ${e.message}`);
+    }
+}
+
+// ================= 独立函数: 读取 MarketDate.json 获取最大日期 =================
+async function loadmarketdate() {
+    log("Loading Market Date...", "cyan"); // 参照 loadStrategies 增加一条加载提示
+    
+    try {
+        // 请求 MarketDate.json 文件
+        const result = await ossClient.get('MarketDate.json');
+        
+        // 解析 content
+        const jsonStr = result.content 
+            ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) 
+            : "";
+        
+        if (jsonStr) {
+            const marketData = JSON.parse(jsonStr);
+            
+            if (marketData && marketData.date) {
+                gmarketdate = marketData.date;
+                // 成功日志替换：使用 cyan (或 green) 颜色
+                log(`✅ MarketDate 加载完成，全局日期: ${gmarketdate}`, "cyan");
+            } else {
+                // 警告日志替换：作为错误处理，使用 red (如果你的 log 支持 yellow 也可以换成 yellow)
+                log(`⚠️ MarketDate.json 异常: 未找到 'date' 字段`, "red");
+            }
+        }
+    } catch (e) {
+        // 错误日志替换：使用 red 颜色
+        log(`❌ 读取 MarketDate 失败: ${e.message}`, "red");
+    }
+}
 
 // ==========================================
 // OSS 路径辅助函数 (新增)
@@ -395,3 +456,5 @@ function getSecureOssPath(filename) {
         return `${username}//${newFilename}`; 
     }
 }
+
+
