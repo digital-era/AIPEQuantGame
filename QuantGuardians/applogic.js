@@ -2182,17 +2182,21 @@ async function initSystem() {
         // ============================================================
         // 1. initOSS: 后续读取云端 Excel 必须先有 Client 
         await Promise.all([
-            initOSS()
+            initOSS()     
+        ]);
+              
+        //2. loadMarketDate: 读取OSS端json文件MarketDate.json 获取最新市场日期
+        await Promise.all([   
+            loadMarketDate()
         ]);
         
         // ============================================================
         // Phase 1: 基础建设 (互相独立，但被后续步骤依赖)
         // ============================================================
-        // 1. loadMarketDate: 读取OSS端json文件MarketDate.json 获取最新市场日期
-        // 2. loadStrategies: 后续关联持仓价格、标记甜点必须先有策略列表
-        // 3. loadHistoryData: 独立的大文件下载，尽早开始
+        // 1. loadStrategies: 后续关联持仓价格、标记甜点必须先有策略列表
+        // 2. loadHistoryData: 独立的大文件下载，尽早开始
+        // 3. loadIndustryData: 独立的大文件下载，尽早开始
         await Promise.all([
-            loadMarketDate(),
             loadStrategies(),
             loadHistoryData(),
             loadIndustryData() // <-- [新增的函数调用]
