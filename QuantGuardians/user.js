@@ -354,6 +354,12 @@ async function initOSS() {
 async function loadMarketDate() {
     log("Loading Market Date...", "cyan"); // 参照 loadStrategies 增加一条加载提示
     
+    // 💡 【新增修改】防御性检查：确保 ossClient 已经初始化
+    if (!ossClient) {
+        log("读取 MarketDate 失败: OSS Client 未初始化", "red");
+        return; 
+    }
+    
     try {
         // 请求 MarketDate.json 文件
         const result = await ossClient.get('MarketDate.json');
