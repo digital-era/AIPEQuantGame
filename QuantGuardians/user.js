@@ -351,7 +351,7 @@ async function initOSS() {
 }
 
 // ================= 独立函数: 读取 MarketData.json 获取最大日期 =================
-async function loadmarketdata() {
+async function loadMarketDate() {
     try {
         // 请求 MarketData.json 文件 (确保文件名与你上传时的一致)
         const result = await ossClient.get('MarketData.json');
