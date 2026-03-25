@@ -466,4 +466,34 @@ function getSecureOssPath(filename) {
     }
 }
 
+// ===================== 新增：通用带重试 fetch =====================
+async function fetchWithRetry(url, options = {}, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            // ✅ 每次请求都加随机参数（绕缓存/风控）
+            const finalUrl = url + (url.includes('?') ? '&' : '?') + `_t=${Date.now()}_${Math.random()}`;
+
+            const res = await fetch(finalUrl, {
+                ...options,
+                cache: 'no-store'
+            });
+
+            const json = await res.json();
+
+            // ✅ 关键：识别“假失败”（你这个接口的核心问题）
+            if (json && json.detail) {
+                throw new Error(`API fail: ${json.detail}`);
+            }
+
+            return json;
+
+        } catch (e) {
+            if (i === retries) throw e;
+
+            // ✅ 轻微退避 + 随机抖动（模拟真实用户）
+            await sleep(200 + Math.random() * 300);
+        }
+    }
+}
+
 
