@@ -977,9 +977,11 @@ async function fetchPrice(item) {
         // 【建议修改】：加上 cache: 'no-store'
         // const intradayRes = await fetch(intradayUrl, { cache: 'no-store' }); 
         // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制, 加随机参数绕过缓存/风控
-        const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday&_t=${Date.now()}_${Math.random()}`; 
-        const intradayRes = await fetch(intradayUrl, { cache: 'no-store' }); 
-        const intradayJson = await intradayRes.json();
+        // const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday&_t=${Date.now()}_${Math.random()}`; 
+        // const intradayRes = await fetch(intradayUrl, { cache: 'no-store' });       
+        // const intradayJson = await intradayRes.json();
+        const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
+        const intradayJson = await fetchWithRetry(intradayUrl);
         if (intradayJson && intradayJson.length > 0) {
             intradayData = intradayJson.map(d => parseFloat(d.price));
         }
@@ -990,9 +992,11 @@ async function fetchPrice(item) {
              // 【建议修改】：加上 cache: 'no-store'
              // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });
             // 步骤 2: 收盘价接口, 加随机参数绕过缓存/风控
-            const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price&_t=${Date.now()}_${Math.random()}`;
-            const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });          
-            const closePriceJson = await closePriceRes.json();
+            // const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price&_t=${Date.now()}_${Math.random()}`;
+            // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });  
+            // const closePriceJson = await closePriceRes.json();
+            const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
+            const closePriceJson = await fetchWithRetry(closePriceUrl);
             // =========== 修改开始 ===========
             if (closePriceJson) {
                 // 情况 A: API 返回对象且包含 latestPrice (你的当前情况)
