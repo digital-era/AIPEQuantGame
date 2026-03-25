@@ -2276,7 +2276,9 @@ async function initSystem() {
                 log("Market currently closed on init. Price polling will not start.", "yellow");
             } else {
                 // 只有市场开启时才启动轮询
-                priceUpdateInterval = setInterval(() => updateMarketData(false), 300000);
+                // priceUpdateInterval = setInterval(() => updateMarketData(false), 300000);
+                priceUpdateInterval = setInterval(() => updateMarketData(false), 180000);
+                // 每3分钟开始刷新数据，用时2分钟，总计5分钟
                 log("Market is open. Price polling started every 5 minutes.", "#0f0");
             }
         } else {
