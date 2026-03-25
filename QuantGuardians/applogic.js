@@ -772,8 +772,6 @@ function updateCash(key) {
  */
 // ===================== 新增辅助函数 =====================
 // 用于控制请求间隔的 sleep 函数
-// ===================== 新增辅助函数 =====================
-// 用于控制请求间隔的 sleep 函数
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function updateMarketData(forceFetch = false) {
@@ -975,8 +973,11 @@ async function fetchPrice(item) {
         let closingPriceApiResult = null; // 收盘价格 API 的结果
 
         // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制
-        const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
+        // const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
         // 【建议修改】：加上 cache: 'no-store'
+        // const intradayRes = await fetch(intradayUrl, { cache: 'no-store' }); 
+        // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制, 加随机参数绕过缓存/风控
+        const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday&_t=${Date.now()}_${Math.random()}`; 
         const intradayRes = await fetch(intradayUrl, { cache: 'no-store' }); 
         const intradayJson = await intradayRes.json();
         if (intradayJson && intradayJson.length > 0) {
@@ -987,7 +988,10 @@ async function fetchPrice(item) {
         if (marketIsClosed) {
             const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
              // 【建议修改】：加上 cache: 'no-store'
-            const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });
+             // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });
+            // 步骤 2: 收盘价接口, 加随机参数绕过缓存/风控
+            const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price&_t=${Date.now()}_${Math.random()}`;
+            const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });          
             const closePriceJson = await closePriceRes.json();
             // =========== 修改开始 ===========
             if (closePriceJson) {
