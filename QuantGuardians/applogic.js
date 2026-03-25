@@ -986,7 +986,7 @@ async function fetchPrice(item) {
 
         // 步骤 2: 如果市场已关闭，额外获取官方收盘价格
         if (marketIsClosed) {
-            const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
+             // const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
              // 【建议修改】：加上 cache: 'no-store'
              // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });
             // 步骤 2: 收盘价接口, 加随机参数绕过缓存/风控
