@@ -2218,7 +2218,7 @@ function renderStaticLists() {
 async function initSystem() {
     if (gameState.active) return;
     const btn = document.getElementById('engageBtn');
-    btn.innerText = "INITIALIZING...";
+    btn.innerText = "加载中...";
     
     try {
         // ============================================================
@@ -2296,7 +2296,7 @@ async function initSystem() {
         setupAllAdhocAutoCompletes();
 
         gameState.active = true;
-        btn.innerText = "SYSTEM ONLINE";
+        btn.innerText = "系统在线";
         btn.style.boxShadow = "0 0 20px #0f0";
 
     } catch (err) {
