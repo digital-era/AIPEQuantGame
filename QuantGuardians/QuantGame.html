@@ -490,14 +490,14 @@
 
             <!-- Tabs: Admin & User -->
             <div class="settings-tabs">
-                <button class="tab-btn" onclick="switchSettingsTab('admin')">ADMIN</button>
-                <button class="tab-btn active" onclick="switchSettingsTab('user')">USER</button>
+                <button class="tab-btn" onclick="switchSettingsTab('admin')">管理员</button>
+                <button class="tab-btn active" onclick="switchSettingsTab('user')"y用户</button>
             </div>
             
             <!-- ADMIN 面板：Github Proxy 与原 OSS 设定 -->
             <div id="tab-admin" class="tab-pane">
                 <div class="setting-row" style="padding: 5px 10px 15px 10px;">
-                    <span class="switch-label">Github Proxy</span>
+                    <span class="switch-label">开启代理</span>
                     <!-- 此处修改 onchange 的触发函数 -->
         			<input type="checkbox" id="chkGitProxy" checked onchange="syncProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">		
                 </div>
@@ -542,18 +542,18 @@
                 <!-- 未登录时显示 -->
                 <div id="loginSection" class="auth-form">
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">USER:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">用户名:</span>
                         <input type="text" id="auth_username" class="cmd-input" style="flex: 1; color:#fff;" placeholder="Enter Username">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">PASS:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">密码:</span>
                         <input type="password" id="auth_password" class="cmd-input" style="flex: 1; color:#fff;" placeholder="Enter Password">
                     </div>
                     <!-- 替换为带有 80px 占位的结构： -->
 					<div style="display:flex; align-items: center; margin-top: 10px;">
 					    <!-- 这里放一个看不见的占位，宽度和上方 USER: 标签一样 -->
 					    <span style="width: 80px; margin-right: 10px;"></span>
-					    <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 10px; font-size: 0.6em;" onclick="handleLogin()">LOGIN</button>
+					    <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 10px; font-size: 0.6em;" onclick="handleLogin()">登录</button>
 					</div>
                 </div>
 
@@ -572,8 +572,8 @@
                         <input type="password" id="cpw_new" class="cmd-input" style="flex: 1; color:#fff;" placeholder="New Password">
                     </div>
 					<div style="display:flex; gap: 10px; margin-top:10px;">
-					    <button class="cmd-btn sell-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleLogout()">LOGOUT</button>
-					    <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleChangePassword()">UPDATE PASS</button>
+					    <button class="cmd-btn sell-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleLogout()">退出</button>
+					    <button class="cmd-btn buy-btn" style="flex: 1 !important; padding: 7px; font-size: 0.6em;" onclick="handleChangePassword()">修改密码</button>
 					</div>
                 </div>
 
