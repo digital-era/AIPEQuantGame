@@ -1,8 +1,47 @@
 // AIPEQuantGame/functions/api/login.js
 
-// 简单的 JWT 签名工具 (基于 Cloudflare 原生 Web Crypto API)
+const encoder = new TextEncoder();
+
+function buf2hex(buffer) {
+    return Array.from(new Uint8Array(buffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+function hex2buf(hex) {
+    const bytes = new Uint8Array(Math.ceil(hex.length / 2));
+    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    return bytes;
+}
+
+// 严格判断字符串是否为我们生成的标准密文格式 (32位Hex + : + 64位Hex)
+function isHashedFormat(str) {
+    return /^[0-9a-f]{32}:[0-9a-f]{64}$/i.test(str);
+}
+
+// 核心：PBKDF2 加盐哈希 (1万次迭代，适配 Cloudflare 免费版)
+async function hashPassword(password, saltHex = null) {
+    let salt = saltHex ? hex2buf(saltHex) : crypto.getRandomValues(new Uint8Array(16));
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw", encoder.encode(password), "PBKDF2", false,["deriveBits"]
+    );
+    const derivedBits = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt: salt, iterations: 10000, hash: "SHA-256" },
+        keyMaterial, 256
+    );
+    return `${buf2hex(salt)}:${buf2hex(derivedBits)}`;
+}
+
+// 核心：验证密文密码
+async function verifyPassword(password, storedHashString) {
+    if (!isHashedFormat(storedHashString)) return false;
+    const [saltHex] = storedHashString.split(':');
+    const newHashString = await hashPassword(password, saltHex);
+    return newHashString === storedHashString;
+}
+
+// === 原有 JWT 工具 ===
 async function signJWT(payload, secret) {
-    const encoder = new TextEncoder();
     const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).replace(/=/g, '');
     const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '');
     const data = `${header}.${encodedPayload}`;
@@ -25,11 +64,34 @@ export async function onRequestPost(context) {
             return new Response(JSON.stringify({ error: "Missing credentials" }), { status: 400 });
         }
 
-        // 从 Cloudflare KV 中读取密码
         const storedPassword = await env.aipeusers.get(username);
+        if (!storedPassword) {
+            return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
+        }
 
-        if (storedPassword && storedPassword === password) {
-            // 签发真实 JWT，有效期 2 小时
+        let isPasswordValid = false;
+        let needsUpgrade = false;
+
+        // 【核心向下兼容逻辑】判断 KV 里存的是密文还是旧版明文
+        if (isHashedFormat(storedPassword)) {
+            // 是密文：走哈希校验
+            isPasswordValid = await verifyPassword(password, storedPassword);
+        } else {
+            // 是明文：走原版直接字符串比对
+            if (storedPassword === password) {
+                isPasswordValid = true;
+                needsUpgrade = true; // 标记：比对成功，稍后需自动升级为密文
+            }
+        }
+
+        if (isPasswordValid) {
+            // 【无缝升级】如果当前存的是明文，自动替换为密文存入 KV
+            if (needsUpgrade) {
+                const newHashedPassword = await hashPassword(password);
+                await env.aipeusers.put(username, newHashedPassword);
+            }
+
+            // 【保留原逻辑】签发 JWT，原样返回
             const token = await signJWT(
                 { user: username, exp: Date.now() + 2 * 60 * 60 * 1000 }, 
                 env.JWT_SECRET
@@ -39,6 +101,7 @@ export async function onRequestPost(context) {
             return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
         }
     } catch (e) {
+        console.error(e);
         return new Response(JSON.stringify({ error: "Server error" }), { status: 500 });
     }
 }
