@@ -67,7 +67,7 @@ export async function onRequestPost(context) {
         const storedPassword = await env.aipeusers.get(username);
         if (!storedPassword) {
             return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
-        }
+        }        
 
         let isPasswordValid = false;
         let needsUpgrade = false;
@@ -85,17 +85,25 @@ export async function onRequestPost(context) {
         }
 
         if (isPasswordValid) {
+            // 【新增条件逻辑】校验 USER_TYPE 前缀或 admin
+            // 注意: 加入 !env.USER_TYPE 是为了防御性编程，防止环境变量未配置时引发 startsWith 报错
+            if (username !== "admin"  && (!env.USER_TYPE || !username.startsWith(env.USER_TYPE)) && (!env.VIP_USER_TYPE || !username.startsWith(env.VIP_USER_TYPE)) && (!env.VVIP_USER_TYPE || !username.startsWith(env.VVIP_USER_TYPE))) {
+                return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
+            }
+
             // 【无缝升级】如果当前存的是明文，自动替换为密文存入 KV
             if (needsUpgrade) {
                 const newHashedPassword = await hashPassword(password);
                 await env.aipeusers.put(username, newHashedPassword);
             }
 
-            // 【保留原逻辑】签发 JWT，原样返回
+            // 【保留原逻辑】签发 JWT
             const token = await signJWT(
                 { user: username, exp: Date.now() + 2 * 60 * 60 * 1000 }, 
                 env.JWT_SECRET
             );
+            
+            // 只有身份校验和前缀校验全通过，才返回成功
             return new Response(JSON.stringify({ success: true, token }), { status: 200 });
         } else {
             return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
