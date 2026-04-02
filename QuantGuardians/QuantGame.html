@@ -437,21 +437,53 @@
 		@media (max-width: 768px) { .manifesto-modal .modal-content { padding: 30px 20px; } .manifesto-text h2 { font-size: 1.3em; font-family: 'Ma Shan Zheng'; padding-right: 20px; padding-left: 20px; line-height: 1.6; margin-top: 30px; } .manifesto-text .conclusion { font-size: 1.1em; } .manifesto-text p { font-size: 1em; line-height: 1.8; } .manifesto-modal .close-button { font-size: 20px; top: 2px; right: 2px; } }
 
 		@media (max-width: 768px) {
-			.guardian-card {
-				contain: none !important;
-				transform: none !important;
-				will-change: auto !important;
-			}
 		
-			.chart-wrapper {
-				contain: none !important;
-			}
+		    /* ===== 已有修复（保留） ===== */
+		    .guardian-card {
+		        contain: none !important;
+		        transform: none !important;
+		        will-change: auto !important;
+		    }
 		
-			body {
-				-webkit-overflow-scrolling: auto;
-				backface-visibility: visible;
-				transform: none;
-			}
+		    .chart-wrapper {
+		        contain: none !important;
+		    }
+		
+		    body {
+		        -webkit-overflow-scrolling: auto;
+		        backface-visibility: visible;
+		        transform: none;
+		    }
+		
+		
+		    /* ===== 新增：splash 层稳定化（核心） ===== */
+		    #splash-screen {
+		        transform: none !important;
+		        will-change: auto !important;
+		        backface-visibility: hidden;
+		    }
+		
+		    /* 禁止移动端 transform 动画（防黑屏） */
+		    .splash-hidden {
+		        transform: none !important;
+		        opacity: 0 !important;
+		        visibility: hidden;
+		        pointer-events: none;
+		    }
+		
+		
+		    /* ===== 新增：顶部 header 防闪黑 ===== */
+		    .header {
+		        transform: translateZ(0);
+		        will-change: transform;
+		    }
+		
+		
+		    /* ===== 可选增强（建议加） ===== */
+		    html, body {
+		        overflow-x: hidden;
+		    }
+		
 		}
 		
     </style>
