@@ -286,13 +286,13 @@
 			.main-title { font-size: 2.1em; }
             .header-controls { position: relative; right: auto; top: auto; margin-top: 15px; justify-content: center;}
 			.header-controls {
-				backdrop-filter: none; 
-				-webkit-backdrop-filter: none;
+				backdrop-filter: none !important;
+				-webkit-backdrop-filter: none !important;
 				background: rgba(20, 20, 30, 0.9); 
 			}
 		    .guardian-card {
-		        box-shadow: none; 
-		        border: 1px solid #333;
+		  		will-change: auto;
+				contain: content;
 		    }
         }
         
