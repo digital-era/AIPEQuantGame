@@ -120,20 +120,44 @@ const QGR = (function() {
 
     // 4. 加载章节
     async function loadChapter(index) {
+        // ================= 新增：权限验证拦截 =================
+        if (index > 1) {
+            // 防御性调用：如果当前环境没有 checkActionAuth 函数，默认拦截(false)以保证安全
+            const isAuthorized = typeof checkActionAuth === 'function' ? checkActionAuth(`加载第 ${index} 节`) : false;
+            
+            if (!isAuthorized) {
+                // 拦截提示 UI
+                els.content.innerHTML = `
+                    <div style="text-align:center; padding:50px; color:#EF4444; border: 1px dashed #EF4444; margin: 20px;">
+                        <h3>⛔ ACCESS DENIED</h3>
+                        <p>机密档案已被锁定 (Encryption Level: HIGH)</p>
+                        <p style="font-size: 0.9em; color:#888;">游客权限仅能访问第一节，请在 Settings 中完成登录验证后解锁完整档案。</p>
+                        <button class="nav-btn" style="margin-top:20px; padding: 10px 20px;" onclick="QGR.loadChapter(1)">
+                            返回第一节 (RETURN)
+                        </button>
+                    </div>
+                `;
+                
+                // 移动端如果目录是打开的，拦截后自动收起
+                if (window.innerWidth < 768 && els.sidebar.classList.contains('show')) {
+                    els.sidebar.classList.remove('show');
+                }
+                return; // 【核心】直接中断，保护老的状态逻辑不被污染
+            }
+        }
+        // ======================================================
+
         state.currentChapter = index;
         _updateUI();
 
-        // 格式化文件名: 1 -> QGR01.md
         const numStr = String(index).padStart(2, '0');
         const filename = `${CONFIG.filePrefix}${numStr}.md`;
 
-        // 检查内存缓存
         if (state.cache[index]) {
             _renderMarkdown(state.cache[index]);
             return;
         }
 
-        // 显示加载动画
         els.content.innerHTML = `
             <div class="loading-text">
                 正在接入量子网络...<br>
@@ -143,10 +167,7 @@ const QGR = (function() {
         `;
 
         try {
-            // 生成带代理和时间戳的 URL
             const url = _generateUrl(filename);
-            
-            // 发起请求，配置 no-store 
             const response = await fetch(url, { cache: 'no-store' });
 
             if (!response.ok) {
@@ -155,10 +176,9 @@ const QGR = (function() {
             }
 
             const text = await response.text();
-            state.cache[index] = text; // 写入缓存
+            state.cache[index] = text; 
             _renderMarkdown(text);
 
-            // 移动端加载后自动收起目录
             if (window.innerWidth < 768 && els.sidebar.classList.contains('show')) {
                 els.sidebar.classList.remove('show');
             }
@@ -188,14 +208,29 @@ const QGR = (function() {
     // 6. 渲染目录 (生成预设数量的章节)
     function _renderDirectory() {
         els.list.innerHTML = '';
+        
+        let isLoggedIn = false;
+        // 加入 try-catch，防止用户的隐私模式阻断本地存储读取，造成老功能(目录渲染)崩溃
+        try {
+            if (localStorage.getItem('qgr_jwt_token')) {
+                isLoggedIn = true; 
+            }
+        } catch (e) {
+            console.warn('无法访问 localStorage，默认显示锁定状态');
+        }
+
         for (let i = 1; i <= CONFIG.predictedChapters; i++) {
             const li = document.createElement('li');
-            li.innerHTML = `<span style="color:#555">FILE:</span> QGR-${String(i).padStart(2, '0')}`;
+            
+            const lockIcon = (!isLoggedIn && i > 1) ? '<span style="font-size:12px; margin-left:5px;">🔒</span>' : '';
+            
+            li.innerHTML = `<span style="color:#555">FILE:</span> QGR-${String(i).padStart(2, '0')} ${lockIcon}`;
             li.dataset.idx = i;
             li.onclick = () => loadChapter(i);
             els.list.appendChild(li);
         }
     }
+
 
     // 7. 更新 UI 高亮
     function _updateUI() {
