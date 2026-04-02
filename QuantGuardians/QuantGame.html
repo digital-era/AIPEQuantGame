@@ -50,7 +50,9 @@
 	        
 	        /* 将翻转的基准轴心设为屏幕的最左侧 (0%) */
 	        transform-origin: 0% 50%; 
-	        transform-style: preserve-3d; 
+	        /*transform-style: preserve-3d; */
+			will-change: opacity, transform;
+    		transform: translateZ(0); /* 替代3D */
 	        
 	        /* 模拟真实纸张翻动的物理受力感 */
 	        transition: transform 1.5s cubic-bezier(0.645, 0.045, 0.355, 1),
@@ -74,7 +76,8 @@
 	
 	    /* 触发向左翻页时的类 */
 	    .splash-hidden {
-	        transform: perspective(2000px) rotateY(-75deg) translateX(-20%);
+	        /* transform: perspective(2000px) rotateY(-75deg) translateX(-20%);*/
+			transform: translateX(-100%) scale(0.95);
 	        opacity: 0 !important;
 	        visibility: hidden;
 	    }
