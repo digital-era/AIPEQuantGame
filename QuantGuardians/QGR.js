@@ -131,7 +131,7 @@ const QGR = (function() {
                     <div style="text-align:center; padding:50px; color:#EF4444; border: 1px dashed #EF4444; margin: 20px;">
                         <h3>⛔ ACCESS DENIED</h3>
                         <p>小说章节已被锁定 (Encryption Level: HIGH)</p>
-                        <p style="font-size: 0.9em; color:#888;">游客权限仅能访问第一节，请在 Settings 中完成登录验证后解锁完整档案。</p>
+                        <p style="font-size: 0.9em; color:#888;">游客权限仅能访问第一节，请在 Settings 中完成登录验证后解锁完整小说内容。</p>
                         <button class="nav-btn" style="margin-top:20px; padding: 10px 20px;" onclick="QGR.loadChapter(1)">
                             返回第一节 (RETURN)
                         </button>
