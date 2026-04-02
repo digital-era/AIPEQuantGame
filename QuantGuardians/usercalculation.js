@@ -112,10 +112,13 @@ async function triggerCalculation() {
             await loadHistoryData();
         }
 
-        if (getSecureOssPath(OSS_FILE_NAME) !== OSS_FILE_NAME) {
-            log("正在将最新持仓比例与价格同步至私有 Excel...", "#88f");
-            await updateSnapshotsAndSyncOSS(workbook, enginesCache);
-        }
+        //if (getSecureOssPath(OSS_FILE_NAME) !== OSS_FILE_NAME) {
+            //log("正在将最新持仓比例与价格同步至私有 Excel...", "#88f");
+            //await updateSnapshotsAndSyncOSS(workbook, enginesCache);
+        //}
+        
+        log("正在将最新持仓比例与价格同步至私有 Excel...", "#88f");
+        await updateSnapshotsAndSyncOSS(workbook, enginesCache);
         
     } catch (e) {
         log(`❌ 计算错误: ${e.message}`, "red");
