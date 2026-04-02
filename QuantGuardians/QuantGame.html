@@ -32,6 +32,66 @@
 		  s.parentNode.insertBefore(hm, s);
 		})();
 	</script>
+
+	<!-- 封面动画专属样式：3D 向左翻页画卷效果 -->
+	<style>
+	    #splash-screen {
+	        position: fixed;
+	        top: 0;
+	        left: 0;
+	        width: 100vw;
+	        height: 100vh;
+	        background-color: #050505; /* 极深的暗色底，完美融合手机端的上下黑边 */
+	        z-index: 999999;
+	        display: flex;
+	        justify-content: center;
+	        align-items: center;
+	        opacity: 1;
+	        
+	        /* 将翻转的基准轴心设为屏幕的最左侧 (0%) */
+	        transform-origin: 0% 50%; 
+	        transform-style: preserve-3d; 
+	        
+	        /* 模拟真实纸张翻动的物理受力感 */
+	        transition: transform 1.5s cubic-bezier(0.645, 0.045, 0.355, 1),
+	                    opacity 1.3s cubic-bezier(0.645, 0.045, 0.355, 1) 0.2s, 
+	                    visibility 1.5s; 
+	    }
+	
+	    #splash-screen img {
+	        width: 100%;
+	        height: 100%;
+	        /* 电脑端默认铺满 */
+	        object-fit: cover;
+	        /* 保持轻微的呼吸感放大 */
+	        animation: cinematicZoom 6s linear forwards; 
+	    }
+	
+	    @keyframes cinematicZoom {
+	        0% { transform: scale(1); }
+	        100% { transform: scale(1.06); }
+	    }
+	
+	    /* 触发向左翻页时的类 */
+	    .splash-hidden {
+	        transform: perspective(2000px) rotateY(-75deg) translateX(-20%);
+	        opacity: 0 !important;
+	        visibility: hidden;
+	    }
+	    
+	    body.splash-active {
+	        overflow: hidden; 
+	    }
+	
+	    /* ======== 【核心修改】手机端(竖屏)专属优化 ======== */
+	    @media (max-width: 768px), (orientation: portrait) {
+	        #splash-screen img {
+	            /* 手机上改为 contain，完整显示横图，上下留出黑边，不裁剪任何画面 */
+	            object-fit: contain;
+	        }
+	    }
+	</style>
+	
     <style>
         /* --- 基础样式 --- */
         :root {
@@ -374,6 +434,11 @@
     </style>
 </head>
 <body>	
+	<!-- [新增] 3D 画卷翻页进入封面 -->
+    <div id="splash-screen">
+        <img src="CoverAIVibeInvest-cn.jpg" alt="AI氛围投资 - 封面">
+    </div>
+	
 	<audio id="bgMusic" loop></audio>
     <div class="main-scaler">
         
@@ -663,5 +728,32 @@
 	        }
     	})();
 	</script>
+
+	<!-- [新增] 封面动画控制脚本 -->
+    <script>
+        // 立即锁定背景滚动
+        document.body.classList.add('splash-active');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const splashScreen = document.getElementById('splash-screen');
+            
+            // 设定停留时间：3.8秒 (3800毫秒)
+            setTimeout(() => {
+                // 1. 触发 3D 向左翻页/画卷拉开效果
+                splashScreen.classList.add('splash-hidden');
+                
+                // 2. 立刻解锁页面滚动
+                document.body.classList.remove('splash-active');
+                
+                // 3. 等待翻页动画(1.5秒)彻底完成后，清理 DOM 释放内存
+                setTimeout(() => {
+                    if (splashScreen) {
+                        splashScreen.remove();
+                    }
+                }, 1500); 
+                
+            }, 3800);
+        });
+    </script>
 </body>
 </html>
