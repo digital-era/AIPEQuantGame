@@ -1067,7 +1067,7 @@ async function fetchPrice(item) {
                 const deducedRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
                 
                 // 如果本地没有 refPrice，或者本地 Excel 记录的 refPrice 和官方反推差距过大 (如发生除权除息)，则覆盖
-                if (!item.refPrice || Math.abs(item.refPrice - deducedRefPrice) / deducedRefPrice > 0.03) {
+                if (!item.refPrice) {
                     item.refPrice = deducedRefPrice; 
                 }
             } 
