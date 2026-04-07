@@ -703,13 +703,12 @@ function calculateUserRtn(key) {
         const nowPrice = p.currentPrice;
         const refPrice = p.refPrice; // 这里的 refPrice 是今日开盘价/基准价
 
-        if (nowPrice && refPrice) {
-            // 【核心修复】：直接使用 持仓初始配置价值 × 涨跌幅
-            // 避免除以现价产生的由于价格波动导致的股数放缩扭曲
-            const chgRatio = (nowPrice - refPrice) / refPrice; // 计算涨跌幅 (小数)
-            const currentWeightValue = initialTotalAssets * (p.weight / 100); // 算出分配到该股的虚拟初始本金
+       // 【增加 refPrice > 0 校验防崩溃】
+        if (nowPrice && refPrice && refPrice > 0) {
+            const chgRatio = (nowPrice - refPrice) / refPrice; 
+            const currentWeightValue = initialTotalAssets * (p.weight / 100); 
             
-            totalPnL += currentWeightValue * chgRatio; // 盈亏金额 = 本金 * 涨跌幅
+            totalPnL += currentWeightValue * chgRatio; 
         }
     });
 
@@ -900,14 +899,14 @@ function recalculateAndRenderGuardian(k) {
     // 1. 计算 System Return
     let systemRtn = 0; 
     for (let s of g.strategy) {
-        if (s.currentPrice && s.refPrice) {
+        // 【增加 s.refPrice > 0 校验防崩溃】
+        if (s.currentPrice && s.refPrice && s.refPrice > 0) {
              if (s.isAdhoc !== true) { 
                  const chg = (s.currentPrice - s.refPrice) / s.refPrice;
                  systemRtn += chg * (s.weight / 100);
              }
         }
     }
-
     // 风控仓位因子修正 (Power Logic)
     if (g.power !== undefined && g.power !== null) {
         systemRtn = systemRtn * g.power;
@@ -1060,6 +1059,24 @@ async function fetchPrice(item) {
                 item.history = []; // 没有数据，历史曲线为空
             }
         }
+
+        // ================= 【核心优化：refPrice 智能修正与反推】 =================
+        if (item.currentPrice) {
+            // 1. 如果接口提供了官方涨跌幅，利用数学公式绝对反推出精确的“昨收价/基准价”
+            if (item.officialChangePercent !== null && item.officialChangePercent !== undefined) {
+                const deducedRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
+                
+                // 如果本地没有 refPrice，或者本地 Excel 记录的 refPrice 和官方反推差距过大 (如发生除权除息)，则覆盖
+                if (!item.refPrice || Math.abs(item.refPrice - deducedRefPrice) / deducedRefPrice > 0.03) {
+                    item.refPrice = deducedRefPrice; 
+                }
+            } 
+            // 2. 如果依然没有 refPrice (例如交易时间内，且 Excel 中没有记录)，做最后的降级兜底
+            else if (item.refPrice === undefined || item.refPrice === null || item.refPrice === 0) {
+                item.refPrice = intradayData.length > 0 ? intradayData[0] : item.currentPrice;
+            }
+        }
+        // =========================================================================
 
         // 如果是 ADHOC 标的，数据回来后立即强制刷新列表 (原逻辑)
         if (item.isAdhoc) {
@@ -1459,10 +1476,12 @@ async function syncToCloud() {
                     "股票名称": p.name,
                     "来源": "QuantGuardians",
                     "配置比例 (%)": p.weight.toFixed(2),
-                    "修改时间": timeStr
+                    "修改时间": timeStr,
+                    // 【新增】：必须保存收盘价格（参考价），否则手动买入的标的第二天刷新会丢失基准价
+                    "收盘价格": p.refPrice
                 });
             });
-            const newSnapWs = XLSX.utils.json_to_sheet(snapData, { header: ["组合名称","股票代码","股票名称","来源","配置比例 (%)","修改时间"] });
+            const newSnapWs = XLSX.utils.json_to_sheet(snapData, { header: ["组合名称","股票代码","股票名称","来源","配置比例 (%)","修改时间","收盘价格"] });
             if(wb.Sheets[cfg.simpleName]) wb.Sheets[cfg.simpleName] = newSnapWs;
             else XLSX.utils.book_append_sheet(wb, newSnapWs, cfg.simpleName);
 
@@ -1541,8 +1560,8 @@ async function syncToCloud() {
                     "股票名称": item.name,
                     "来源": "QuantGuardians",
                     "建议比例 (%)": item.weight.toFixed(2),
-                    "修改时间": adhocTimeStr,
-                    "收盘价格": item.refPrice // --- 保存当前记录的基准价到 Excel ---
+                    "修改时间": adhocTimeStr,                      
+                    "收盘价格": item.refPrice 
                 });
             });   
        
@@ -1550,7 +1569,7 @@ async function syncToCloud() {
         
         // 将收集到的 ADHOC 数据写入 Sheet (全量覆盖)
         const adhocWs = XLSX.utils.json_to_sheet(adhocData, { 
-            header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间"] 
+            header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间", "收盘价格"] 
         });
         
         if (wb.Sheets["ADHOC"]) {
