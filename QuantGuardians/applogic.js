@@ -588,35 +588,6 @@ async function loadCloudPortfolio() {
 // 建议增加的内存结构
 let todayInitialAssets = 100000; // 假设每日初始资金
 
-async function loadTodayFlows() {
-    if (!ossClient) return;
-    try {
-        const result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
-        const wb = XLSX.read(result.content, { type: 'array' });
-        const todayStr = getOpTime().substring(0, 8); // 获取 YYYYMMDD
-        
-        memoryFlows = []; // 清空内存记录
-        
-        for (let key in GUARDIAN_CONFIG) {
-            const flowSheetName = GUARDIAN_CONFIG[key].flowName;
-            const sheet = wb.Sheets[flowSheetName];
-            if (sheet) {
-                const rows = XLSX.utils.sheet_to_json(sheet);
-                const todayRows = rows.filter(r => String(r["修改时间"]).startsWith(todayStr));
-                
-                // 将今日已存在的记录读入内存
-                todayRows.forEach(r => {
-                    memoryFlows.push({
-                        sheet: flowSheetName,
-                        data: r
-                    });
-                });
-            }
-        }
-        log(`Loaded ${memoryFlows.length} transactions from today.`, "#0f0");
-    } catch (e) { console.error("Load flows error", e); }
-}
-
 function calculateUserRtn(key) {
     const g = gameState.guardians[key];
     const flowName = GUARDIAN_CONFIG[key].flowName;
@@ -1300,30 +1271,6 @@ function executeOrder(key, type) {
     renderLists(key);
 }
 
-function recordFlow(key, opType, code, name, inputWeight, price) {
-    const g = gameState.guardians[key];
-    const totalAssets = 100000;
-    let actualWeight = (opType === 'Buy') ? inputWeight * g.power : inputWeight;
-    const val = totalAssets * (actualWeight / 100);
-    const qty = Math.floor(val / price);
-    const value = (qty * price).toFixed(2);
-    
-    memoryFlows.push({
-        sheet: GUARDIAN_CONFIG[key].flowName,
-        data: {
-            "组合名称": GUARDIAN_CONFIG[key].simpleName,
-            "股票代码": code,
-            "股票名称": name,
-            "配置比例 (%)": actualWeight.toFixed(2), 
-            "标的数量": qty,
-            "价格": price,
-            "价值": value,
-            "操作类型": opType,
-            "修改时间": getOpTime(true)
-        }
-    });
-}
-
 async function loadAdhocFromCloud() {
     log("Loading ADHOC Suggestions...", "#da70d6");
     if (!ossClient) return;
@@ -1365,7 +1312,7 @@ async function loadAdhocFromCloud() {
 }
 
 async function syncToCloud() {
-      // 【新增保护功能】检查系统是否在线
+    // 【新增保护功能】检查系统是否在线
     if (!gameState.active) {
         log(" >> ACCESS DENIED: System Offline. Please Engage System first. <<", "#EF4444");
         return; // 终止后续处理
@@ -1373,7 +1320,7 @@ async function syncToCloud() {
     if (!await initOSS()) return;
     const dot = document.getElementById('ossStatusDot');
     dot.className = "oss-status syncing";
-    
+
     try {
         let wb;
         try {
@@ -1394,11 +1341,11 @@ async function syncToCloud() {
             if (wb.Sheets[cfg.simpleName]) {
                 // 1. 先把 Sheet 里的旧数据全读出来
                 const oldSnapData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.simpleName]);
-                
+
                 // 2. 【核心修改】过滤掉“修改时间”前8位等于今天的数据
                 snapData = oldSnapData.filter(row => {
                     const rowTime = String(row["修改时间"] || "");
-                    return rowTime.substring(0, 8) !== todayPrefix; 
+                    return rowTime.substring(0, 8) !== todayPrefix;
                 });
             }
             g.portfolio.forEach(p => {
@@ -1422,9 +1369,9 @@ async function syncToCloud() {
             if (wb.Sheets[cfg.flowName]) {
                 flowData = XLSX.utils.sheet_to_json(wb.Sheets[cfg.flowName]);
             }
-            
+
             const pending = memoryFlows.filter(f => f.sheet === cfg.flowName);
-            
+
             pending.forEach(newItem => {
                 // 严格匹配逻辑：将对象转为 JSON 字符串进行比对
                 const isDuplicate = flowData.some(existingItem => {
@@ -1434,7 +1381,7 @@ async function syncToCloud() {
                            parseFloat(existingItem["价格"]) === parseFloat(newItem.data["价格"]) &&
                            parseFloat(existingItem["标的数量"]) === parseFloat(newItem.data["标的数量"]);
                 });
-            
+
                 if (!isDuplicate) {
                     flowData.push(newItem.data);
                      hasNewData = true; // 【新增】只有真正插入数据时才标记为 true
@@ -1444,7 +1391,7 @@ async function syncToCloud() {
             // 【核心保护】只有当确实有新数据写入，或者原本没有这个 Sheet (初始化) 时，才执行写入
             // 如果 flowData 不为空且没有 Sheet，说明是第一次创建，也要写入
             const sheetExists = !!wb.Sheets[cfg.flowName];
-            
+
             if (hasNewData || (!sheetExists && flowData.length > 0)) {
                 const headers = [
                     "组合名称",
@@ -1455,14 +1402,15 @@ async function syncToCloud() {
                     "价格",
                     "价值",
                     "操作类型",
-                    "修改时间"
+                    "修改时间",
+                    "参考价格"  // 【新增】兼容列
                 ];
-                
+
                 const newFlowWs = XLSX.utils.json_to_sheet(flowData, {
-                    header: headers,
+                    header: headers,  // 强制指定表头顺序
                     skipHeader: false
                 });;
-            
+
                 if (sheetExists) {
                     wb.Sheets[cfg.flowName] = newFlowWs;
                 } else {
@@ -1479,12 +1427,12 @@ async function syncToCloud() {
         // 收集所有守护者的 ADHOC 标的
         let adhocData = [];
         const adhocTimeStr = getOpTime(true);
-        
+
         for (let key in GUARDIAN_CONFIG) {
             const cfg = GUARDIAN_CONFIG[key];
             const g = gameState.guardians[key];
             const adhocItems = g.adhocObservations; // 不再从 strategy 中 filter
-            
+
             adhocItems.forEach(item => {
                 adhocData.push({
                     "组合名称": GUARDIAN_CONFIG[key].simpleName,
@@ -1492,18 +1440,18 @@ async function syncToCloud() {
                     "股票名称": item.name,
                     "来源": "QuantGuardians",
                     "建议比例 (%)": item.weight.toFixed(2),
-                    "修改时间": adhocTimeStr,                      
-                    "收盘价格": item.refPrice 
+                    "修改时间": adhocTimeStr,
+                    "收盘价格": item.refPrice
                 });
-            });   
-       
+            });
+
         }
-        
+
         // 将收集到的 ADHOC 数据写入 Sheet (全量覆盖)
-        const adhocWs = XLSX.utils.json_to_sheet(adhocData, { 
-            header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间", "收盘价格"] 
+        const adhocWs = XLSX.utils.json_to_sheet(adhocData, {
+            header: ["组合名称", "股票代码", "股票名称", "来源", "建议比例 (%)", "修改时间", "收盘价格"]
         });
-        
+
         if (wb.Sheets["ADHOC"]) {
             wb.Sheets["ADHOC"] = adhocWs;
         } else {
@@ -1514,10 +1462,10 @@ async function syncToCloud() {
         const wbout = XLSX.write(wb, wopts);
         const blob = new Blob([wbout], {type:"application/octet-stream"});
         await ossClient.put(getSecureOssPath(OSS_FILE_NAME), blob);
-        
+
         dot.className = "oss-status done";
         log("Cloud Sync Success.", "#0f0");
-        memoryFlows = []; 
+        memoryFlows = [];
     } catch (e) {
         dot.className = "oss-status";
         log("Sync Error: " + e.message, "red");
