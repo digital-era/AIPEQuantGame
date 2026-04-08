@@ -386,6 +386,108 @@ async function loadmarketdate() {
     }
 }
 
+function recordFlow(key, opType, code, name, inputWeight, price) {
+    const g = gameState.guardians[key];
+    const totalAssets = 100000;
+    let actualWeight = (opType === 'Buy') ? inputWeight * g.power : inputWeight;
+    const val = totalAssets * (actualWeight / 100);
+    const qty = Math.floor(val / price);
+    const value = (qty * price).toFixed(2);
+
+    // 【关键】查找并保存 refPrice
+      let item = g.strategy.find(s => s.code === code) ||
+                 g.portfolio.find(p => p.code === code);
+      const refPrice = item ? item.refPrice : price;  // 兜底用 price
+
+    memoryFlows.push({
+        sheet: GUARDIAN_CONFIG[key].flowName,
+        data: {
+            "组合名称": GUARDIAN_CONFIG[key].simpleName,
+            "股票代码": code,
+            "股票名称": name,
+            "配置比例 (%)": actualWeight.toFixed(2),
+            "标的数量": qty,
+            "价格": price,
+            "价值": value,
+            "操作类型": opType,
+            "修改时间": getOpTime(true),
+            // 【新增】关键字段
+            "参考价格": refPrice  // 保存当时的 refPrice！
+        }
+    });
+}
+
+async function loadTodayFlows() {
+    if (!ossClient) return;
+
+    try {
+        const result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
+        const wb = XLSX.read(result.content, { type: 'array' });
+        const todayStr = getOpTime().substring(0, 8);
+
+        if (gmarketdate && gmarketdate.split('-').join('') >= todayStr) {
+            log(`[${key}] Skipped: Date ${todayStr} Outdated`, "yellow");
+            return; 
+        }
+
+        memoryFlows = []; // 清空内存记录
+
+        for (let key in GUARDIAN_CONFIG) {
+            const flowSheetName = GUARDIAN_CONFIG[key].flowName;
+            const sheet = wb.Sheets[flowSheetName];
+
+            if (sheet) {
+                // 【关键】使用 {defval: null} 确保缺失列返回 null 而非 undefined
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+                const todayRows = rows.filter(r => {
+                    const rowTime = String(r["修改时间"] || "");
+                    return rowTime.startsWith(todayStr);
+                });
+
+                todayRows.forEach(r => {
+                    // 【关键】兼容处理：如果"参考价格"列不存在或为null，尝试从其他字段推导
+                    let refPrice = r["参考价格"];
+
+                    // 兼容旧数据：如果没有参考价格，尝试使用"价格"作为兜底
+                    // （不完美，但避免计算错误）
+                    if (refPrice === null || refPrice === undefined || refPrice === '') {
+                        // 尝试从 strategy 或 portfolio 查找（如果可用）
+                        // 注意：此时可能还没加载完，所以主要依赖保存的值
+                        refPrice = null; // 标记为 null，让 calculateUserRtn 处理兜底
+
+                        console.warn(`[loadTodayFlows] 记录缺少参考价格: ${r["股票代码"]} @ ${r["修改时间"]}`);
+                    } else {
+                        refPrice = parseFloat(refPrice);
+                    }
+
+                    memoryFlows.push({
+                        sheet: flowSheetName,
+                        data: {
+                            "组合名称": r["组合名称"],
+                            "股票代码": r["股票代码"],
+                            "股票名称": r["股票名称"],
+                            "配置比例 (%)": r["配置比例 (%)"],
+                            "标的数量": r["标的数量"],
+                            "价格": r["价格"],
+                            "价值": r["价值"],
+                            "操作类型": r["操作类型"],
+                            "修改时间": r["修改时间"],
+                            "参考价格": refPrice  // 可能为 null（旧数据）
+                        }
+                    });
+                });
+            }
+        }
+
+        log(`Loaded ${memoryFlows.length} transactions from today.`, "#0f0");
+
+    } catch (e) {
+        console.error("Load flows error", e);
+        log("Load flows error: " + e.message, "orange");
+    }
+}
+
 // ==========================================
 // OSS 路径辅助函数 (新增)
 // ==========================================
