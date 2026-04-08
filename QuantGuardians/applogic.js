@@ -382,74 +382,6 @@ function onSparkClick(event, key, type, idx) {
     openDetailChart(items, item, color);
 }
 
-// // ================= LOGIC =================
-// 定义在其他文件中
-// async function initOSS() {
-//     if (ossClient) return true;
-    
-//     // 提取配置参数，避免重复写
-//     const postBody = JSON.stringify({
-//         OSS_ACCESS_KEY_ID: window.OSS_CONFIG.ACCESS_KEY_ID,
-//         OSS_ACCESS_KEY_SECRET: window.OSS_CONFIG.ACCESS_KEY_SECRET,
-//         OSS_STS_ROLE_ARN: window.OSS_CONFIG.STS_ROLE_ARN,
-//         OSS_REGION: window.OSS_CONFIG.OSS_REGION
-//     });
-
-//     try {
-//         // --- 第一次获取 Token ---
-//         const res = await fetch(STS_API_URL, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//             },
-//             body: postBody // 发送参数
-//         });
-
-//         if (!res.ok) throw new Error(`STS fetch failed: ${res.status}`);
-//         const data = await res.json();
-
-//         // --- 初始化 OSS 客户端 ---
-//         ossClient = new OSS({
-//             // 关键修改：OSS SDK 的 region 必须带 "oss-" 前缀
-//             // 如果你的配置已经是 "oss-cn-hangzhou"，这里直接用即可。
-//             // 如果配置只有 "cn-hangzhou"，则需要手动加上 "oss-"。
-//             region: window.OSS_CONFIG.OSS_REGION.startsWith('oss-') 
-//                     ? window.OSS_CONFIG.OSS_REGION 
-//                     : `oss-${window.OSS_CONFIG.OSS_REGION}`, 
-//             accessKeyId: data.AccessKeyId,
-//             accessKeySecret: data.AccessKeySecret,
-//             stsToken: data.SecurityToken,
-//             bucket: window.OSS_CONFIG.OSS_BUCKET || OSS_BUCKET, // 确保 bucket 变量存在
-            
-//             // --- 关键修复：刷新 Token 的逻辑 ---
-//             refreshSTSToken: async () => {
-//                 console.log("正在刷新 STS Token...");
-//                 const r = await fetch(STS_API_URL, {
-//                     method: 'POST',
-//                     headers: {
-//                         'Content-Type': 'application/json',
-//                     },
-//                     body: postBody // <--- 这里必须补上，否则刷新会失败！
-//                 });
-                
-//                 if (!r.ok) throw new Error("Refresh token failed");
-//                 const d = await r.json();
-                
-//                 return {
-//                     accessKeyId: d.AccessKeyId,
-//                     accessKeySecret: d.AccessKeySecret,
-//                     stsToken: d.SecurityToken
-//                 };
-//             }
-//         });
-//         return true;
-//     } catch (e) { 
-//         console.error(e);
-//         log("OSS Init Fail", "red"); 
-//         return false; 
-//     }
-// }
-
 async function loadStrategies() {
     log("Loading Strategy Models...", "cyan");
     const promises = Object.keys(GUARDIAN_CONFIG).map(async (key) => {
@@ -2274,7 +2206,8 @@ async function initSystem() {
         await Promise.all([
             loadCloudPortfolio(),
             loadSweetPoints(),
-            loadAdhocFromCloud()
+            loadAdhocFromCloud(),
+            loadTodayFlows()  // <-- 【新增】恢复今日交易流水
         ]);
 
         // --- 【关键修改】在此处立即渲染“静态”列表 ---
