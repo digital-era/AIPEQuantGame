@@ -351,45 +351,13 @@ async function initOSS() {
 }
 
 // ================= 独立函数: 读取 MarketDate.json 获取最大日期 =================
-async function loadMarketDate() {
+async function loadmarketdate() {
     log("Loading Market Date...", "cyan"); // 参照 loadStrategies 增加一条加载提示
-    
     // 💡 【新增修改】防御性检查：确保 ossClient 已经初始化
     if (!ossClient) {
         log("读取 MarketDate 失败: OSS Client 未初始化", "red");
         return; 
     }
-    
-    try {
-        // 请求 MarketDate.json 文件
-        const result = await ossClient.get('MarketDate.json');
-        
-        // 解析 content
-        const jsonStr = result.content 
-            ? (typeof result.content === 'string' ? result.content : new TextDecoder("utf-8").decode(result.content)) 
-            : "";
-        
-        if (jsonStr) {
-            const marketData = JSON.parse(jsonStr);
-            
-            if (marketData && marketData.date) {
-                gmarketdate = marketData.date;
-                // 成功日志替换：使用 cyan (或 green) 颜色
-                log(`MarketDate 加载完成，全局日期: ${gmarketdate}`, "cyan");
-            } else {
-                // 警告日志替换：作为错误处理，使用 red (如果你的 log 支持 yellow 也可以换成 yellow)
-                log(`MarketDate.json 异常: 未找到 'date' 字段`, "red");
-            }
-        }
-    } catch (e) {
-        // 错误日志替换：使用 red 颜色
-        log(`读取 MarketDate 失败: ${e.message}`, "red");
-    }
-}
-
-// ================= 独立函数: 读取 MarketDate.json 获取最大日期 =================
-async function loadmarketdate() {
-    log("Loading Market Date...", "cyan"); // 参照 loadStrategies 增加一条加载提示
     
     try {
         // 请求 MarketDate.json 文件
