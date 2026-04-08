@@ -351,7 +351,7 @@ async function initOSS() {
 }
 
 // ================= 独立函数: 读取 MarketDate.json 获取最大日期 =================
-async function loadmarketdate() {
+async function loadMarketDate() {
     log("Loading Market Date...", "cyan"); // 参照 loadStrategies 增加一条加载提示
     // 💡 【新增修改】防御性检查：确保 ossClient 已经初始化
     if (!ossClient) {
