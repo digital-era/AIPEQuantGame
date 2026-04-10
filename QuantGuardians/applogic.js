@@ -950,16 +950,19 @@ async function fetchPrice(item) {
                 item.refPrice = intradayData[0];
             }
         } else {
-            item.officialChangePercent = null;
-            // 既无分钟线数据，也无收盘价数据 (例如，今天尚未交易或 API 异常)
-            // 此时 currentPrice 保持为 refPrice (来自 Excel 的昨日收盘)，如果 refPrice 也为空，则为 null
-            if (item.refPrice !== null && item.refPrice !== undefined) {
-                item.currentPrice = item.refPrice;
-                // 如果没有交易数据，则用 refPrice 绘制一条平线
-                item.history = [item.refPrice, item.refPrice];
-            } else {
-                item.currentPrice = null;
-                item.history = []; // 没有数据，历史曲线为空
+            // 如果无currentPrice
+            if (!item.currentPrice) {
+              item.officialChangePercent = null;
+              // 既无分钟线数据，也无收盘价数据 (例如，今天尚未交易或 API 异常)
+              // 此时 currentPrice 保持为 refPrice (来自 Excel 的昨日收盘)，如果 refPrice 也为空，则为 null
+              if (item.refPrice !== null && item.refPrice !== undefined) {
+                  item.currentPrice = item.refPrice;
+                  // 如果没有交易数据，则用 refPrice 绘制一条平线
+                  item.history = [item.refPrice, item.refPrice];
+              } else {
+                  item.currentPrice = null;
+                  item.history = []; // 没有数据，历史曲线为空
+              }
             }
         }
 
@@ -994,14 +997,19 @@ async function fetchPrice(item) {
         console.error(`Error fetching price for ${item.code}:`, e);
         // 错误处理中也要清除官方涨跌幅，防止显示过期数据
         item.officialChangePercent = null; 
-        // 出现网络或其他错误时，尝试回退到 refPrice，或保持现有价格
-        if (item.refPrice !== null && item.refPrice !== undefined) {
-            item.currentPrice = item.refPrice;
-            item.history = item.history || [item.refPrice, item.refPrice]; // 保持现有历史或用 refPrice 绘制平线
-        } else {
-            item.currentPrice = null;
-            item.history = item.history || []; // 保持现有历史或为空
+      
+        // 【核心修复】只有从未获取过价格时，才回退到 refPrice
+        // 保持已有数据，避免显示过时价格
+        if (!item.currentPrice) {
+            if (item.refPrice !== null && item.refPrice !== undefined) {
+                item.currentPrice = item.refPrice;
+                item.history = item.history || [item.refPrice, item.refPrice];
+            } else {
+                item.currentPrice = null;
+                item.history = item.history || [];
+            }
         }
+        // 如果已有 currentPrice，保持不变
     }
 }
 
