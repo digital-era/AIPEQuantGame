@@ -353,6 +353,7 @@ function onSparkClick(event, key, type, idx) {
     event.stopPropagation();
 
     let item;
+    let items; // 【修正】增加 items 变量声明，防止污染全局变量
     const guardian = gameState.guardians[key];
 
     switch(type) {
@@ -373,12 +374,21 @@ function onSparkClick(event, key, type, idx) {
             return;
     }
 
-    if (!item || !item.history || item.history.length === 0) {
-        console.warn('No valid item or history for spark click', {key, type, idx});
+    // 【核心修改】：放开对 history 数组长度的严格限制
+    // 只要 item 对象存在，就允许打开模态框，以便用户查看 30日、行业 等其他数据
+    if (!item) {
+        console.warn('No valid item for spark click', {key, type, idx});
         return;
     }
 
+    // 防御性编程：如果 history 不存在，给一个空数组，防止 openDetailChart 内部报错
+    if (!item.history) {
+        item.history = [];
+    }
+
     const color = GUARDIAN_COLORS[key] || '#fff';
+    
+    // 打开详情图表（此时即使用户的分钟线画出来是空的，也可以手动切到 30Days 或 Industry）
     openDetailChart(items, item, color);
 }
 
