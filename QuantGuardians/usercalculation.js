@@ -957,6 +957,10 @@ async function updateSnapshotsAndSyncOSS(workbook, enginesCache) {
         await ossClient.put(getSecureOssPath(OSS_FILE_NAME), blob);
         log(`🚀 Portofolio 附件已成功更新并上传至: ${getSecureOssPath(OSS_FILE_NAME)}`, "#0f0");
 
+        log("\n正在加载 更新后的Portofolio...", "#88f");
+        await loadCloudPortfolio();
+        log(`🚀 Portofolio更新 已经加载完成`, "#0f0");
+
     } catch (e) {
         log(`❌ 同步更新 Excel 数据崩溃: ${e.message}`, "red");
         console.error(e);
