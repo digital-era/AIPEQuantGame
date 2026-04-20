@@ -157,7 +157,15 @@
 	        font-weight: 900;
 	        font-size: 3em; 
 	        letter-spacing: 1px;
-	        background: linear-gradient(135deg, #F7E7CE 0%, #7928CA 50%, #F7E7CE 100%);
+	        /*background: linear-gradient(135deg, #F7E7CE 0%, #7928CA 50%, #F7E7CE 100%);*/
+			background: linear-gradient(
+			    135deg,
+			    #F7E7CE 0%,      /* 香槟色 - 起点 */
+			    #F7E7CE 38%,     /* 香槟色 - 大面积延伸 */
+			    #7928CA 50%,     /* 紫色 - 极窄高光区 */
+			    #F7E7CE 62%,     /* 香槟色 - 快速回归 */
+			    #F7E7CE 100%     /* 香槟色 - 终点 */
+			);
 	        -webkit-background-clip: text;
 	        -webkit-text-fill-color: transparent;
 	        text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
