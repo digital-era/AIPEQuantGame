@@ -410,6 +410,69 @@ async function loadMarketDate() {
             // 失败不阻断流程，仅降级为旧逻辑
             globalMarketMap = {}; 
         }
+
+    // =========================================================================
+    // 步骤 3：根据 gmarketdate 和 globalMarketMap刷新 portfolio 和 adhocObservations 的 refPrice
+    // =========================================================================
+    if (typeof gmarketdate !== 'undefined' && gmarketdate && Object.keys(globalMarketMap).length > 0) {
+        let updateCount = 0;
+        
+        // 【参考代码3】：提取当天数据，并去除 "000001.SZ" 的后缀，转为 6位 纯数字代码的映射表 O(1) 查找
+        const priceLookup = {};
+        const todayMarket = globalMarketMap[gmarketdate] || {}; 
+        
+        for (const [k, v] of Object.entries(todayMarket)) {
+            const cleanCode = String(k).split('.')[0].trim();
+            priceLookup[cleanCode] = parseFloat(v);
+        }
+
+        // 如果当天有行情数据，才执行遍历更新
+        if (Object.keys(priceLookup).length > 0) {
+            // 遍历所有 guardian
+            for (let key in gameState.guardians) {
+                const g = gameState.guardians[key];
+
+                // 1. 更新 g.portfolio
+                if (g.portfolio && g.portfolio.length > 0) {
+                    g.portfolio.forEach(item => {
+                        const safeCode = String(item.code).padStart(6, '0'); // 确保6位纯数字代码
+                        const targetPrice = priceLookup[safeCode]; 
+                        
+                        // 校验找到了价格，且不是 NaN
+                        if (targetPrice !== undefined && !isNaN(targetPrice)) {
+                            item.refPrice = targetPrice; 
+                            updateCount++;
+                        }
+                    });
+                }
+
+                // 2. 更新 g.adhocObservations
+                if (g.adhocObservations && g.adhocObservations.length > 0) {
+                    g.adhocObservations.forEach(item => {
+                        const safeCode = String(item.code).padStart(6, '0');
+                        const targetPrice = priceLookup[safeCode];
+                        
+                        if (targetPrice !== undefined && !isNaN(targetPrice)) {
+                            item.refPrice = targetPrice; 
+                            updateCount++;
+                        }
+                    });
+                }
+            }
+        }
+
+        // 【关键逻辑】：只要数据有更新，只触发纯 UI 渲染，不触发网络请求！
+        if (updateCount > 0) {
+            log(`>> REF PRICE SYNCED FOR ${updateCount} ITEMS BASED ON DATE: ${gmarketdate}`, "#0f0");
+            
+            // 遍历重新计算并渲染 UI
+            Object.keys(gameState.guardians).forEach(k => {
+                if (typeof recalculateAndRenderGuardian === 'function') {
+                    recalculateAndRenderGuardian(k);
+                }
+            });
+        }
+    }        
 }
 
 function recordFlow(key, opType, code, name, inputWeight, price) {
