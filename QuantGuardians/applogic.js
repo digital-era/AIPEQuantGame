@@ -473,6 +473,20 @@ async function loadCloudPortfolio() {
     try {
         const result = await ossClient.get(getSecureOssPath(OSS_FILE_NAME));
         const wb = XLSX.read(result.content, { type: 'array' });
+
+         // --- 增加：预处理市场数据，避免在循环内部重复遍历全市场几千只股票 ---
+        let cleanMarketMap = null;
+        if (typeof gmarketdate !== 'undefined' && gmarketdate && typeof globalMarketMap !== 'undefined') {
+            const todayMarket = globalMarketMap[gmarketdate];
+            if (todayMarket) {
+                cleanMarketMap = {};
+                // 构建 { "600000": 10.5, "000001": 15.2 } 这样的 O(1) 查找表
+                for (const [k, v] of Object.entries(todayMarket)) {
+                    const cleanCode = String(k).split('.')[0].trim();
+                    cleanMarketMap[cleanCode] = parseFloat(v);
+                }
+            }
+        }
         
         for (let key in GUARDIAN_CONFIG) {
             const sheetName = GUARDIAN_CONFIG[key].simpleName;
@@ -558,20 +572,9 @@ async function loadCloudPortfolio() {
                         // 提前在外部声明 yesterdayClose，保证后续逻辑可以使用
                         let yesterdayClose = null;
                         
-                        // 增加从尝试从 gmarketdate和globalMarketMap 获取昨日收盘价
-                        if (typeof gmarketdate !== 'undefined' && gmarketdate && typeof globalMarketMap !== 'undefined') {
-                            const todayMarket = globalMarketMap[gmarketdate];
-                            
-                            if (todayMarket) {
-                                // 遍历当天市场数据寻找匹配的 code
-                                for (const [k, v] of Object.entries(todayMarket)) {
-                                    const cleanCode = String(k).split('.')[0].trim();
-                                    if (cleanCode === String(code).trim()) {
-                                        yesterdayClose = parseFloat(v);
-                                        break; // 找到了就跳出循环，节省性能
-                                    }
-                                }
-                            }
+                        // 增加尝试从预处理好的全局市场映射表中获取昨日收盘价
+                        if (cleanMarketMap && cleanMarketMap[code] !== undefined) {
+                            yesterdayClose = cleanMarketMap[code];
                         }
                         
                         // 检查从 globalMarketMap 获取的值是否"有效" (非 null 且 不是 NaN)
@@ -1321,6 +1324,20 @@ async function loadAdhocFromCloud() {
         
         if (sheet) {
             const raw = XLSX.utils.sheet_to_json(sheet, { raw: false });
+            // --- 增加：预处理市场数据，避免在循环内部重复遍历全市场几千只股票 ---
+            let cleanMarketMap = null;
+            if (typeof gmarketdate !== 'undefined' && gmarketdate && typeof globalMarketMap !== 'undefined') {
+                const todayMarket = globalMarketMap[gmarketdate];
+                if (todayMarket) {
+                    cleanMarketMap = {};
+                    // 构建 { "600000": 10.5, "000001": 15.2 } 这样的 O(1) 查找表
+                    for (const [k, v] of Object.entries(todayMarket)) {
+                        const cleanCode = String(k).split('.')[0].trim();
+                        cleanMarketMap[cleanCode] = parseFloat(v);
+                    }
+                }
+            }
+          
             raw.forEach(row => {
                 const simpleName = row["组合名称"];
                 const key = Object.keys(GUARDIAN_CONFIG).find(k => GUARDIAN_CONFIG[k].simpleName === simpleName);
@@ -1328,30 +1345,18 @@ async function loadAdhocFromCloud() {
                 if (key) {
                     const g = gameState.guardians[key];
                     if (!g.adhocObservations.some(s => s.code === String(row["股票代码"]))) {
-                        // --- 修改：读取收盘价格作为基准价 ---
+                        // --- 增加：读取收盘价格作为基准价 ---
                         // 提前在外部声明 excelClosePrice，保证后续逻辑可以使用
-                        let excelClosePrice = null;
-                        
-                        // 增加从尝试从 gmarketdate和globalMarketMap 获取昨日收盘价
-                        if (typeof gmarketdate !== 'undefined' && gmarketdate && typeof globalMarketMap !== 'undefined') {
-                            const todayMarket = globalMarketMap[gmarketdate];
-                            
-                            if (todayMarket) {
-                                // 遍历当天市场数据寻找匹配的 code
-                                for (const [k, v] of Object.entries(todayMarket)) {
-                                    const cleanCode = String(k).split('.')[0].trim();
-                                    if (cleanCode === String(row["股票代码"]).trim()) {
-                                        excelClosePrice = parseFloat(v);
-                                        break; // 找到了就跳出循环，节省性能
-                                    }
-                                }
-                            }
+                        let excelClosePrice = null;                       
+                        const targetCode = String(row["股票代码"]).trim(); 
+                        // 尝试从预处理好的全局市场映射表中获取价格
+                        if (cleanMarketMap && cleanMarketMap[targetCode] !== undefined) {
+                            excelClosePrice = cleanMarketMap[targetCode];
                         }
 
-                       if (excelClosePrice === null || isNaN(yesterdayClose)) {
+                       if (excelClosePrice === null || isNaN(excelClosePrice)) {
                             excelClosePrice = row["收盘价格"] ? parseFloat(row["收盘价格"]) : null;
-                       }
-                        
+                       }                        
                         
                         g.adhocObservations.push({
                             name: row["股票名称"],
