@@ -385,32 +385,25 @@ async function loadMarketDate() {
         // 错误日志替换：使用 red 颜色
         log(`❌ 读取 MarketDate 失败: ${e.message}`, "red");
     }
-    
-    try {
-        // 1. 确保 OSS 连接已就绪 (复用现有的全局函数)
-        if (!ossClient) {
-            log("正在初始化 OSS 连接...", "#aaa");
-            const success = await initOSS();
-            if (!success) throw new Error("OSS 连接初始化失败，请检查网络或配置");
-        }
 
-        // 2. 加载 MarketMap.json (新增代码)
-        globalMarketMap = {};
-        try {
-            log("正在下载全市场行情数据: MarketMap.json...", "#88f");
-            const marketResult = await ossClient.get('MarketMap.json');
-            
-            // 处理 Buffer 转 JSON
-            const contentString = new TextDecoder("utf-8").decode(marketResult.content);
-            globalMarketMap = JSON.parse(contentString);
-            
-            log(`✅ 行情数据加载成功，涵盖 ${Object.keys(globalMarketMap).length} 个交易日`, "#0f0");
-        } catch (err) {
-            log("⚠️ 未找到 MarketMap.json 或解析失败，将使用交易价格近似计算。", "orange");
-            console.warn(err);
-            // 失败不阻断流程，仅降级为旧逻辑
-            globalMarketMap = {}; 
-        }
+    
+    // 2. 加载 MarketMap.json (新增代码)
+    globalMarketMap = {};
+    try {
+        log("正在下载全市场行情数据: MarketMap.json...", "#88f");
+        const marketResult = await ossClient.get('MarketMap.json');
+        
+        // 处理 Buffer 转 JSON
+        const contentString = new TextDecoder("utf-8").decode(marketResult.content);
+        globalMarketMap = JSON.parse(contentString);
+        
+        log(`✅ 行情数据加载成功，涵盖 ${Object.keys(globalMarketMap).length} 个交易日`, "#0f0");
+    } catch (err) {
+        log("⚠️ 未找到 MarketMap.json 或解析失败，将使用交易价格近似计算。", "orange");
+        console.warn(err);
+        // 失败不阻断流程，仅降级为旧逻辑
+        globalMarketMap = {}; 
+    }
 
     // =========================================================================
     // 步骤 3：根据 gmarketdate 和 globalMarketMap刷新 portfolio 和 adhocObservations 的 refPrice
@@ -426,13 +419,13 @@ async function loadMarketDate() {
             const cleanCode = String(k).split('.')[0].trim();
             priceLookup[cleanCode] = parseFloat(v);
         }
-
+    
         // 如果当天有行情数据，才执行遍历更新
         if (Object.keys(priceLookup).length > 0) {
             // 遍历所有 guardian
             for (let key in gameState.guardians) {
                 const g = gameState.guardians[key];
-
+    
                 // 1. 更新 g.portfolio
                 if (g.portfolio && g.portfolio.length > 0) {
                     g.portfolio.forEach(item => {
@@ -446,7 +439,7 @@ async function loadMarketDate() {
                         }
                     });
                 }
-
+    
                 // 2. 更新 g.adhocObservations
                 if (g.adhocObservations && g.adhocObservations.length > 0) {
                     g.adhocObservations.forEach(item => {
@@ -461,19 +454,12 @@ async function loadMarketDate() {
                 }
             }
         }
-
+    
         // 【关键逻辑】：只要数据有更新，只触发纯 UI 渲染，不触发网络请求！
         if (updateCount > 0) {
             log(`>> REF PRICE SYNCED FOR ${updateCount} ITEMS BASED ON DATE: ${gmarketdate}`, "#0f0");
-            
-            // 遍历重新计算并渲染 UI
-            Object.keys(gameState.guardians).forEach(k => {
-                if (typeof recalculateAndRenderGuardian === 'function') {
-                    recalculateAndRenderGuardian(k);
-                }
-            });
-        }
-    }        
+        }   
+    }
 }
 
 function recordFlow(key, opType, code, name, inputWeight, price) {
