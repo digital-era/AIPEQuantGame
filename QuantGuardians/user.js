@@ -1,6 +1,6 @@
 // 定义全局变量
 let gmarketdate = null;
-let globalMarketMap =  = {};
+let globalMarketMap =  {};
 
 // ==========================================
 // UI 逻辑：Settings Tab 切换
