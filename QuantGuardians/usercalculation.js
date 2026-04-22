@@ -26,23 +26,25 @@ async function triggerCalculation() {
             const success = await initOSS();
             if (!success) throw new Error("OSS 连接初始化失败，请检查网络或配置");
         }
-
-        // 2. 加载 MarketMap.json (新增代码)
-        let globalMarketMap = {};
-        try {
-            log("正在下载全市场行情数据: MarketMap.json...", "#88f");
-            const marketResult = await ossClient.get('MarketMap.json');
-            
-            // 处理 Buffer 转 JSON
-            const contentString = new TextDecoder("utf-8").decode(marketResult.content);
-            globalMarketMap = JSON.parse(contentString);
-            
-            log(`✅ 行情数据加载成功，涵盖 ${Object.keys(globalMarketMap).length} 个交易日`, "#0f0");
-        } catch (err) {
-            log("⚠️ 未找到 MarketMap.json 或解析失败，将使用交易价格近似计算。", "orange");
-            console.warn(err);
-            // 失败不阻断流程，仅降级为旧逻辑
-            globalMarketMap = {}; 
+ 
+        // 2. 加载 MarketMap.json (新增代码) 因为可能已经在初始化完成加载，加入条件：只有当 globalMarketMap 为空（或未定义）时，才执行您的这坨下载代码
+        if (!globalMarketMap || Object.keys(globalMarketMap).length === 0) {
+            globalMarketMap = {}; // 移入判断内部
+            try {
+                log("正在下载全市场行情数据: MarketMap.json...", "#88f");
+                const marketResult = await ossClient.get('MarketMap.json');
+                
+                // 处理 Buffer 转 JSON
+                const contentString = new TextDecoder("utf-8").decode(marketResult.content);
+                globalMarketMap = JSON.parse(contentString);
+                
+                log(`✅ 行情数据加载成功，涵盖 ${Object.keys(globalMarketMap).length} 个交易日`, "#0f0");
+            } catch (err) {
+                log("⚠️ 未找到 MarketMap.json 或解析失败，将使用交易价格近似计算。", "orange");
+                console.warn(err);
+                // 失败不阻断流程，仅降级为旧逻辑
+                globalMarketMap = {}; 
+            }
         }
 
 
