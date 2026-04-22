@@ -245,8 +245,14 @@ async function loadEEIFlow30DaysData() {
                     });
                 }
             }
+            // 【关键新增】：只要数据有更新，只触发纯 UI 渲染，不触发网络请求！
             if (updateCount > 0) {
                 log(`>> REF PRICE SYNCED FOR ${updateCount} ITEMS BASED ON DATE: ${gmarketdate}`, "#0f0");
+                
+                // 遍历重新计算并渲染 UI
+                Object.keys(gameState.guardians).forEach(k => {
+                    recalculateAndRenderGuardian(k);
+                });
             }
         }
         // =========================================================================
