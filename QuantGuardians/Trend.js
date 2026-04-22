@@ -200,65 +200,9 @@ async function loadEEIFlow30DaysData() {
         });
 
         eeiFlow30DaysData = dataMap;
-
+    
         // =========================================================================
-        // 新增增强逻辑：根据 gmarketdate 刷新 portfolio 和 adhocObservations 的 refPrice
-        // =========================================================================
-        if (typeof gmarketdate !== 'undefined' && gmarketdate) {
-            let updateCount = 0;
-            
-            // 遍历所有 guardian
-            for (let key in gameState.guardians) {
-                const g = gameState.guardians[key];
-
-                // 1. 更新 g.portfolio
-                if (g.portfolio && g.portfolio.length > 0) {
-                    g.portfolio.forEach(item => {
-                        const safeCode = String(item.code).padStart(6, '0'); // 确保6位代码匹配
-                        const stockDataArray = eeiFlow30DaysData[safeCode];
-                        
-                        if (stockDataArray) {
-                            // 查找与常量 gmarketdate 匹配的当天数据
-                            const targetData = stockDataArray.find(d => d['日期'] === gmarketdate);
-                            if (targetData && targetData['收盘价'] !== undefined) {
-                                item.refPrice = targetData['收盘价']; // 只更新 refPrice
-                                updateCount++;
-                            }
-                        }
-                    });
-                }
-
-                // 2. 更新 g.adhocObservations
-                if (g.adhocObservations && g.adhocObservations.length > 0) {
-                    g.adhocObservations.forEach(item => {
-                        const safeCode = String(item.code).padStart(6, '0');
-                        const stockDataArray = eeiFlow30DaysData[safeCode];
-                        
-                        if (stockDataArray) {
-                            // 查找与常量 gmarketdate 匹配的当天数据
-                            const targetData = stockDataArray.find(d => d['日期'] === gmarketdate);
-                            if (targetData && targetData['收盘价'] !== undefined) {
-                                item.refPrice = targetData['收盘价']; // 只更新 refPrice
-                                updateCount++;
-                            }
-                        }
-                    });
-                }
-            }
-            // 【关键新增】：只要数据有更新，只触发纯 UI 渲染，不触发网络请求！
-            if (updateCount > 0) {
-                log(`>> REF PRICE SYNCED FOR ${updateCount} ITEMS BASED ON DATE: ${gmarketdate}`, "#0f0");
-                
-                // 遍历重新计算并渲染 UI
-                Object.keys(gameState.guardians).forEach(k => {
-                    recalculateAndRenderGuardian(k);
-                });
-            }
-        }
-        // =========================================================================
-        log(`>> DATA STREAM SYNC COMPLETE. TARGETS ACQUIRED: ${Object.keys(dataMap).length}`, "#0f0");
-
-        
+        log(`>> DATA STREAM SYNC COMPLETE. TARGETS ACQUIRED: ${Object.keys(dataMap).length}`, "#0f0");        
 
     } catch (err) {
         log(">> CRITICAL ERROR: EEI FLOW DATA CORRUPTED. " + (err.message || err), "#f00");
