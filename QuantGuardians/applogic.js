@@ -555,8 +555,30 @@ async function loadCloudPortfolio() {
                             sourceItem = g.adhocObservations.find(s => s.code === code);
                         }
 
-                        // 3. 获取昨日收盘价（参考价）
-                        let yesterdayClose = sourceItem ? sourceItem.refPrice : null;
+                        // 提前在外部声明 yesterdayClose，保证后续逻辑可以使用
+                        let yesterdayClose = null;
+                        
+                        // 增加从尝试从 gmarketdate和globalMarketMap 获取昨日收盘价
+                        if (typeof gmarketdate !== 'undefined' && gmarketdate && typeof globalMarketMap !== 'undefined') {
+                            const todayMarket = globalMarketMap[gmarketdate];
+                            
+                            if (todayMarket) {
+                                // 遍历当天市场数据寻找匹配的 code
+                                for (const [k, v] of Object.entries(todayMarket)) {
+                                    const cleanCode = String(k).split('.')[0].trim();
+                                    if (cleanCode === String(code).trim()) {
+                                        yesterdayClose = parseFloat(v);
+                                        break; // 找到了就跳出循环，节省性能
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 检查从 globalMarketMap 获取的值是否"有效" (非 null 且 不是 NaN)
+                        // 如果无效，则降级使用 sourceItem 中的 refPrice
+                        if (yesterdayClose === null || isNaN(yesterdayClose)) {
+                            yesterdayClose = sourceItem && sourceItem.refPrice !== undefined ? sourceItem.refPrice : null;
+                        }                      
 
                         // 【修改点】: 如果 sourceItem 为空（或者找到了但没有价格），尝试从 Excel 的“收盘价格”读取
                         if (!sourceItem || yesterdayClose === null || yesterdayClose === undefined) {
@@ -1307,7 +1329,29 @@ async function loadAdhocFromCloud() {
                     const g = gameState.guardians[key];
                     if (!g.adhocObservations.some(s => s.code === String(row["股票代码"]))) {
                         // --- 修改：读取收盘价格作为基准价 ---
-                        const excelClosePrice = row["收盘价格"] ? parseFloat(row["收盘价格"]) : null;
+                        // 提前在外部声明 excelClosePrice，保证后续逻辑可以使用
+                        let excelClosePrice = null;
+                        
+                        // 增加从尝试从 gmarketdate和globalMarketMap 获取昨日收盘价
+                        if (typeof gmarketdate !== 'undefined' && gmarketdate && typeof globalMarketMap !== 'undefined') {
+                            const todayMarket = globalMarketMap[gmarketdate];
+                            
+                            if (todayMarket) {
+                                // 遍历当天市场数据寻找匹配的 code
+                                for (const [k, v] of Object.entries(todayMarket)) {
+                                    const cleanCode = String(k).split('.')[0].trim();
+                                    if (cleanCode === String(row["股票代码"]).trim()) {
+                                        excelClosePrice = parseFloat(v);
+                                        break; // 找到了就跳出循环，节省性能
+                                    }
+                                }
+                            }
+                        }
+
+                       if (excelClosePrice === null || isNaN(yesterdayClose)) {
+                            excelClosePrice = row["收盘价格"] ? parseFloat(row["收盘价格"]) : null;
+                       }
+                        
                         
                         g.adhocObservations.push({
                             name: row["股票名称"],
