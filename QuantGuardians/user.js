@@ -1,5 +1,6 @@
 // 定义全局变量
 let gmarketdate = null;
+let globalMarketMap =  = {};
 
 // ==========================================
 // UI 逻辑：Settings Tab 切换
@@ -394,7 +395,7 @@ async function loadMarketDate() {
         }
 
         // 2. 加载 MarketMap.json (新增代码)
-        let globalMarketMap = {};
+        globalMarketMap = {};
         try {
             log("正在下载全市场行情数据: MarketMap.json...", "#88f");
             const marketResult = await ossClient.get('MarketMap.json');
