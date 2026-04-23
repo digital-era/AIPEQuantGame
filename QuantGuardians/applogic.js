@@ -795,7 +795,7 @@ async function updateMarketData(forceFetch = false) {
                 const targetItem = references[j].item;
                 targetItem.currentPrice = baseItem.currentPrice;
                 targetItem.history = baseItem.history;
-                targetItem.refPrice = baseItem.refPrice;
+                // targetItem.refPrice = baseItem.refPrice;   // 删除或注释这一行
                 targetItem.officialChangePercent = baseItem.officialChangePercent;
             }
         } catch (e) {
