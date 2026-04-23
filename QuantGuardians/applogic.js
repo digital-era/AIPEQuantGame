@@ -575,6 +575,10 @@ async function loadCloudPortfolio() {
                         // 增加尝试从预处理好的全局市场映射表中获取昨日收盘价
                         if (cleanMarketMap && cleanMarketMap[code] !== undefined) {
                             yesterdayClose = cleanMarketMap[code];
+                            if (code === "09660") {
+                                console.log(yesterdayClose);
+                            }
+                            log(`Cloud Load info [${code}]: ${yesterdayClose} `, "#0f0");
                         }
                         
                         // 检查从 globalMarketMap 获取的值是否"有效" (非 null 且 不是 NaN)
@@ -1352,6 +1356,10 @@ async function loadAdhocFromCloud() {
                         // 尝试从预处理好的全局市场映射表中获取价格
                         if (cleanMarketMap && cleanMarketMap[targetCode] !== undefined) {
                             excelClosePrice = cleanMarketMap[targetCode];
+                            if (targetCode === "09660") {
+                                console.log(excelClosePrice);
+                            }                            
+                            log(`ADHOC Load info [${targetCode}]: ${excelClosePrice} `, "#0f0");
                         }
 
                        if (excelClosePrice === null || isNaN(excelClosePrice)) {
