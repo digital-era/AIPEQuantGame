@@ -439,17 +439,22 @@
 		.manifesto-text { color: #d0d0d0; }
 		/*.manifesto-text h2 { color: var(--cyber-blue); font-size: 1.5em; font-family: 'Ma Shan Zheng'; padding-left: 10px; padding-right: 10px; line-height: 1.6; margin-top: 30px; margin-bottom: 30px; text-align: center; font-weight: bold; letter-spacing: 0; word-break: keep-all; text-shadow: 0 2px 4px rgba(0,0,0,0.5); border-bottom: 1px solid rgba(255, 215, 0, 0.2); padding-bottom: 20px;}*/
 		.manifesto-text h2 {
-	        font-size: 1.5em;
-	        letter-spacing: 0;
-	        padding-left: 0;
-	        padding-right: 0;
-	
-	        max-width: 18em;        /* 🔥 核心：限制行宽 */
-	        margin-left: auto;
-	        margin-right: auto;
-	
-	        text-wrap: balance;     /* 🔥 自动均匀两行 */
-	    }
+			font-size: 1.35em;	
+			/* ✅ 保留颜色（关键修复） */
+			color: var(--cyber-blue) !important;
+			-webkit-text-fill-color: unset !important;	
+			/* ✅ 保持居中 */
+			text-align: center;	
+			/* ✅ 去掉问题源 */
+			letter-spacing: 0;	
+			/* ✅ 不压缩宽度（关键） */
+			padding-left: 10px;
+			padding-right: 10px;	
+			/* ✅ 防止单字一行 */
+			word-break: keep-all;	
+			/* ✅ 更紧凑一点（减少第三行概率） */
+			line-height: 1.5;
+		}
 		.manifesto-text p { font-size: 1.15em; line-height: 2; margin-bottom: 25px; text-align: justify; text-indent: 2em; color: #bbb; }
 		.manifesto-text p:nth-child(2) { font-weight: bold; color: #e0e0e0; }
 		.manifesto-text .conclusion { margin-top: 50px; text-align: center; text-indent: 0; color: var(--cyber-blue); font-size: 1.3em; padding-top: 20px; border-top: 1px dashed #333; }
