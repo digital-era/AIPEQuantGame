@@ -187,6 +187,8 @@ async function addNewAdhoc(key) {
    
     // 5. 尝试获取实时最新价格作为基准价（核心修改点）
     let basePrice = null;
+    let addhocofficialChangePercent = null;   
+    let addhocRefPrice = 0;                   
     try {
         const finalCode = stock.code.length === 5 ? 'HK' + stock.code : stock.code;
         const priceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`;
