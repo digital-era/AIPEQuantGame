@@ -1085,65 +1085,65 @@ function createRow(key, item, idx, type) {
 
     if (!item.isCash) {
         const stockUrl = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
-        div.ondblclick = (e) => { 
-            e.stopPropagation(); 
-            window.open(stockUrl, '_blank'); 
+        div.ondblclick = (e) => {
+            e.stopPropagation();
+            window.open(stockUrl, '_blank');
         };
     }
-    
-    // 4. 界面渲染逻辑：如果是甜点，在股票名称前添加糖果图标 🍬
+
+    // 甜点图标
     let iconPrefix = "";
-    if(item.isSweet) iconPrefix += "🍬"; 
-    if(iconPrefix !== "") iconPrefix += " ";
-    // --- 修改点：如果是 strategy 且是 adhoc 类型，增加减号 ---
-    let deleteHtml = (type === 'adhocObservations' && item.isAdhoc) ? 
-        `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>` : '';
+    if (item.isSweet) iconPrefix += "🍬";
+    if (iconPrefix !== "") iconPrefix += " ";
+
+    let deleteHtml = (type === 'adhocObservations' && item.isAdhoc)
+        ? `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>`
+        : '';
 
     let nameHtml = `<div class="h-name-wrapper"><span class="h-name">${iconPrefix}${item.name}</span>${deleteHtml}</div>`;
-    //let nameHtml = `${iconPrefix}${item.name}`;
-
     let wHtml = "";
     let pHtml = "";
-    
-    // --- 修改开始：显示逻辑优化 ---
-    if (item.currentPrice) {
-        let chgPctDisplay = 0; // 用于显示的百分比数值 (例如 4.68)
-        let rawChgForColor = 0; // 用于判断颜色的数值
 
-        // 1. 如果有 API 返回的官方收盘涨跌幅，优先使用
+    // ───────────── 涨跌幅显示逻辑 ─────────────
+    if (item.currentPrice) {
+        let chgPctDisplay = 0;
+        let rawChgForColor = 0;
+        let hasRef = false;          // ← 必须声明
+
+        // 1. 优先官方涨跌幅
         if (item.officialChangePercent !== null && item.officialChangePercent !== undefined) {
             chgPctDisplay = item.officialChangePercent;
-            rawChgForColor = chgPctDisplay; // 正数即涨，负数即跌
-        } 
+            rawChgForColor = chgPctDisplay;
         } else {
-            // 2. 其次使用 history 第一个点作为参考价
+            // 2. 其次使用 history[0] 作为临时参考价
             let refPrice = null;
             if (item.history && item.history.length > 0) {
-                refPrice = item.history[0];           // 临时取值，不保存
+                refPrice = item.history[0];
                 hasRef = true;
-            } 
-            // 3. 最后回退到 item.refPrice
+            }
+            // 3. 最后才用 refPrice
             else if (item.refPrice) {
                 refPrice = item.refPrice;
                 hasRef = true;
             }
-    
+
             if (hasRef && refPrice > 0) {
                 const chgDecimal = (item.currentPrice - refPrice) / refPrice;
                 chgPctDisplay = chgDecimal * 100;
                 rawChgForColor = chgDecimal;
             } else {
-                // 没有任何有效参考价，涨跌幅置零（下面会显示 0.00%）
                 chgPctDisplay = 0;
                 rawChgForColor = 0;
             }
         }
-    
+
         const cls = rawChgForColor >= 0 ? "text-up" : "text-down";
         pHtml = `<span class="h-price ${cls}">${item.currentPrice.toFixed(2)}</span>
                  <span class="h-pct ${cls}">${chgPctDisplay.toFixed(2)}%</span>`;
+    } else {
+        // 无有效 currentPrice 时显示占位符
+        pHtml = `<span class="h-price">${item.currentPrice ? item.currentPrice.toFixed(2) : '--'}</span>`;
     }
-    // --- 修改结束 ---
 
     if (type === 'strategy') {
         wHtml = `<span class="h-weight">[${item.weight.toFixed(2)}%]</span>`;
@@ -1151,7 +1151,6 @@ function createRow(key, item, idx, type) {
         wHtml = `<span class="user-weight-display">[${item.weight.toFixed(2)}%]</span>`;
     }
 
-    // ... 后面的 innerHTML 拼接中使用 nameHtml ...
     div.innerHTML = `
         <div class="h-info">${nameHtml}<div class="h-weight-row">${wHtml}</div></div>
         <div class="h-price-col">${pHtml}</div>
@@ -1159,50 +1158,42 @@ function createRow(key, item, idx, type) {
             <canvas id="chart-${key}-${type}-${idx}" class="sparkline"></canvas>
         </div>
     `;
-    
+
+    // ───────────── 微图绘制逻辑 ─────────────
     setTimeout(() => {
-        if(item.history && item.history.length > 1) {
-                // 1. 计算画图用的基准价 (沿用之前的逻辑，反算或兜底)
-                // 这一步是为了防止微图变成一条直线，必须保证 safeRefPrice 是“昨收”
-                let safeRefPrice = item.refPrice;
-                if (item.officialChangePercent !== null && item.officialChangePercent !== undefined && item.currentPrice) {
-                     safeRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
-                } else {
-                     safeRefPrice = (item.refPrice && item.refPrice > 0) ? item.refPrice : item.history[0];
+        if (item.history && item.history.length > 1) {
+            let safeRefPrice;   // 用于纵轴范围的基准价
+            let lineColor;
+
+            // 1. 官方涨跌幅 → 可反推精确昨收，颜色直接由正负决定
+            if (item.officialChangePercent !== null && item.officialChangePercent !== undefined && item.currentPrice) {
+                safeRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
+                lineColor = item.officialChangePercent < 0 ? '#10B981' : '#EF4444';
+            } else {
+                // 2. 无官方涨跌幅时，优先用 history[0] 作为基准价
+                const historyFirst = item.history[0];
+                if (historyFirst != null && historyFirst > 0) {
+                    safeRefPrice = historyFirst;
                 }
-        
-                // 2. 【核心修复】决定线条颜色
-                let lineColor = '#EF4444'; // 默认红色
-                
-                // 优先根据官方涨跌幅判断颜色
-                if (item.officialChangePercent !== null && item.officialChangePercent !== undefined) {
-                    // 如果涨跌幅 < 0 则绿，否则红 (>=0)
-                    lineColor = item.officialChangePercent < 0 ? '#10B981' : '#EF4444';
+                // 3. 其次回退到 refPrice
+                else if (item.refPrice && item.refPrice > 0) {
+                    safeRefPrice = item.refPrice;
                 } else {
-                    // 2. 官方涨跌幅无效时，优先用 history[0] 作为基准价
-                    const historyFirst = item.history[0]; // 临时取值，不保存
-                    if (historyFirst != null && historyFirst > 0) {
-                        safeRefPrice = historyFirst;
-                    } 
-                    // 3. history 无效再降级到 refPrice
-                    else if (item.refPrice && item.refPrice > 0) {
-                        safeRefPrice = item.refPrice;
-                    } else {
-                        safeRefPrice = item.history[0]; // 最后兜底 (理论上 history 已有数据)
-                    }
-        
-                    // 颜色基于当前价与基准价比较
-                    const current = item.currentPrice;
-                    if (current != null && safeRefPrice > 0) {
-                        lineColor = current < safeRefPrice ? '#10B981' : '#EF4444';
-                    } else {
-                        lineColor = '#888'; // 无可靠数据时显示灰色
-                    }
+                    safeRefPrice = historyFirst; // 最终兜底
                 }
-        
-                drawSpark(`chart-${key}-${type}-${idx}`, item.history, safeRefPrice, lineColor);
+
+                // 颜色：当前价与基准价比较
+                if (item.currentPrice != null && safeRefPrice > 0) {
+                    lineColor = item.currentPrice < safeRefPrice ? '#10B981' : '#EF4444';
+                } else {
+                    lineColor = '#888'; // 无可靠数据时灰色
+                }
             }
-        }, 0);
+
+            drawSpark(`chart-${key}-${type}-${idx}`, item.history, safeRefPrice, lineColor);
+        }
+    }, 0);
+
     return div;
 }
 
