@@ -153,8 +153,6 @@ function saveOssSettings() {
     window.OSS_CONFIG = newConfig;
     
     // 【修正】更新全局独立变量 (使用正确的值来源)
-    OSS_BUCKET = regionVal; // 注意：原代码逻辑可能是想分别赋值，但通常有了 OSS_CONFIG 就不需要单独变量，这里为了兼容保留
-    OSS_REGION = bucketVal; // ⚠️ 注意：原代码这里 OSS_BUCKET 和 OSS_REGION 可能弄反了，请根据实际情况检查
     // 修正后的赋值：
     OSS_REGION = regionVal;
     OSS_BUCKET = bucketVal;
