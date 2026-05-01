@@ -399,10 +399,22 @@ function openDetailChart(items, item, color) {
             if (item.history && item.history.length > 0) {
                 values = item.history;
                 labels = values.map((_, i) => i);
-                refValue = item.refPrice || values[0];
+        
+                // 基准价优先顺序：
+                // 1. 官方涨跌幅反推 → 2. history[0] → 3. refPrice → 4. 兜底用 history[0]
                 if (item.officialChangePercent != null && item.currentPrice) {
                     refValue = item.currentPrice / (1 + item.officialChangePercent / 100);
+                } else {
+                    const historyFirst = values[0];
+                    if (historyFirst != null && historyFirst > 0) {
+                        refValue = historyFirst;               // 优先分钟线第一个价格
+                    } else if (item.refPrice && item.refPrice > 0) {
+                        refValue = item.refPrice;              // 其次取 Excel 记录的参考价
+                    } else {
+                        refValue = historyFirst || 0;          // 最终兜底
+                    }
                 }
+        
                 yLabel = '价格';
                 currentValue = values[values.length - 1] || 0;
             }
