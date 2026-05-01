@@ -1115,20 +1115,33 @@ function createRow(key, item, idx, type) {
             chgPctDisplay = item.officialChangePercent;
             rawChgForColor = chgPctDisplay; // 正数即涨，负数即跌
         } 
-        // 2. 否则使用本地计算: (现价 - 基准价) / 基准价
-        else if (item.refPrice) {
-            const chgDecimal = (item.currentPrice - item.refPrice) / item.refPrice;
-            chgPctDisplay = chgDecimal * 100; // 转换为百分比，例如 0.0468 -> 4.68
-            rawChgForColor = chgDecimal;
+        } else {
+            // 2. 其次使用 history 第一个点作为参考价
+            let refPrice = null;
+            if (item.history && item.history.length > 0) {
+                refPrice = item.history[0];           // 临时取值，不保存
+                hasRef = true;
+            } 
+            // 3. 最后回退到 item.refPrice
+            else if (item.refPrice) {
+                refPrice = item.refPrice;
+                hasRef = true;
+            }
+    
+            if (hasRef && refPrice > 0) {
+                const chgDecimal = (item.currentPrice - refPrice) / refPrice;
+                chgPctDisplay = chgDecimal * 100;
+                rawChgForColor = chgDecimal;
+            } else {
+                // 没有任何有效参考价，涨跌幅置零（下面会显示 0.00%）
+                chgPctDisplay = 0;
+                rawChgForColor = 0;
+            }
         }
-
+    
         const cls = rawChgForColor >= 0 ? "text-up" : "text-down";
-        
-        // 渲染 HTML
         pHtml = `<span class="h-price ${cls}">${item.currentPrice.toFixed(2)}</span>
                  <span class="h-pct ${cls}">${chgPctDisplay.toFixed(2)}%</span>`;
-    } else {
-        pHtml = `<span class="h-price">${item.currentPrice ? item.currentPrice.toFixed(2) : '--'}</span>`;
     }
     // --- 修改结束 ---
 
@@ -1166,10 +1179,27 @@ function createRow(key, item, idx, type) {
                     // 如果涨跌幅 < 0 则绿，否则红 (>=0)
                     lineColor = item.officialChangePercent < 0 ? '#10B981' : '#EF4444';
                 } else {
-                    // 兜底：如果没有官方涨跌幅，才比较现价和基准价
-                    lineColor = item.currentPrice < safeRefPrice ? '#10B981' : '#EF4444';
+                    // 2. 官方涨跌幅无效时，优先用 history[0] 作为基准价
+                    const historyFirst = item.history[0]; // 临时取值，不保存
+                    if (historyFirst != null && historyFirst > 0) {
+                        safeRefPrice = historyFirst;
+                    } 
+                    // 3. history 无效再降级到 refPrice
+                    else if (item.refPrice && item.refPrice > 0) {
+                        safeRefPrice = item.refPrice;
+                    } else {
+                        safeRefPrice = item.history[0]; // 最后兜底 (理论上 history 已有数据)
+                    }
+        
+                    // 颜色基于当前价与基准价比较
+                    const current = item.currentPrice;
+                    if (current != null && safeRefPrice > 0) {
+                        lineColor = current < safeRefPrice ? '#10B981' : '#EF4444';
+                    } else {
+                        lineColor = '#888'; // 无可靠数据时显示灰色
+                    }
                 }
-                
+        
                 drawSpark(`chart-${key}-${type}-${idx}`, item.history, safeRefPrice, lineColor);
             }
         }, 0);
