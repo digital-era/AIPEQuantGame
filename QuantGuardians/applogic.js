@@ -30,10 +30,7 @@ const GITHUB_BRANCH = 'main';
 const REAL_API_URL = '/api/query';
 const REAL_API_LOCAL_URL = '/api/querylocal';
 // 本地数据订阅API地址
-var gLocalAPIBase = “”; 
-
-// 全局变量
-let gLocalAPIBase = "";
+let gLocalAPIBase = ''; 
 
 /**
  * 验证并保存本地 API 地址
