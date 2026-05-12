@@ -375,6 +375,43 @@
 
 		.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #333; font-family: 'Roboto Mono'; }
 		.switch-label { color: #e0e0e0; font-size: 1em; }
+
+		/* 本地服务输入框样式 */
+		.local-api-row {
+			align-items: flex-start !important;
+		}
+		
+		#localApiInput {
+			background: #000;
+			border: 1px solid #555;
+			padding: 6px 8px;
+			border-radius: 2px;
+			transition: border-color 0.3s;
+		}
+		
+		#localApiInput:focus {
+			border-color: var(--cyber-blue);
+			outline: none;
+		}
+		
+		#localApiInput.input-error {
+			border-color: #EF4444 !important;
+			box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+		}
+		
+		.api-hint {
+			color: #EF4444;
+			font-size: 0.65em;
+			font-family: 'Roboto Mono', monospace;
+			padding-left: 2px;
+			animation: hintShake 0.3s ease;
+		}
+		
+		@keyframes hintShake {
+			0%, 100% { transform: translateX(0); }
+			25% { transform: translateX(-3px); }
+			75% { transform: translateX(3px); }
+		}
 		
 		.rank-list { padding: 10px; overflow-y: auto; height: 100%; }
 		.rank-item { display: flex; align-items: center; margin-bottom: 15px; opacity: 0; animation: slideIn 0.6s forwards; }
@@ -683,6 +720,24 @@
 			        <span class="switch-label">启用代理</span>
 			        <input type="checkbox" id="chkGitProxyUser" checked onchange="syncProxy(this)" style="width:20px; height:20px; accent-color:#0f0;">
 			    </div>
+
+
+				<!-- 本地服务配置 -->
+				<div class="setting-row local-api-row" style="padding: 5px 10px 15px 10px; flex-wrap: wrap;">
+				    <span class="switch-label">本地服务</span>
+				    <div style="display: flex; flex-direction: column; flex: 1; gap: 4px; min-width: 0;">
+				        <input 
+				            type="text" 
+				            id="localApiInput" 
+				            class="cmd-input" 
+				            style="flex: 1; color: #fff; font-size: 0.75em;" 
+				            placeholder="http://localhost:8080/api"
+				            onblur="validateAndSaveLocalApi()"
+				            onkeydown="if(event.key==='Enter') validateAndSaveLocalApi()"
+				        >
+				        <span id="localApiHint" class="api-hint" style="display: none;">输入本地服务url地址错误</span>
+				    </div>
+				</div>
 			                
                 <!-- 未登录时显示 -->
                 <div id="loginSection" class="auth-form">
