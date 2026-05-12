@@ -28,6 +28,7 @@ const GITHUB_REPO = 'AIPEQModel';
 const GITHUB_BRANCH = 'main';
 // const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 const REAL_API_URL = '/api/query';
+const REAL_API_LOCAL_URL = '/api/querylocal';
 
 // 1. 定义甜点文件名常量
 const SWEET_POINT_FILE = 'SweetPoint_New.json';
@@ -312,6 +313,9 @@ function getOpTime(clamp = false) {
 
 // 全局代理开关：设置为 true 开启代理，false 使用原生链接
 var gitproxy = true; 
+
+// 本地数据订阅API地址
+var gLocalAPIBase = “”; 
 
 // 替换为你刚才部署的 Cloudflare Worker 地址 (末尾不要带斜杠)
 const PROXY_BASE_URL = "https://githubproxy.aivibeinvest.com"; 
@@ -916,7 +920,12 @@ async function fetchPrice(item) {
         // const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday&_t=${Date.now()}_${Math.random()}`; 
         // const intradayRes = await fetch(intradayUrl, { cache: 'no-store' });       
         // const intradayJson = await intradayRes.json();
-        const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
+           
+        if (gLocalAPIBase !== null  && gLocalAPIBase.length > 0) {
+              const intradayUrl = `${gLocalAPIBase}${REAL_API_LOCAL_URL}?code=${finalCode}&type=intraday`;
+        } else {
+              const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`;    
+        }
         const intradayJson = await fetchWithRetry(intradayUrl);
         if (intradayJson && intradayJson.length > 0) {
             intradayData = intradayJson.map(d => parseFloat(d.price));
@@ -932,6 +941,12 @@ async function fetchPrice(item) {
             // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });  
             // const closePriceJson = await closePriceRes.json();
             const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
+
+            if (gLocalAPIBase !== null  && gLocalAPIBase.length > 0) {
+                  const closePriceUrl = `${gLocalAPIBase}${REAL_API_LOCAL_URL}?code=${finalCode}&type=intraday`;
+            } else {
+                  const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price   
+            }
             const closePriceJson = await fetchWithRetry(closePriceUrl);
             // =========== 修改开始 ===========
             if (closePriceJson) {
