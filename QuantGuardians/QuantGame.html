@@ -547,6 +547,43 @@
 		    }
 		
 		}
+
+		/* 本地服务输入框样式 */
+		.local-api-row {
+		    align-items: flex-start !important;
+		}
+		
+		#localApiInput {
+		    background: #000;
+		    border: 1px solid #555;
+		    padding: 6px 8px;
+		    border-radius: 2px;
+		    transition: border-color 0.3s;
+		}
+		
+		#localApiInput:focus {
+		    border-color: var(--cyber-blue);
+		    outline: none;
+		}
+		
+		#localApiInput.input-error {
+		    border-color: #EF4444 !important;
+		    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+		}
+		
+		.api-hint {
+		    color: #EF4444;
+		    font-size: 0.65em;
+		    font-family: 'Roboto Mono', monospace;
+		    padding-left: 2px;
+		    animation: hintShake 0.3s ease;
+		}
+		
+		@keyframes hintShake {
+		    0%, 100% { transform: translateX(0); }
+		    25% { transform: translateX(-3px); }
+		    75% { transform: translateX(3px); }
+		}
 		
     </style>
 </head>
