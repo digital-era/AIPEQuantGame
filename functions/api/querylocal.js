@@ -16,7 +16,7 @@ export async function onRequest(context) {
   // 配置：本地 QMT 服务公网地址（通过 Cloudflare Tunnel 暴露）
   // 示例：https://qmt-api.your-domain.com
   // ==============================
-  const QMT_BASE_URL = "https://qmt-api.your-domain.com"; // ← 替换为你的 Tunnel 域名
+  const QMT_BASE_URL = "https://desktop-6hirfc0.tail8fcfdf.ts.net"; // ← 替换为你的 Tunnel 域名
 
   try {
     // ==============================
