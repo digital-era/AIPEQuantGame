@@ -29,6 +29,73 @@ const GITHUB_BRANCH = 'main';
 // const REAL_API_URL = 'https://aipeinvestmentagent.pages.dev/api/rtStockQueryProxy';
 const REAL_API_URL = '/api/query';
 const REAL_API_LOCAL_URL = '/api/querylocal';
+// 本地数据订阅API地址
+var gLocalAPIBase = “”; 
+
+// 全局变量
+let gLocalAPIBase = "";
+
+/**
+ * 验证并保存本地 API 地址
+ */
+function validateAndSaveLocalApi() {
+    const input = document.getElementById('localApiInput');
+    const hint = document.getElementById('localApiHint');
+    const value = input.value.trim();
+    
+    // 空值视为清除
+    if (value === "") {
+        gLocalAPIBase = "";
+        input.classList.remove('input-error');
+        hint.style.display = 'none';
+        return true;
+    }
+    
+    // 验证 URL 格式
+    if (isValidUrl(value)) {
+        gLocalAPIBase = value.endsWith('/') ? value.slice(0, -1) : value;
+        input.classList.remove('input-error');
+        hint.style.display = 'none';
+      
+        // 在 validateAndSaveLocalApi() 的验证成功分支内添加：
+        localStorage.setItem('gLocalAPIBase', gLocalAPIBase);
+      
+        return true;
+    } else {
+        gLocalAPIBase = "";
+        input.classList.add('input-error');
+        hint.style.display = 'block';
+        // 重新触发动画
+        hint.style.animation = 'none';
+        hint.offsetHeight; // 强制重排
+        hint.style.animation = 'hintShake 0.3s ease';
+        return false;
+    }
+}
+
+/**
+ * 检查是否为合法 URL
+ */
+function isValidUrl(string) {
+    try {
+        const url = new URL(string);
+        // 只允许 http 和 https 协议
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
+/**
+ * 页面加载时恢复已保存的地址（如有 localStorage 需求可扩展）
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    const saved = localStorage.getItem('gLocalAPIBase');
+    if (saved) {
+        document.getElementById('localApiInput').value = saved;
+        gLocalAPIBase = saved;
+    }
+});
 
 // 1. 定义甜点文件名常量
 const SWEET_POINT_FILE = 'SweetPoint_New.json';
@@ -44,6 +111,8 @@ const HISTORY_FILES = {
     genbu: '低波稳健模型优化后评估.json', suzaku: '大成模型优化后评估.json',
     sirius: '流入模型优化后评估.json', kirin: '大智模型优化后评估.json'
 };
+
+
 
 // 【新增】额外的综合评估文件定义
 const EXTRA_HISTORY_FILES = {
@@ -313,9 +382,6 @@ function getOpTime(clamp = false) {
 
 // 全局代理开关：设置为 true 开启代理，false 使用原生链接
 var gitproxy = true; 
-
-// 本地数据订阅API地址
-var gLocalAPIBase = “”; 
 
 // 替换为你刚才部署的 Cloudflare Worker 地址 (末尾不要带斜杠)
 const PROXY_BASE_URL = "https://githubproxy.aivibeinvest.com"; 
