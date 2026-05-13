@@ -1390,7 +1390,9 @@ async function updateMarketDataBatch(forceFetch = false) {
             if (!references) continue;
 
             const baseItem = references[0].item;
-            const intradayRaw = batchResults[code];
+            / 【修正】后端返回字典 key 带 HK 前缀，前端原始 code 是纯数字，需要映射
+            const lookupCode = code.length === 5 ? 'HK' + code : code;
+            const intradayRaw =  batchResults[lookupCode];           
 
             try {
                 // ---- 内联 fetchPrice 核心逻辑，避免重复请求 ----
@@ -1405,7 +1407,8 @@ async function updateMarketDataBatch(forceFetch = false) {
 
                 // 4.2 注入收盘价（休市时）
                 if (marketIsClosed) {
-                    const priceData = priceResults[code];
+                    const lookupCode = code.length === 5 ? 'HK' + code : code;
+                    const priceData = priceResults[lookupCode];
                     if (priceData) {
                         if (priceData.latestPrice !== undefined) {
                             closingPriceApiResult = parseFloat(priceData.latestPrice);
