@@ -1313,12 +1313,14 @@ async function updateMarketDataSingle(forceFetch = false) {
     return allPricesFetchedSuccessfully;
 }
 
-
-// ===================== 新增：批量逻辑 =====================
+// ===================== 批量逻辑（已优化）====================
 async function updateMarketDataBatch(forceFetch = false) {
-    // 1. 收集所有股票（去重）
+    // 1. 收集所有股票（去重）+ 构建 Guardian 专属队列
     const uniqueStocksMap = new Map();
     const guardianKeys = Object.keys(gameState.guardians);
+    const guardianQueues = {};
+    
+    guardianKeys.forEach(key => guardianQueues[key] = []);
 
     guardianKeys.forEach(key => {
         const g = gameState.guardians[key];
@@ -1332,105 +1334,168 @@ async function updateMarketDataBatch(forceFetch = false) {
             if (!item.code) return;
             if (!uniqueStocksMap.has(item.code)) {
                 uniqueStocksMap.set(item.code, []);
+                guardianQueues[key].push(item.code); // 放入首次发现它的 Guardian 队列
             }
             uniqueStocksMap.get(item.code).push({ item, guardianKey: key });
         });
     });
 
-    const uniqueCodes = Array.from(uniqueStocksMap.keys());
-    log(`Total unique stocks: ${uniqueCodes.length}`, "#aaa");
+    // 2. Round-Robin 合并队列，生成公平排序的代码列表
+    // 效果：A1, B1, C1, D1, A2, B2, C2, D2... 确保 4 个面板交错分布
+    const fairUniqueCodes = [];
+    let hasMore = true;
+    while (hasMore) {
+        hasMore = false;
+        for (let key of guardianKeys) {
+            if (guardianQueues[key].length > 0) {
+                hasMore = true;
+                const code = guardianQueues[key].shift();
+                if (!fairUniqueCodes.includes(code)) {
+                    fairUniqueCodes.push(code);
+                }
+            }
+        }
+    }
 
-    // 2. 批量获取价格数据（每批20只）
     const BATCH_SIZE = 20;
     let allPricesFetchedSuccessfully = true;
+    const marketIsClosed = isMarketClosed();
     const priceResults = {};
 
-    const marketIsClosed = isMarketClosed();
-
+    // 3. 如果休市，先批量获取收盘价（量小，通常 1-2 批就完）
     if (marketIsClosed) {
-        for (let i = 0; i < uniqueCodes.length; i += BATCH_SIZE) {
-            const batch = uniqueCodes.slice(i, i + BATCH_SIZE);
-            log(`Fetching price batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(uniqueCodes.length / BATCH_SIZE)}`, "#666");
+        for (let i = 0; i < fairUniqueCodes.length; i += BATCH_SIZE) {
+            const batch = fairUniqueCodes.slice(i, i + BATCH_SIZE);
+            log(`Fetching price batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(fairUniqueCodes.length / BATCH_SIZE)}`, "#666");
 
             const batchResults = await fetchBatchPrices(batch, 'price');
             Object.assign(priceResults, batchResults);
 
-            if (i + BATCH_SIZE < uniqueCodes.length) {
+            if (i + BATCH_SIZE < fairUniqueCodes.length) {
                 await sleep(250);
             }
         }
     }
 
-    // 3. 批量获取分时数据（每批20只）
-    const intradayResults = {};
-    for (let i = 0; i < uniqueCodes.length; i += BATCH_SIZE) {
-        const batch = uniqueCodes.slice(i, i + BATCH_SIZE);
-        log(`Fetching intraday batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(uniqueCodes.length / BATCH_SIZE)}`, "#666");
+    // 4. 【核心优化】按 RR 顺序分批获取分时数据，每批回来后立即处理并渲染
+    for (let i = 0; i < fairUniqueCodes.length; i += BATCH_SIZE) {
+        const batch = fairUniqueCodes.slice(i, i + BATCH_SIZE);
+        log(`Fetching intraday batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(fairUniqueCodes.length / BATCH_SIZE)}`, "#666");
 
         const batchResults = await fetchBatchIntraday(batch);
-        Object.assign(intradayResults, batchResults);
 
-        if (i + BATCH_SIZE < uniqueCodes.length) {
+        // 立即处理本批次，不等后续批次
+        for (const code of batch) {
+            const references = uniqueStocksMap.get(code);
+            if (!references) continue;
+
+            const baseItem = references[0].item;
+            const intradayRaw = batchResults[code];
+
+            try {
+                // ---- 内联 fetchPrice 核心逻辑，避免重复请求 ----
+                let intradayData = [];
+                let officialChangePercent = null;
+                let closingPriceApiResult = null;
+
+                // 4.1 解析批量返回的分时数据
+                if (intradayRaw && Array.isArray(intradayRaw) && intradayRaw.length > 0) {
+                    intradayData = intradayRaw.map(d => parseFloat(d.price));
+                }
+
+                // 4.2 注入收盘价（休市时）
+                if (marketIsClosed) {
+                    const priceData = priceResults[code];
+                    if (priceData) {
+                        if (priceData.latestPrice !== undefined) {
+                            closingPriceApiResult = parseFloat(priceData.latestPrice);
+                            officialChangePercent = priceData.changePercent !== undefined
+                                ? parseFloat(priceData.changePercent)
+                                : null;
+                        } else if (priceData.price !== undefined) {
+                            closingPriceApiResult = parseFloat(priceData.price);
+                        }
+                        if (priceData.name) baseItem.name = priceData.name;
+                    }
+                }
+
+                // 4.3 状态机：确定 currentPrice / history / refPrice（与 fetchPrice 完全一致）
+                if (marketIsClosed && closingPriceApiResult !== null) {
+                    baseItem.currentPrice = closingPriceApiResult;
+                    baseItem.officialChangePercent = officialChangePercent;
+                    baseItem.history = intradayData.length > 0 ? intradayData : [closingPriceApiResult, closingPriceApiResult];
+                    if (baseItem.refPrice == null) baseItem.refPrice = closingPriceApiResult;
+                } else if (intradayData.length > 0) {
+                    baseItem.currentPrice = intradayData[intradayData.length - 1];
+                    baseItem.officialChangePercent = null; // 交易中清除官方涨幅，强制实时计算
+                    baseItem.history = intradayData;
+                    if (baseItem.refPrice == null) baseItem.refPrice = intradayData[0];
+                } else {
+                    if (!baseItem.currentPrice) {
+                        baseItem.officialChangePercent = null;
+                        if (baseItem.refPrice != null) {
+                            baseItem.currentPrice = baseItem.refPrice;
+                            baseItem.history = [baseItem.refPrice, baseItem.refPrice];
+                        } else {
+                            baseItem.currentPrice = null;
+                            baseItem.history = [];
+                        }
+                    }
+                }
+
+                // 4.4 refPrice 智能修正（与 fetchPrice 完全一致）
+                if (baseItem.currentPrice) {
+                    if (baseItem.officialChangePercent != null && baseItem.officialChangePercent !== undefined) {
+                        const deducedRefPrice = baseItem.currentPrice / (1 + baseItem.officialChangePercent / 100);
+                        if (!baseItem.refPrice) baseItem.refPrice = deducedRefPrice;
+                    } else if (baseItem.refPrice == null || baseItem.refPrice === 0) {
+                        baseItem.refPrice = intradayData.length > 0 ? intradayData[0] : baseItem.currentPrice;
+                    }
+                }
+
+                // 4.5 验证结果
+                if (baseItem.currentPrice === null) {
+                    allPricesFetchedSuccessfully = false;
+                }
+
+                // 4.6 克隆到同代码的其他 Guardian 引用
+                for (let j = 1; j < references.length; j++) {
+                    const targetItem = references[j].item;
+                    targetItem.currentPrice = baseItem.currentPrice;
+                    targetItem.history = baseItem.history;
+                    targetItem.refPrice = baseItem.refPrice;
+                    targetItem.officialChangePercent = baseItem.officialChangePercent;
+                    targetItem.name = baseItem.name;
+                }
+
+                // 4.7 【渐进式渲染】立即更新受影响的 Guardian
+                const affectedGuardians = new Set(references.map(ref => ref.guardianKey));
+                affectedGuardians.forEach(k => recalculateAndRenderGuardian(k));
+
+                // 4.8 【修正】ADHOC 标的特殊处理（与原 fetchPrice 逻辑一致）
+                if (baseItem.isAdhoc) {
+                    for (let k in gameState.guardians) {
+                        if (gameState.guardians[k].strategy.includes(baseItem)) {
+                            renderLists(k);
+                            break;
+                        }
+                    }
+                }
+
+            } catch (e) {
+                console.error(`Process failed for ${code}:`, e);
+                allPricesFetchedSuccessfully = false;
+            }
+        }
+
+        if (i + BATCH_SIZE < fairUniqueCodes.length) {
             await sleep(250);
         }
     }
 
-    // 4. 分发数据到各个 item（模拟 fetchPrice 的结果）
-    for (const [code, references] of uniqueStocksMap) {
-        const baseItem = references[0].item;
-        const priceData = priceResults[code];
-        const intradayData = intradayResults[code];
+    log(`Sync Price Data Finish. Total processed: ${fairUniqueCodes.length} unique stocks`, "#aaa");
 
-        try {
-            // 注入价格数据
-            if (marketIsClosed && priceData && priceData.latestPrice !== undefined) {
-                baseItem.currentPrice = parseFloat(priceData.latestPrice);
-                baseItem.officialChangePercent = priceData.changePercent !== undefined
-                    ? parseFloat(priceData.changePercent)
-                    : null;
-                baseItem.name = priceData.name || baseItem.name;
-            }
-
-            // 注入分时数据
-            if (intradayData && Array.isArray(intradayData) && intradayData.length > 0) {
-                baseItem.history = intradayData.map(d => parseFloat(d.price));
-                
-                if (!baseItem.refPrice && baseItem.history.length > 0) {
-                    baseItem.refPrice = baseItem.history[0];
-                }
-            }
-
-            // 调用 fetchPrice 做后续处理（refPrice修正、休市逻辑等）
-            // fetchPrice 会检测到已有数据，不会重复请求
-            await fetchPrice(baseItem);
-
-            if (baseItem.currentPrice === null) {
-                allPricesFetchedSuccessfully = false;
-            }
-
-            // 克隆到同代码的其他引用
-            for (let j = 1; j < references.length; j++) {
-                const targetItem = references[j].item;
-                targetItem.currentPrice = baseItem.currentPrice;
-                targetItem.history = baseItem.history;
-                targetItem.refPrice = baseItem.refPrice;
-                targetItem.officialChangePercent = baseItem.officialChangePercent;
-                targetItem.name = baseItem.name;
-            }
-
-            // 渐进式更新 UI
-            const affectedGuardians = new Set(references.map(ref => ref.guardianKey));
-            affectedGuardians.forEach(k => recalculateAndRenderGuardian(k));
-
-        } catch (e) {
-            console.error(`Process failed for ${code}:`, e);
-            allPricesFetchedSuccessfully = false;
-        }
-    }
-
-    log(`Sync Price Data Finish. Total processed: ${uniqueCodes.length} unique stocks`, "#aaa");
-
-    // 5. 休市锁定
+    // 5. 休市锁定（保持原版逻辑）
     if (marketIsClosed && allPricesFetchedSuccessfully && !hasClosedPrices) {
         hasClosedPrices = true;
         if (priceUpdateInterval) {
