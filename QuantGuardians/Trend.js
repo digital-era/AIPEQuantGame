@@ -932,6 +932,8 @@ function validateAndSaveLocalApi() {
         gLocalAPIBase = "";
         input.classList.remove('input-error');
         hint.style.display = 'none';
+        // 在 validateAndSaveLocalApi() 的验证成功分支内添加：
+        localStorage.setItem('gLocalAPIBase', gLocalAPIBase);
         return true;
     }
     
