@@ -980,9 +980,6 @@ function isValidUrl(string) {
 // 用于控制请求间隔的 sleep 函数
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-
-
-
 /**
  * 获取股票价格及历史数据
  * @param {object} item - 包含股票代码、名称、历史价格等的对象
@@ -1199,6 +1196,121 @@ async function updateMarketData(forceFetch = false) {
         log("Sync Price Data (Single Mode) Started", "#aaa");
         return await updateMarketDataSingle(forceFetch);
     }
+}
+
+// ===================== 单个逻辑 =====================
+async function updateMarketDataSingle(forceFetch = false) {
+    // 1. 休市检查逻辑 (保持原版逻辑)
+    if (hasClosedPrices && !forceFetch) {
+        log("Market closed. Skipping price data fetch.", "#666");
+        Object.keys(gameState.guardians).forEach(k => recalculateAndRenderGuardian(k));
+        return true; 
+    }
+
+    log("Sync Price Data (Fair-Throttled Mode) Started", "#aaa"); 
+    
+    // 2. 全局去重，并按照 Guardian 建立各自的“专属队列”
+    const uniqueStocksMap = new Map(); 
+    const guardianQueues = {}; 
+    const guardianKeys = Object.keys(gameState.guardians);
+    
+    guardianKeys.forEach(key => {
+        guardianQueues[key] = [];
+    });
+
+    // 遍历收集数据
+    guardianKeys.forEach(guardianKey => {
+        const g = gameState.guardians[guardianKey];
+        const allItems = [
+            ...g.strategy, 
+            ...g.adhocObservations, 
+            ...g.portfolio.filter(p => !p.isCash)
+        ];
+
+        allItems.forEach(item => {
+            if (!item.code) return;
+            
+            // 全局首次遇到该代码
+            if (!uniqueStocksMap.has(item.code)) {
+                uniqueStocksMap.set(item.code, []);
+                // 放入首次发现它的 Guardian 队列
+                guardianQueues[guardianKey].push(item.code);
+            }
+            
+            // 记录引用关系
+            uniqueStocksMap.get(item.code).push({ item, guardianKey });
+        });
+    });
+
+    // 3. 轮询发牌（Round-Robin）合并队列，保证 4 个面板进度公平
+    const fairUniqueCodes = [];
+    let hasMore = true;
+    
+    while (hasMore) {
+        hasMore = false;
+        for (let key of guardianKeys) {
+            if (guardianQueues[key].length > 0) {
+                hasMore = true;
+                fairUniqueCodes.push(guardianQueues[key].shift()); 
+            }
+        }
+    }
+
+    let allPricesFetchedSuccessfully = true;
+
+    // 4. 平滑且公平地排队请求 (限流核心)
+    for (let i = 0; i < fairUniqueCodes.length; i++) {
+        const code = fairUniqueCodes[i];
+        const references = uniqueStocksMap.get(code);
+        const baseItem = references[0].item;
+
+        try {
+            // 发起单次网络请求
+            await fetchPrice(baseItem);
+            
+            // 【还原原版逻辑】原版依赖 currentPrice === null 判断获取是否成功
+            if (baseItem.currentPrice === null) {
+                allPricesFetchedSuccessfully = false;
+            }
+            
+            // 将数据克隆给所有持有该股票的其他引用
+            for (let j = 1; j < references.length; j++) {
+                const targetItem = references[j].item;
+                targetItem.currentPrice = baseItem.currentPrice;
+                targetItem.history = baseItem.history;
+                // targetItem.refPrice = baseItem.refPrice;   // 删除或注释这一行
+                targetItem.officialChangePercent = baseItem.officialChangePercent;
+            }
+        } catch (e) {
+            console.error(`Fetch failed for ${code}:`, e);
+            allPricesFetchedSuccessfully = false;
+        }
+
+        // 渐进式更新 UI
+        const affectedGuardians = new Set(references.map(ref => ref.guardianKey));
+        affectedGuardians.forEach(k => {
+            recalculateAndRenderGuardian(k);
+        });
+
+        // 增加延迟防限流 (最后一次请求不用等)
+        if (i < fairUniqueCodes.length - 1) {
+            await sleep(250); 
+        }
+    }
+    
+    log(`Sync Price Data Finish. Total processed: ${fairUniqueCodes.length} unique stocks`, "#aaa"); 
+
+    // 5. 休市锁定逻辑 (保持原版)
+    if (isMarketClosed() && allPricesFetchedSuccessfully && !hasClosedPrices) {
+        hasClosedPrices = true; 
+        if (priceUpdateInterval) {
+            clearInterval(priceUpdateInterval); 
+            priceUpdateInterval = null; 
+        }
+        log("Market closed. Prices locked.", "yellow");
+    }
+
+    return allPricesFetchedSuccessfully;
 }
 
 
