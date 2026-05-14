@@ -1936,20 +1936,23 @@ function renderStaticLists() {
  * 将 30 日 EEI 数据的最后一日的 PotScore 绑定到所有标的对象上
  * @param {Object} potScoreMap - 格式: { "600519": 0.85, "000001": -0.12, ... }
  */
-function attachPotScores(potScoreMap) {
-    if (!potScoreMap || typeof potScoreMap !== 'object') return;
+function attachPotScores() {
+    if (!eeiFlow30DaysData) return;
     
     Object.keys(gameState.guardians).forEach(key => {
         const g = gameState.guardians[key];
         
-        // 遍历 strategy / portfolio / adhocObservations 三个列表
         [g.strategy, g.portfolio, g.adhocObservations].forEach(list => {
             if (!Array.isArray(list)) return;
+            
             list.forEach(item => {
-                // 根据股票代码匹配（注意 code 可能是字符串，需统一类型）
-                const codeKey = String(item.code || '').trim();
-                if (codeKey && potScoreMap[codeKey] !== undefined) {
-                    item.lastPotScore = parseFloat(potScoreMap[codeKey]);
+                const code = String(item.code || '').trim();
+                const history = eeiFlow30DaysData[code];
+                
+                // 取最后一日的 PotScore
+                if (Array.isArray(history) && history.length > 0) {
+                    const lastDay = history[history.length - 1];
+                    item.lastPotScore = lastDay["PotScore"] || 0;
                 }
             });
         });
@@ -2032,8 +2035,7 @@ async function initSystem() {
 
         // ===== 新增：绑定 PotScore 并刷新列表颜色 =====
         if (eeiFlowData.status === 'fulfilled' && eeiFlowData.value) {
-            attachPotScores(eeiFlowData.value);
-            // 强制重刷所有列表，使 PotScore 颜色生效
+            attachPotScores();  // ← 无参数，直接使用全局 eeiFlow30DaysData
             Object.keys(gameState.guardians).forEach(key => renderLists(key));
         }
         // ================================================
