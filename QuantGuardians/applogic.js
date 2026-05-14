@@ -806,13 +806,32 @@ function createRow(key, item, idx, type) {
     const div = document.createElement('div');
     div.className = 'holding-item';
 
-    if (!item.isCash) {
+    /* if (!item.isCash) {
         const stockUrl = `https://aipeinvestmentagent.pages.dev/PotScoreFundAnalytics?stock=${encodeURIComponent(item.name)}`;
         div.ondblclick = (e) => {
             e.stopPropagation();
             window.open(stockUrl, '_blank');
         };
-    }
+    }*/
+
+    if (!item.isCash) {
+      // 东方财富 K 线图
+      div.ondblclick = (e) => {
+          e.stopPropagation();
+          
+          const isHK = item.code.length === 5;
+          let url;
+          
+          if (isHK) {
+              url = `https://quote.eastmoney.com/hk/${item.code}.html`;
+          } else {
+              const prefix = item.code.startsWith('6') ? 'sh' : 'sz';
+              url = `https://quote.eastmoney.com/${prefix}${item.code}.html`;
+          }
+          
+          window.open(url, '_blank');
+      };
+  }
 
     // 甜点图标
     let iconPrefix = "";
