@@ -448,7 +448,7 @@ async function loadTodayFlows() {
         const todayStr = getOpTime().substring(0, 8);
 
         if (gmarketdate && gmarketdate.split('-').join('') >= todayStr) {
-            log(`[${key}] Skipped: Date ${todayStr} Outdated`, "yellow");
+            log(`loadTodayFlows Skipped: Date ${todayStr} Outdated`, "#0f0");
             return; 
         }
 
