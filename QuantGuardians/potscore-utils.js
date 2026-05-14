@@ -55,27 +55,40 @@ async function fetchAllStocksDatafromOSS() {
 // 从 OSS 下载 EEIFlow30Days.xlsx，直接传文件名
 const OSS_EEI_30DAYS_FILE = 'EEIFlow30Days.xlsx';   // OSS 上的文件名（含子目录）
 
-async function loadEEIFlow30DaysDatafromOSS() {
+async function loadEEIFlow30DaysData() {
     if (eeiFlow30DaysData !== null) return; 
     
     try {
         log(">> INITIATING DATA STREAM: 30-DAY FLOW ANALYSIS FROM OSS...", "#0ff");
 
-        // 【核心改造】OSS 客户端直接下载
         if (!ossClient) {
             const inited = await initOSS();
             if (!inited) throw new Error("OSS Client Init Failed");
         }
 
-        const result = await ossClient.get(OSS_EEI_30DAYS_FILE);  // ← 直接传 OSS 文件名
-
-        // OSS 返回 ArrayBuffer，XLSX 直接读取
-        const arrayBuffer = result.content;
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const result = await ossClient.get(OSS_EEI_30DAYS_FILE);
         
-        // 后续解析逻辑完全不变
+        // 【核心修复】将 Buffer 转换为 ArrayBuffer
+        let arrayBuffer;
+        if (result.content instanceof ArrayBuffer) {
+            arrayBuffer = result.content;
+        } else if (typeof Buffer !== 'undefined' && result.content instanceof Buffer) {
+            // Node.js Buffer → ArrayBuffer
+            arrayBuffer = result.content.buffer.slice(
+                result.content.byteOffset,
+                result.content.byteOffset + result.content.byteLength
+            );
+        } else if (result.content && typeof result.content === 'object') {
+            // 可能是 TypedArray 或其他类数组
+            arrayBuffer = result.content.buffer || result.content;
+        } else {
+            throw new Error("Unknown content type: " + typeof result.content);
+        }
+
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
+
         const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: null });
         
         const dataMap = {};
@@ -120,9 +133,9 @@ async function loadEEIFlow30DaysDatafromOSS() {
 
     } catch (err) {
         log(">> CRITICAL ERROR: EEI FLOW DATA CORRUPTED. " + (err.message || err), "#f00");
+        console.error("Full error:", err);
     }
 }
-
 /**
  * 将 30 日 EEI 数据的最后一日的 PotScore 绑定到所有标的对象上
  * @param {Object} potScoreMap - 格式: { "600519": 0.85, "000001": -0.12, ... }
