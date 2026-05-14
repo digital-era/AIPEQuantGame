@@ -823,7 +823,16 @@ function createRow(key, item, idx, type) {
         ? `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>`
         : '';
 
-    let nameHtml = `<div class="h-name-wrapper"><span class="h-name">${iconPrefix}${item.name}</span>${deleteHtml}</div>`;
+    // ===== 核心修改：根据 lastPotScore 决定颜色类 =====
+    const potClass = (item.lastPotScore !== undefined && item.lastPotScore > 0) 
+        ? 'pot-positive' 
+        : '';    
+    let nameHtml = `<div class="h-name-wrapper">
+        <span class="h-name ${potClass}">${iconPrefix}${item.name}</span>
+        ${deleteHtml}
+    </div>`;
+    // ==================================================
+  
     let wHtml = "";
     let pHtml = "";
 
@@ -1923,6 +1932,30 @@ function renderStaticLists() {
     });
 }
 
+/**
+ * 将 30 日 EEI 数据的最后一日的 PotScore 绑定到所有标的对象上
+ * @param {Object} potScoreMap - 格式: { "600519": 0.85, "000001": -0.12, ... }
+ */
+function attachPotScores(potScoreMap) {
+    if (!potScoreMap || typeof potScoreMap !== 'object') return;
+    
+    Object.keys(gameState.guardians).forEach(key => {
+        const g = gameState.guardians[key];
+        
+        // 遍历 strategy / portfolio / adhocObservations 三个列表
+        [g.strategy, g.portfolio, g.adhocObservations].forEach(list => {
+            if (!Array.isArray(list)) return;
+            list.forEach(item => {
+                // 根据股票代码匹配（注意 code 可能是字符串，需统一类型）
+                const codeKey = String(item.code || '').trim();
+                if (codeKey && potScoreMap[codeKey] !== undefined) {
+                    item.lastPotScore = parseFloat(potScoreMap[codeKey]);
+                }
+            });
+        });
+    });
+}
+
 async function initSystem() {
     if (gameState.active) return;
 
@@ -1997,6 +2030,14 @@ async function initSystem() {
             loadEEIFlow30DaysData()
         ]);
 
+        // ===== 新增：绑定 PotScore 并刷新列表颜色 =====
+        if (eeiFlowData.status === 'fulfilled' && eeiFlowData.value) {
+            attachPotScores(eeiFlowData.value);
+            // 强制重刷所有列表，使 PotScore 颜色生效
+            Object.keys(gameState.guardians).forEach(key => renderLists(key));
+        }
+        // ================================================
+      
         // 处理市场数据结果，启动定时器
         if (marketDataResult.status === 'fulfilled') {
             if (hasClosedPrices) { 
