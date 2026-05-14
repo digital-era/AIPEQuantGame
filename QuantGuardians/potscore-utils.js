@@ -55,7 +55,7 @@ async function fetchAllStocksDatafromOSS() {
 // 从 OSS 下载 EEIFlow30Days.xlsx，直接传文件名
 const OSS_EEI_30DAYS_FILE = 'EEIFlow30Days.xlsx';   // OSS 上的文件名（含子目录）
 
-async function loadEEIFlow30DaysData() {
+async function loadEEIFlow30DaysDatafromOSS() {
     if (eeiFlow30DaysData !== null) return; 
     
     try {
