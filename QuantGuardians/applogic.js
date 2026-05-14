@@ -1934,7 +1934,7 @@ async function initSystem() {
     // 进入加载态
     if (topBtn) topBtn.disabled = true;
     if (statusText) {
-        statusText.innerText = ">> Initializing...";
+        statusText.innerText = ">> 系统初始化加载...";
         statusText.style.color = "#ff0";           // 亮黄：进行中
         statusText.style.textShadow = "0 0 5px rgba(255,255,0,0.4)";
     }
@@ -2028,7 +2028,7 @@ async function initSystem() {
             topBtn.title = "系统已在线";
         }
         if (statusText) {
-            statusText.innerText = ">> System Online";
+            statusText.innerText = ">> 系统在线";
             statusText.style.color = CYBER_BLUE;           // Cyan：在线
             statusText.style.textShadow = `0 0 8px ${CYBER_BLUE}`;
         }
@@ -2039,7 +2039,7 @@ async function initSystem() {
         //btn.innerText = "INIT FAILED";
         //btn.style.color = "red";
         if (statusText) {
-            statusText.innerText = ">> INIT FAILED";
+            statusText.innerText = ">> 系统初始化失败";
             statusText.style.color = "#EF4444";            // 红：故障
             statusText.style.textShadow = "0 0 8px rgba(239,68,68,0.5)";
         }
