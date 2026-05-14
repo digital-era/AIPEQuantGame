@@ -1942,17 +1942,23 @@ function attachPotScores() {
     Object.keys(gameState.guardians).forEach(key => {
         const g = gameState.guardians[key];
         
+        // 遍历三个列表：strategy、portfolio、adhocObservations
         [g.strategy, g.portfolio, g.adhocObservations].forEach(list => {
             if (!Array.isArray(list)) return;
             
             list.forEach(item => {
+                // 初始化默认值（必须先赋值，防止 undefined）
+                item.lastPotScore = 0;
+                
                 const code = String(item.code || '').trim();
                 const history = eeiFlow30DaysData[code];
                 
-                // 取最后一日的 PotScore
+                // 如果找到该股票的30天数据，取最后一日的 PotScore
                 if (Array.isArray(history) && history.length > 0) {
                     const lastDay = history[history.length - 1];
-                    item.lastPotScore = lastDay["PotScore"] || 0;
+                    // 确保 PotScore 是有效数字，否则保持 0
+                    const potScore = Number(lastDay["PotScore"]);
+                    item.lastPotScore = !isNaN(potScore) ? potScore : 0;
                 }
             });
         });
