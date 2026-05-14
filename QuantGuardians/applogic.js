@@ -823,10 +823,10 @@ function createRow(key, item, idx, type) {
         ? `<span class="delete-btn" onclick="removeAdhocItem(event, '${key}', ${idx})">−</span>`
         : '';
 
-    // ===== 核心修改：根据 lastPotScore 决定颜色类 =====
-    const potClass = (item.lastPotScore !== undefined && item.lastPotScore > 0) 
+    // 核心修改：条件：超大单连续3天>0 且 大单连续3天>0 且 PotScore > 0  决定颜色类 
+    const potClass = (item.isSuperFlowPositive && item.isBigFlowPositive && item.lastPotScore > 0) 
         ? 'pot-positive' 
-        : '';    
+        : '';
     let nameHtml = `<div class="h-name-wrapper">
         <span class="h-name ${potClass}">${iconPrefix}${item.name}</span>
         ${deleteHtml}
@@ -1032,11 +1032,21 @@ function executeOrder(key, type) {
             existing.weight += increment;
             existing.currentPrice = price; 
         } else {
+            const newItem = {
+                code: item.code,
+                name: item.name,
+                weight: increment,
+                currentPrice: price,
+                refPrice: item.refPrice,
+                history: item.history || []
+                // 注意：不要在这里初始化 lastPotScore，让 attachSinglePotScore 处理
+            };
+            
+            // 【新增】绑定 PotScore 和资金条件
+            attachSinglePotScore(newItem);
+          
             // Adhoc 股票买入后将进入 Portfolio
-            g.portfolio.unshift({ 
-                code: item.code, name: item.name, weight: increment,
-                currentPrice: price, refPrice: item.refPrice, history: item.history
-            });
+            g.portfolio.unshift(newItem);
         }
         recordFlow(key, 'Buy', item.code, item.name, weight, price);
         msgEl.innerText = `BOUGHT ${item.name}`;
@@ -1941,28 +1951,49 @@ function attachPotScores() {
     
     Object.keys(gameState.guardians).forEach(key => {
         const g = gameState.guardians[key];
-        
-        // 遍历三个列表：strategy、portfolio、adhocObservations
         [g.strategy, g.portfolio, g.adhocObservations].forEach(list => {
             if (!Array.isArray(list)) return;
-            
-            list.forEach(item => {
-                // 初始化默认值（必须先赋值，防止 undefined）
-                item.lastPotScore = 0;
-                
-                const code = String(item.code || '').trim();
-                const history = eeiFlow30DaysData[code];
-                
-                // 如果找到该股票的30天数据，取最后一日的 PotScore
-                if (Array.isArray(history) && history.length > 0) {
-                    const lastDay = history[history.length - 1];
-                    // 确保 PotScore 是有效数字，否则保持 0
-                    const potScore = Number(lastDay["PotScore"]);
-                    item.lastPotScore = !isNaN(potScore) ? potScore : 0;
-                }
-            });
+            list.forEach(item => attachSinglePotScore(item));
         });
     });
+}
+
+/**
+ * 为单个 item 更新 PotScore 和资金条件
+ * @param {Object} item - 标的对象
+ */
+function attachSinglePotScore(item) {
+    if (!eeiFlow30DaysData || !item || !item.code) return;
+    
+    // 重置默认值
+    item.lastPotScore = 0;
+    item.isSuperFlowPositive = false;
+    item.isBigFlowPositive = false;
+    
+    const code = String(item.code).trim();
+    const history = eeiFlow30DaysData[code];
+    
+    if (Array.isArray(history) && history.length >= 3) {
+        const last3Days = history.slice(-3);
+        
+        const superFlowPositive = last3Days.every(day => {
+            const val = Number(day['超大单净流入-净占比']);
+            return !isNaN(val) && val > 0;
+        });
+        
+        const bigFlowPositive = last3Days.every(day => {
+            const val = Number(day['大单净流入-净占比']);
+            return !isNaN(val) && val > 0;
+        });
+        
+        if (superFlowPositive && bigFlowPositive) {
+            const lastDay = history[history.length - 1];
+            const potScore = Number(lastDay["PotScore"]);
+            item.lastPotScore = !isNaN(potScore) ? potScore : 0;
+            item.isSuperFlowPositive = true;
+            item.isBigFlowPositive = true;
+        }
+    }
 }
 
 async function initSystem() {
