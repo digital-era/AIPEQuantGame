@@ -282,6 +282,36 @@
 
         .settlement-panel { width: 100%; max-width: 1400px; background: var(--panel-bg); border: 2px solid #555; padding: 20px; margin-bottom: 20px; display: none; }
         .chart-wrapper { position: relative; height: 300px; width: 100%; }
+
+		  /* 顶部系统状态栏 */
+        .system-status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 15px;
+            margin: 0 auto 15px auto;
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid #333;
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        .system-status-text {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.8em;
+            color: #0f0;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 5px rgba(0,255,0,0.3);
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+        #topEngageBtn {
+            width: 36px;
+            height: 36px;
+            font-size: 1.1em;
+            flex-shrink: 0;
+        }
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { 
             background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; 
@@ -612,6 +642,12 @@
             </div>
         </div>
 
+		<!-- 新增：系统快速入口与状态栏 -->
+        <div class="system-status-bar">
+            <button class="icon-btn" id="topEngageBtn" onclick="if(checkActionAuth('Engage Systems')) initSystem()" title="进入系统">🚀</button>
+            <span id="systemStatusText" class="system-status-text">> System Standby...</span>
+        </div>
+
         <div class="container">
             <!-- SUZAKU -->
             <div class="guardian-card g-suzaku" id="card-suzaku">
@@ -679,8 +715,8 @@
             <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
         </div>
 
-        <div class="system-controls">
-            <button id="engageBtn" class="start-btn" onclick="if(checkActionAuth('Engage Systems')) initSystem()">[ 进入系统 ]</button>
+ 		<div class="system-controls">
+            <div class="start-btn" style="cursor:default; pointer-events:none; box-shadow:none; border-color:#444; color:#666; display:inline-block;">[ 系统日志 ]</div>
             <div class="log-box" id="systemLog"><div class="log-line">> System Standby...</div></div>
         </div>
     </div> 
