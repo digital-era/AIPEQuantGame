@@ -2018,18 +2018,19 @@ async function initSystem() {
         //btn.innerText = "系统在线";
         //btn.style.boxShadow = "0 0 20px #0f0";
         // 成功：更新顶部状态栏为在线态
+        const CYBER_BLUE = '#00E5FF';  // 与 CSS --cyber-blue 保持一致
+        
         if (topBtn) {
-            topBtn.style.borderColor = "#0f0";
-            topBtn.style.color = "#0f0";
-            topBtn.style.boxShadow = "0 0 10px #0f0";
+            topBtn.style.borderColor = CYBER_BLUE;
+            topBtn.style.color = CYBER_BLUE;
+            topBtn.style.boxShadow = `0 0 10px ${CYBER_BLUE}`;
             topBtn.title = "系统已在线";
         }
         if (statusText) {
             statusText.innerText = ">> System Online";
-            statusText.style.color = "#0f0";
-            statusText.style.textShadow = "0 0 8px rgba(0,255,0,0.5)";
+            statusText.style.color = CYBER_BLUE;
+            statusText.style.textShadow = `0 0 8px ${CYBER_BLUE}`;
         }
-
 
     } catch (err) {
         // [修改] 风格化日志：替换 console.error
