@@ -2012,8 +2012,8 @@ async function initSystem() {
         // 并行获取行情、全量股票列表、EEI数据
         const [marketDataResult, allStocksData, eeiFlowData] = await Promise.allSettled([
             updateMarketData(true), // 这里会触发 renderLists，此时 Adhoc 和 SweetPoint 均已就绪
-            fetchAllStocksData(),
-            loadEEIFlow30DaysData()
+            fetchAllStocksDatafromOSS(),   //修改为从OSS下载
+            loadEEIFlow30DaysDatafromOSS() //修改为从OSS下载
         ]);
 
         // ===== 新增：绑定 PotScore 并刷新列表颜色 =====
