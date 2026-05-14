@@ -189,7 +189,7 @@
     		-webkit-backdrop-filter: blur(5px);
 	    }
 	
-        .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .container { max-width: 1400px; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; isolation: isolate; contain: layout paint style;}
         
 		.guardian-card { 
 		    background: var(--panel-bg); 
@@ -362,6 +362,11 @@
 				transform: none;
 				/* contain: content; 删除 */
 		    }
+			/* 新增：图表容器在移动端独立成层，内部变化不向外扩散 */
+		    #settlementPanel {
+		        contain: strict;
+		        transform: translateZ(0);
+		    }
         }
         
         ::-webkit-scrollbar { width: 4px; }
@@ -487,7 +492,7 @@
 		
 		@media (min-width: 1024px) {
 		    body { transform: none; width: 100%; height: 100vh; overflow-x: hidden; overflow-y: auto; }
-            .main-scaler { transform: scale(0.9); transform-origin: 0 0; width: 111.11%; min-height: 111.11vh; overflow-x: hidden; position: relative; }
+            .main-scaler { transform: scale(0.9); transform-origin: 0 0; width: 111.11%; min-height: 111.11vh; overflow-x: hidden; position: relative; isolation: isolate; }
 		    .modal-overlay { width: 100vw; height: 100vh; left: 0; top: 0; }
 		}
 
