@@ -2040,8 +2040,8 @@ async function initSystem() {
         ]);
 
         // ===== 新增：绑定 PotScore 并刷新列表颜色 =====
-        if (eeiFlowData.status === 'fulfilled' && eeiFlowData.value) {
-            attachPotScores();  // ← 无参数，直接使用全局 eeiFlow30DaysData
+        if (eeiFlow30DaysData) {
+            attachPotScores();
             Object.keys(gameState.guardians).forEach(key => renderLists(key));
         }
         // ================================================
