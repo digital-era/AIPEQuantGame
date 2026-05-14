@@ -53,12 +53,14 @@ async function fetchAllStocksDatafromOSS() {
 }
 
 // 从 OSS 下载 EEIFlow30Days.xlsx，直接传文件名
-const OSS_EEI_30DAYS_FILE = 'EEIFlow30Days.xlsx';   // OSS 上的文件名（含子目录）
+const OSS_EEI_30DAYS_FILE = 'EEIFlow30Days.xlsx';
 
 async function loadEEIFlow30DaysDatafromOSS() {
-    if (eeiFlow30DaysData !== null) return; 
-    
+
+    if (eeiFlow30DaysData !== null) return;
+
     try {
+
         log(">> INITIATING DATA STREAM: 30-DAY FLOW ANALYSIS FROM OSS...", "#0ff");
 
         if (!ossClient) {
@@ -67,75 +69,145 @@ async function loadEEIFlow30DaysDatafromOSS() {
         }
 
         const result = await ossClient.get(OSS_EEI_30DAYS_FILE);
-        
-        // 【核心修复】将 Buffer 转换为 ArrayBuffer
+
         let arrayBuffer;
-        if (result.content instanceof ArrayBuffer) {
+
+        // =========================
+        // 最稳 Blob 方案
+        // =========================
+
+        if (result.content instanceof Blob) {
+
+            arrayBuffer = await result.content.arrayBuffer();
+
+        } else if (result.content instanceof ArrayBuffer) {
+
             arrayBuffer = result.content;
-        } else if (typeof Buffer !== 'undefined' && result.content instanceof Buffer) {
-            // Node.js Buffer → ArrayBuffer
+
+        } else if (result.content instanceof Uint8Array) {
+
+            // 必须 slice
             arrayBuffer = result.content.buffer.slice(
                 result.content.byteOffset,
                 result.content.byteOffset + result.content.byteLength
             );
-        } else if (result.content && typeof result.content === 'object') {
-            // 可能是 TypedArray 或其他类数组
-            arrayBuffer = result.content.buffer || result.content;
+
         } else {
-            throw new Error("Unknown content type: " + typeof result.content);
+
+            throw new Error(
+                "Unsupported OSS content type: " +
+                Object.prototype.toString.call(result.content)
+            );
         }
 
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        // =========================
+        // XLSX 读取
+        // =========================
+
+        const workbook = XLSX.read(arrayBuffer, {
+            type: 'array'
+        });
+
         const sheetName = workbook.SheetNames[0];
+
         const sheet = workbook.Sheets[sheetName];
 
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: null });
-        
+        const jsonData = XLSX.utils.sheet_to_json(sheet, {
+            defval: null
+        });
+
         const dataMap = {};
+
         jsonData.forEach(row => {
+
             let rawCode = row['代码'];
+
             if (rawCode === undefined || rawCode === null) return;
+
             const code = String(rawCode).padStart(6, '0');
 
             let dateStr = row['日期'];
+
             if (typeof dateStr === 'number') {
-                const dateObj = new Date(Math.round((dateStr - 25569)*86400*1000));
+
+                const dateObj = new Date(
+                    Math.round((dateStr - 25569) * 86400 * 1000)
+                );
+
                 dateStr = dateObj.toISOString().split('T')[0];
+
             } else {
-                dateStr = String(dateStr || '').trim().split(' ')[0];
+
+                dateStr = String(dateStr || '')
+                    .trim()
+                    .split(' ')[0];
             }
 
             const cleanRow = {
+
                 '代码': code,
                 '名称': row['名称'] ? String(row['名称']) : '',
                 '日期': dateStr,
+
                 '收盘价': Number(row['收盘价'] || 0),
-                '涨跌幅': Number(row['涨跌幅'] || 0), 
+                '涨跌幅': Number(row['涨跌幅'] || 0),
+
                 'PotScore': Number(row['PotScore'] || 0),
-                '超大单净流入-净占比': Number(row['超大单净流入-净占比'] || 0),
-                '主力净流入-净占比': Number(row['主力净流入-净占比'] || 0),
-                '大单净流入-净占比': Number(row['大单净流入-净占比'] || 0),
-                '中单净流入-净占比': Number(row['中单净流入-净占比'] || 0),
-                '小单净流入-净占比': Number(row['小单净流入-净占比'] || 0),
-                '总净流入占比': Number(row['总净流入占比'] || 0)
+
+                '超大单净流入-净占比':
+                    Number(row['超大单净流入-净占比'] || 0),
+
+                '主力净流入-净占比':
+                    Number(row['主力净流入-净占比'] || 0),
+
+                '大单净流入-净占比':
+                    Number(row['大单净流入-净占比'] || 0),
+
+                '中单净流入-净占比':
+                    Number(row['中单净流入-净占比'] || 0),
+
+                '小单净流入-净占比':
+                    Number(row['小单净流入-净占比'] || 0),
+
+                '总净流入占比':
+                    Number(row['总净流入占比'] || 0)
             };
 
-            if (!dataMap[code]) dataMap[code] = [];
+            if (!dataMap[code]) {
+                dataMap[code] = [];
+            }
+
             dataMap[code].push(cleanRow);
         });
 
         Object.keys(dataMap).forEach(key => {
-            dataMap[key].sort((a, b) => a['日期'].localeCompare(b['日期']));
+
+            dataMap[key].sort((a, b) =>
+                a['日期'].localeCompare(b['日期'])
+            );
         });
 
         eeiFlow30DaysData = dataMap;
-        log(`>> DATA STREAM SYNC COMPLETE. TARGETS ACQUIRED: ${Object.keys(dataMap).length}`, "#0f0");
+
+        log(
+            `>> DATA STREAM SYNC COMPLETE. TARGETS ACQUIRED: ${
+                Object.keys(dataMap).length
+            }`,
+            "#0f0"
+        );
 
     } catch (err) {
-        log(">> CRITICAL ERROR: EEI FLOW DATA CORRUPTED. " + (err.message || err), "#f00");
+
+        log(
+            ">> CRITICAL ERROR: EEI FLOW DATA CORRUPTED. " +
+            (err.message || err),
+            "#f00"
+        );
+
         console.error("Full error:", err);
     }
 }
+
 /**
  * 将 30 日 EEI 数据的最后一日的 PotScore 绑定到所有标的对象上
  * @param {Object} potScoreMap - 格式: { "600519": 0.85, "000001": -0.12, ... }
