@@ -1925,8 +1925,17 @@ function renderStaticLists() {
 
 async function initSystem() {
     if (gameState.active) return;
-    const btn = document.getElementById('engageBtn');
-    btn.innerText = "加载中...";
+    const topBtn = document.getElementById('topEngageBtn');
+    const statusText = document.getElementById('systemStatusText');  
+     // 进入加载态
+    if (topBtn) topBtn.disabled = true;
+    if (statusText) {
+        statusText.innerText = ">> 加载中...";
+        statusText.style.color = "#ff0";           // 黄色：加载中
+        statusText.style.textShadow = "none";
+    }
+    //const btn = document.getElementById('engageBtn');
+    //btn.innerText = "加载中...";
     
     try {
         // ============================================================
@@ -2005,14 +2014,38 @@ async function initSystem() {
         setupAllAdhocAutoCompletes();
 
         gameState.active = true;
-        btn.innerText = "系统在线";
-        btn.style.boxShadow = "0 0 20px #0f0";
+      
+        //btn.innerText = "系统在线";
+        //btn.style.boxShadow = "0 0 20px #0f0";
+        // 成功：更新顶部状态栏为在线态
+        if (topBtn) {
+            topBtn.style.borderColor = "#0f0";
+            topBtn.style.color = "#0f0";
+            topBtn.style.boxShadow = "0 0 10px #0f0";
+            topBtn.title = "系统已在线";
+        }
+        if (statusText) {
+            statusText.innerText = ">> System Online";
+            statusText.style.color = "#0f0";
+            statusText.style.textShadow = "0 0 8px rgba(0,255,0,0.5)";
+        }
+
 
     } catch (err) {
         // [修改] 风格化日志：替换 console.error
         console.error("Init System Critical Failure:", err); // 保留系统级 error 用于浏览器调试
-        btn.innerText = "INIT FAILED";
-        btn.style.color = "red";
+        //btn.innerText = "INIT FAILED";
+        //btn.style.color = "red";
+        // 故障：顶部状态栏标红
+        if (statusText) {
+            statusText.innerText = ">> INIT FAILED";
+            statusText.style.color = "#EF4444";
+            statusText.style.textShadow = "0 0 8px rgba(239,68,68,0.5)";
+        }
+        if (topBtn) {
+            topBtn.style.borderColor = "#EF4444";
+            topBtn.style.color = "#EF4444";
+        }
         log(">> SYSTEM INITIALIZATION FATAL ERROR: " + err.message, "#f00");
     }
 }
