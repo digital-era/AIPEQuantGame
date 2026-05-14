@@ -362,10 +362,28 @@
 				transform: none;
 				/* contain: content; 删除 */
 		    }
-			/* 新增：图表容器在移动端独立成层，内部变化不向外扩散 */
+			
+		    /*  删除这整块*/
+		    /*
 		    #settlementPanel {
 		        contain: strict;
 		        transform: translateZ(0);
+		    }
+		    */
+		    
+		    /* ✅ 替换为：仅保留合成层提升，但允许内容溢出绘制 */
+		    #settlementPanel {
+		        transform: translateZ(0);  /* 保留 GPU 层，但不用 contain */
+		        overflow: visible;        /* 强制溢出可见，防止绘制被裁剪 */
+		        min-height: 340px;        /* 确保容器撑开 */
+		    }
+		    
+		    /* ✅ 加固图表内部容器 */
+		    .chart-wrapper {
+		        position: relative;
+		        height: 300px;
+		        min-height: 300px;
+		        overflow: visible;        /* Canvas 的绘制溢出不被裁剪 */
 		    }
         }
         
