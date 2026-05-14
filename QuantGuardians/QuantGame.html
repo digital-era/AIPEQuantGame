@@ -239,7 +239,20 @@
         .holding-item.is-cash { border-left-color: var(--user-gold); background: #1a1a10; }
 
         .h-info { display: flex; flex-direction: column; justify-content: center; }
-        .h-name { font-weight: bold; font-size: 0.8em; color: #ddd; display: block; margin-bottom: 2px;} 
+        .h-name { 
+		    font-weight: bold; 
+		    font-size: 0.8em; 
+		    color: #ddd;           /* 默认白色 */
+		    display: block; 
+		    margin-bottom: 2px;
+		    transition: color 0.3s ease;  /* 平滑过渡 */
+		}
+		
+		/* 新增：PotScore > 0 时的 Cyan 高亮 */
+		.h-name.pot-positive {
+		    color: #00E5FF;
+		    text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+		}
         .h-weight-row { display: flex; align-items: center; font-size: 0.7em; }
         .h-weight { color: #aaa; margin-right: 8px; }
         .user-weight-display { color: var(--user-gold); font-weight: bold; }
