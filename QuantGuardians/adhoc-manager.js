@@ -243,6 +243,11 @@ async function addNewAdhoc(key) {
         joinPrice: basePrice,          // 可选：记录加入时的价格，便于后续对比/显示
         joinTime: new Date().toISOString()
     };
+
+    // 【新增】即时绑定 PotScore 和资金条件
+    if (typeof attachSinglePotScore === 'function') {
+        attachSinglePotScore(newItem);
+    }
    
     gameState.guardians[key].adhocObservations.push(newItem);
    
