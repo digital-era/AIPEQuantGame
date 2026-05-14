@@ -1925,14 +1925,18 @@ function renderStaticLists() {
 
 async function initSystem() {
     if (gameState.active) return;
+
     const topBtn = document.getElementById('topEngageBtn');
-    const statusText = document.getElementById('systemStatusText');  
-     // 进入加载态
+    const statusText = document.getElementById('systemStatusText');
+    const CYBER_BLUE = '#00E5FF';
+    const GOLD = '#FFD700';
+    
+    // 进入加载态
     if (topBtn) topBtn.disabled = true;
     if (statusText) {
-        statusText.innerText = ">> 加载中...";
-        statusText.style.color = "#ff0";           // 黄色：加载中
-        statusText.style.textShadow = "none";
+        statusText.innerText = ">> Initializing...";
+        statusText.style.color = "#ff0";           // 亮黄：进行中
+        statusText.style.textShadow = "0 0 5px rgba(255,255,0,0.4)";
     }
     //const btn = document.getElementById('engageBtn');
     //btn.innerText = "加载中...";
@@ -2013,13 +2017,10 @@ async function initSystem() {
         // 3. 设置自动补全（依赖于 fetchAllStocksData 的结果）
         setupAllAdhocAutoCompletes();
 
-        gameState.active = true;
-      
+        gameState.active = true;      
         //btn.innerText = "系统在线";
-        //btn.style.boxShadow = "0 0 20px #0f0";
+        //btn.style.boxShadow = "0 0 20px #0f0";      
         // 成功：更新顶部状态栏为在线态
-        const CYBER_BLUE = '#00E5FF';  // 与 CSS --cyber-blue 保持一致
-        
         if (topBtn) {
             topBtn.style.borderColor = CYBER_BLUE;
             topBtn.style.color = CYBER_BLUE;
@@ -2028,7 +2029,7 @@ async function initSystem() {
         }
         if (statusText) {
             statusText.innerText = ">> System Online";
-            statusText.style.color = CYBER_BLUE;
+            statusText.style.color = CYBER_BLUE;           // Cyan：在线
             statusText.style.textShadow = `0 0 8px ${CYBER_BLUE}`;
         }
 
@@ -2037,10 +2038,9 @@ async function initSystem() {
         console.error("Init System Critical Failure:", err); // 保留系统级 error 用于浏览器调试
         //btn.innerText = "INIT FAILED";
         //btn.style.color = "red";
-        // 故障：顶部状态栏标红
         if (statusText) {
             statusText.innerText = ">> INIT FAILED";
-            statusText.style.color = "#EF4444";
+            statusText.style.color = "#EF4444";            // 红：故障
             statusText.style.textShadow = "0 0 8px rgba(239,68,68,0.5)";
         }
         if (topBtn) {
