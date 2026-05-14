@@ -298,20 +298,47 @@
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
         }
+        
         .system-status-text {
             font-family: 'Roboto Mono', monospace;
             font-size: 0.8em;
-            color: #0f0;
+            /* 修改：待机默认黄色 */
+            color: #FFD700;
             letter-spacing: 0.5px;
-            text-shadow: 0 0 5px rgba(0,255,0,0.3);
+            /* 修改：黄色微光晕 */
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
             transition: color 0.3s, text-shadow 0.3s;
         }
+        
+        /* 修改：🚀 图标按钮默认即带 Cyan 霓虹框 */
         #topEngageBtn {
             width: 36px;
             height: 36px;
             font-size: 1.1em;
             flex-shrink: 0;
+            border-color: var(--cyber-blue);
+            color: var(--cyber-blue);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
         }
+        
+        /* 鼠标悬停时增强光晕 */
+        #topEngageBtn:hover {
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.8);
+            background: rgba(0, 229, 255, 0.1);
+        }
+        
+        /* 加载中：保持黄色（与待机区分） */
+        .system-status-text.loading {
+            color: #ff0;
+            text-shadow: 0 0 5px rgba(255, 255, 0, 0.4);
+        }
+        
+        /* 在线态：Cyan（由 JS 动态设置，CSS 兜底） */
+        .system-status-text.online {
+            color: #00E5FF;
+            text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+        }
+		
         .system-controls { margin-top: 10px; text-align: center; width: 100%; max-width: 800px; }
         .start-btn { 
             background: #000; color: #0f0; border: 2px solid #0f0; padding: 15px 40px; 
