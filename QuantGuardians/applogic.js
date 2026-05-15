@@ -2013,7 +2013,7 @@ async function initSystem() {
         // 3. loadAdhocFromCloud: 依赖 OSS Client
         await Promise.all([
             loadCloudPortfolio(),
-            loadSweetPoints(),
+            //loadSweetPoints(),
             loadAdhocFromCloud(),
             loadTodayFlows()  // <-- 【新增】恢复今日交易流水
         ]);
