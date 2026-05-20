@@ -61,12 +61,12 @@ export async function onRequestPost(context) {
     try {
         const { username, password } = await request.json();
         if (!username || !password) {
-            return new Response(JSON.stringify({ error: "Missing credentials" }), { status: 400 });
+            return new Response(JSON.stringify({ error: "未授权缺少凭据" }), { status: 400 });
         }
 
         const storedPassword = await env.aipeusers.get(username);
         if (!storedPassword) {
-            return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
+            return new Response(JSON.stringify({ error: "无效的用户名或密码" }), { status: 401 });
         }        
 
         let isPasswordValid = false;
@@ -88,7 +88,7 @@ export async function onRequestPost(context) {
             // 【新增条件逻辑】校验 USER_TYPE 前缀或 admin
             // 注意: 加入 !env.USER_TYPE 是为了防御性编程，防止环境变量未配置时引发 startsWith 报错
             if (username !== "admin"  && (!env.USER_TYPE || !username.startsWith(env.USER_TYPE)) && (!env.VIP_USER_TYPE || !username.startsWith(env.VIP_USER_TYPE)) && (!env.VVIP_USER_TYPE || !username.startsWith(env.VVIP_USER_TYPE))) {
-                return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
+                return new Response(JSON.stringify({ error: "无效的用户名或密码" }), { status: 401 });
             }
 
             // 【无缝升级】如果当前存的是明文，自动替换为密文存入 KV
@@ -106,10 +106,10 @@ export async function onRequestPost(context) {
             // 只有身份校验和前缀校验全通过，才返回成功
             return new Response(JSON.stringify({ success: true, token }), { status: 200 });
         } else {
-            return new Response(JSON.stringify({ error: "Invalid username or password" }), { status: 401 });
+            return new Response(JSON.stringify({ error: "无效的用户名或密码" }), { status: 401 });
         }
     } catch (e) {
         console.error(e);
-        return new Response(JSON.stringify({ error: "Server error" }), { status: 500 });
+        return new Response(JSON.stringify({ error: "服务器错误" }), { status: 500 });
     }
 }
