@@ -715,66 +715,66 @@
             <!-- SUZAKU -->
             <div class="guardian-card g-suzaku" id="card-suzaku">
                 <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div><div class="sub-stat">Power: <span id="power-suzaku">0%</span></div></div>
-                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div><div class="holdings-list" id="list-suzaku"></div>
-                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div><div class="holdings-list adhoc-list" id="adhoc-list-suzaku"></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div><div class="sub-stat">Power: <span id="power-suzaku">0%</span></div></div>
+                <div class="list-header">组合配置 (系统)</div><div class="holdings-list" id="list-suzaku"></div>
+                <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-suzaku"></div>
                 <div class="commander-section">
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-suzaku"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="buy-price-suzaku" placeholder="Price" oninput="calcQty('suzaku', 'buy')"><input type="number" class="cmd-input input-weight" id="buy-weight-suzaku" placeholder="%" oninput="calcQty('suzaku', 'buy')"><button class="cmd-btn buy-btn" id="btn-buy-suzaku" onclick="executeOrder('suzaku', 'buy')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-suzaku"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="sell-price-suzaku" placeholder="Price" oninput="calcQty('suzaku', 'sell')"><input type="number" class="cmd-input input-weight" id="sell-weight-suzaku" placeholder="%" oninput="calcQty('suzaku', 'sell')"><button class="cmd-btn sell-btn" id="btn-sell-suzaku" onclick="executeOrder('suzaku', 'sell')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div><div class="cmd-controls adhoc-results-container"><input type="text" class="cmd-input input-price" id="adhoc-search-suzaku" placeholder="Name/Code"><input type="number" class="cmd-input input-weight" id="adhoc-weight-suzaku" placeholder="%" step="0.1"><button class="cmd-btn buy-btn" onclick="addNewAdhoc('suzaku')">ADHOC</button><div id="suggestions-suzaku" class="suggestions-list-container"></div></div></div>
                     <div class="cmd-msg" id="msg-suzaku"></div>
                 </div>
-                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div><div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
+                <div class="list-header">组合配置 (用户)</div><div class="holdings-list portfolio-list" id="portfolio-suzaku"></div>
             </div>
 
             <!-- SIRIUS -->
             <div class="guardian-card g-sirius" id="card-sirius">
                 <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div><div class="sub-stat">Power: <span id="power-sirius">0%</span></div></div>
-                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div><div class="holdings-list" id="list-sirius"></div>
-                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div><div class="holdings-list adhoc-list" id="adhoc-list-sirius"></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div><div class="sub-stat">Power: <span id="power-sirius">0%</span></div></div>
+                <div class="list-header">组合配置 (系统)</div><div class="holdings-list" id="list-sirius"></div>
+                <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-sirius"></div>
                 <div class="commander-section">
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-sirius"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="buy-price-sirius" placeholder="Price" oninput="calcQty('sirius', 'buy')"><input type="number" class="cmd-input input-weight" id="buy-weight-sirius" placeholder="%" oninput="calcQty('sirius', 'buy')"><button class="cmd-btn buy-btn" id="btn-buy-sirius" onclick="executeOrder('sirius', 'buy')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-sirius"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="sell-price-sirius" placeholder="Price" oninput="calcQty('sirius', 'sell')"><input type="number" class="cmd-input input-weight" id="sell-weight-sirius" placeholder="%" oninput="calcQty('sirius', 'sell')"><button class="cmd-btn sell-btn" id="btn-sell-sirius" onclick="executeOrder('sirius', 'sell')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div><div class="cmd-controls adhoc-results-container"><input type="text" class="cmd-input input-price" id="adhoc-search-sirius" placeholder="Name/Code"><input type="number" class="cmd-input input-weight" id="adhoc-weight-sirius" placeholder="%" step="0.1"><button class="cmd-btn buy-btn" onclick="addNewAdhoc('sirius')">ADHOC</button><div id="suggestions-sirius" class="suggestions-list-container"></div></div></div>
                     <div class="cmd-msg" id="msg-sirius"></div>
                 </div>
-                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div><div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
+                <div class="list-header">组合配置 (用户)</div><div class="holdings-list portfolio-list" id="portfolio-sirius"></div>
             </div>
 
             <!-- GENBU -->
             <div class="guardian-card g-genbu" id="card-genbu">
                 <div class="card-header"><div class="avatar">🐢</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div><div class="sub-stat">Power: <span id="power-genbu">0%</span></div></div>
-                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div><div class="holdings-list" id="list-genbu"></div>
-                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div><div class="holdings-list adhoc-list" id="adhoc-list-genbu"></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div><div class="sub-stat">Power: <span id="power-genbu">0%</span></div></div>
+                <div class="list-header">组合配置 (系统)</div><div class="holdings-list" id="list-genbu"></div>
+                <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-genbu"></div>
                 <div class="commander-section">
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-genbu"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="buy-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'buy')"><input type="number" class="cmd-input input-weight" id="buy-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'buy')"><button class="cmd-btn buy-btn" id="btn-buy-genbu" onclick="executeOrder('genbu', 'buy')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-genbu"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="sell-price-genbu" placeholder="Price" oninput="calcQty('genbu', 'sell')"><input type="number" class="cmd-input input-weight" id="sell-weight-genbu" placeholder="%" oninput="calcQty('genbu', 'sell')"><button class="cmd-btn sell-btn" id="btn-sell-genbu" onclick="executeOrder('genbu', 'sell')">CONFIRM</button></div></div>     
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div><div class="cmd-controls adhoc-results-container"><input type="text" class="cmd-input input-price" id="adhoc-search-genbu" placeholder="Name/Code"><input type="number" class="cmd-input input-weight" id="adhoc-weight-genbu" placeholder="%" step="0.1"><button class="cmd-btn buy-btn" onclick="addNewAdhoc('genbu')">ADHOC</button><div id="suggestions-genbu" class="suggestions-list-container"></div></div></div>
                     <div class="cmd-msg" id="msg-genbu"></div>
                 </div>
-                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div><div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
+                <div class="list-header">组合配置 (用户)</div><div class="holdings-list portfolio-list" id="portfolio-genbu"></div>
             </div>
 
             <!-- KIRIN -->
             <div class="guardian-card g-kirin" id="card-kirin">
                 <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">System Rtn:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">User Rtn:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div><div class="sub-stat">Power: <span id="power-kirin">0%</span></div></div>
-                <div class="list-header">PORTFOLIO HOLDINGS (SYSTEM)</div><div class="holdings-list" id="list-kirin"></div>
-                <div class="list-header">ADDHOC OBSERVATIONS (USER)</div><div class="holdings-list adhoc-list" id="adhoc-list-kirin"></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div><div class="sub-stat">Power: <span id="power-kirin">0%</span></div></div>
+                <div class="list-header">组合配置 (SYSTEM)</div><div class="holdings-list" id="list-kirin"></div>
+                <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-kirin"></div>
                 <div class="commander-section">
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">Buy COMMANDER:</span><span class="calc-res" id="calc-buy-kirin"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="buy-price-kirin" placeholder="Price" oninput="calcQty('kirin', 'buy')"><input type="number" class="cmd-input input-weight" id="buy-weight-kirin" placeholder="%" oninput="calcQty('kirin', 'buy')"><button class="cmd-btn buy-btn" id="btn-buy-kirin" onclick="executeOrder('kirin', 'buy')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label cmd-label-sell">Sell COMMANDER:</span><span class="calc-res" id="calc-sell-kirin"></span></div><div class="cmd-controls"><input type="number" class="cmd-input input-price" id="sell-price-kirin" placeholder="Price" oninput="calcQty('kirin', 'sell')"><input type="number" class="cmd-input input-weight" id="sell-weight-kirin" placeholder="%" oninput="calcQty('kirin', 'sell')"><button class="cmd-btn sell-btn" id="btn-sell-kirin" onclick="executeOrder('kirin', 'sell')">CONFIRM</button></div></div>
                     <div class="cmd-row"><div class="cmd-top-row"><span class="cmd-label">ADHOC COMMANDER:</span></div><div class="cmd-controls adhoc-results-container"><input type="text" class="cmd-input input-price" id="adhoc-search-kirin" placeholder="Name/Code"><input type="number" class="cmd-input input-weight" id="adhoc-weight-kirin" placeholder="%" step="0.1"><button class="cmd-btn buy-btn" onclick="addNewAdhoc('kirin')">ADHOC</button><div id="suggestions-kirin" class="suggestions-list-container"></div></div></div>
                     <div class="cmd-msg" id="msg-kirin"></div>
                 </div>
-                <div class="list-header">PORTFOLIO HOLDINGS (USER)</div><div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
+                <div class="list-header">组合配置 (用户)</div><div class="holdings-list portfolio-list" id="portfolio-kirin"></div>
             </div>
         </div>
 
         <div class="settlement-panel" id="settlementPanel">
-            <h3 class="pixel-font" style="text-align:center;color:#fff;">Historical Performance</h3>
+            <h3 class="pixel-font" style="text-align:center;color:#fff;">历史业绩</h3>
             <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
         </div>
 
