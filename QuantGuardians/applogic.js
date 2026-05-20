@@ -1535,7 +1535,7 @@ function renderHistoryChart() {
         controlsDiv.innerHTML = `
             <!-- 指标选择 -->
             <div style="display:flex; align-items:center; gap:5px; margin-right:auto;">
-                <span style="color:#888;">Metric:</span>
+                <span style="color:#888;">指标:</span>
                 <select id="metricSelect" onchange="window.updateChartMetric(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
                     <option value="cumulative">累计收益率 (Return)</option>
                     <option value="drawdown">最大回撤 (Max Drawdown)</option>
@@ -1879,7 +1879,7 @@ function renderTimeSeriesChart(ctx, isMobile) {
                     grid: { color: '#333' },
                     title: { 
                         display: true, 
-                        text: currentMetric === 'drawdown' ? 'Drawdown (%)' : 'Return (%)',
+                        text: currentMetric === 'drawdown' ? 'Drawdown (%)' : '收益 (%)',
                         color: '#555'
                     }
                 }, 
