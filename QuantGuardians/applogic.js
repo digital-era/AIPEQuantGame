@@ -1547,9 +1547,9 @@ function renderHistoryChart() {
             <div id="rangeControlGroup" style="display:flex; align-items:center; gap:5px;">
                 <span style="color:#888;">Range:</span>
                 <select id="chartRangeSelect" onchange="window.updateChartRange(this.value)" style="background:#222; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:4px; font-size:11px;">
-                    <option value="all">All History</option>
-                    <option value="ytd">Year to Date</option>
-                    <option value="1w">Last 5 Days</option>
+                    <option value="all">历史</option>
+                    <option value="ytd">今年</option>
+                    <option value="1w">最近5日</option>
                 </select>
             </div>
 
