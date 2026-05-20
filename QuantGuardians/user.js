@@ -114,9 +114,9 @@ function checkAuthStatus() {
 async function handleLogin() {
     const u = document.getElementById('auth_username').value.trim();
     const p = document.getElementById('auth_password').value;
-    if(!u || !p) return showAuthMsg("MISSING CREDENTIALS", "#EF4444");
+    if(!u || !p) return showAuthMsg("请输入凭据 (用户名/密码)", "#EF4444");
 
-    showAuthMsg("AUTHENTICATING...", "#FFD700");
+    showAuthMsg("正在验证身份...", "#FFD700");
 
     try {
         const response = await fetch('/api/login', {
@@ -136,7 +136,7 @@ async function handleLogin() {
             localStorage.setItem('qgr_jwt_token', data.token);
             
             // 3. 提示并清空密码框
-            showAuthMsg("ACCESS GRANTED. RELOADING...", "#10B981");
+            showAuthMsg("认证成功，正在重载...", "#10B981");
             document.getElementById('auth_password').value = '';
             
             // 4. [推荐] 延迟 800ms 刷新页面，彻底把上个用户的日志、DOM 残留全部干掉
@@ -145,10 +145,10 @@ async function handleLogin() {
             }, 800);
             
         } else {
-            showAuthMsg(data.error || "ACCESS DENIED", "#EF4444");
+            showAuthMsg(data.error || "访问被拒绝", "#EF4444");
         }
     } catch (error) {
-        showAuthMsg("NETWORK ERROR", "#EF4444");
+        showAuthMsg("网络请求错误", "#EF4444");
         console.error('Login error:', error);
     }
 }
@@ -167,7 +167,7 @@ function handleLogout() {
 
     // 4. 更新 UI 状态
     checkAuthStatus();
-    showAuthMsg("LOGGED OUT SUCCESSFULLY", "#10B981");
+    showAuthMsg("已成功登出", "#10B981");
     log(`> [SYSTEM] 用户已登出，OSS 会话已销毁。`, '#9CA3AF');
     setTimeout(() => {
         window.location.reload(); 
@@ -181,9 +181,9 @@ async function handleChangePassword() {
 
     const oldP = document.getElementById('cpw_old').value;
     const newP = document.getElementById('cpw_new').value;
-    if(!oldP || !newP) return showAuthMsg("FIELDS CANNOT BE EMPTY", "#EF4444");
+    if(!oldP || !newP) return showAuthMsg("字段不能为空", "#EF4444");
 
-    showAuthMsg("UPDATING PASSWORD...", "#FFD700");
+    showAuthMsg("正在更新密码...", "#FFD700");
 
     try {
         const response = await fetch('/api/changepw', {
@@ -198,7 +198,7 @@ async function handleChangePassword() {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showAuthMsg("PASSWORD UPDATED. PLEASE RELOGIN...", "#10B981");
+            showAuthMsg("密码已更新，请重新登录...", "#10B981");
             
             // [新增] 密码修改成功后，强制登出并重载页面
             localStorage.removeItem('qgr_jwt_token');
@@ -210,10 +210,10 @@ async function handleChangePassword() {
             }, 1000); // 留1秒钟给用户看“修改成功”的提示
             
         } else {
-            showAuthMsg(data.error || "UPDATE FAILED", "#EF4444");
+            showAuthMsg(data.error || "更新失败", "#EF4444");
         }
     } catch (error) {
-        showAuthMsg("NETWORK ERROR", "#EF4444");
+        showAuthMsg("网络错误", "#EF4444");
         console.error('Change password error:', error);
     }
 }
