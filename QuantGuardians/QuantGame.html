@@ -217,7 +217,7 @@
         
         .main-stat-box { background: rgba(0,0,0,0.3); border: 1px solid #333; padding: 10px; text-align: center; margin-bottom: 10px; }
         .stat-group { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
-        .stat-label { font-size: 0.6em; color: #aaa; text-transform: uppercase; }
+        .stat-label { font-size: 0.6em; color: #fff; text-transform: uppercase; }
         .stat-value { font-size: 1.2em; font-weight: bold; color: #fff; }
         
         .user-stat { color: var(--user-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
@@ -254,7 +254,7 @@
 		    text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
 		}
         .h-weight-row { display: flex; align-items: center; font-size: 0.7em; }
-        .h-weight { color: #aaa; margin-right: 8px; }
+        .h-weight { color: #fff; margin-right: 8px; }
         .user-weight-display { color: var(--user-gold); font-weight: bold; }
         
         /* ======== [修改] 价格和涨跌幅区域增加手型光标与反馈 ======== */
@@ -440,7 +440,7 @@
         .h-name-wrapper { display: flex; align-items: center; }
 
         .icon-btn {
-            background: #222; border: 1px solid #555; color: #aaa; width: 38px; height: 38px;
+            background: #222; border: 1px solid #555; color: #fff; width: 38px; height: 38px;
             display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 4px; 
             transition: all 0.2s; font-size: 1.2em; position: relative; padding: 0;
         }
@@ -556,7 +556,7 @@
 		#novelContent hr { border: 0; height: 1px; background: #333; margin: 30px 0; }
 		.loading-text { text-align: center; color: var(--genbu-color); margin-top: 50px; font-family: 'Roboto Mono'; animation: blink 1s infinite; }
 		.novel-footer-nav { height: 50px; background: #111; border-top: 1px solid #333; display: flex; justify-content: center; align-items: center; gap: 20px; flex-shrink: 0; }
-		.nav-btn { background: transparent; border: 1px solid #444; color: #aaa; padding: 5px 15px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 0.8em; border-radius: 4px; }
+		.nav-btn { background: transparent; border: 1px solid #444; color: #fff; padding: 5px 15px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 0.8em; border-radius: 4px; }
 		.nav-btn:hover { border-color: #fff; color: #fff; }
 		.curr-chap { font-size: 0.7em; color: #666; }
 		@media (min-width: 769px) { .novel-sidebar { transition: width 0.3s ease, opacity 0.2s ease, transform 0.3s ease; width: 250px; overflow: hidden; opacity: 1; } .novel-sidebar.show { width: 0 !important; opacity: 0; border-right: none; padding: 0; } }
@@ -715,7 +715,7 @@
             <!-- SUZAKU -->
             <div class="guardian-card g-suzaku" id="card-suzaku">
                 <div class="card-header"><div class="avatar">🔥</div><div class="role-info"><h2 class="pixel-font">SUZAKU</h2><div class="role-desc">DaCheng (大成)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div><div class="sub-stat">Power: <span id="power-suzaku">0%</span></div></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-suzaku">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-suzaku">0.00%</span></div><div class="sub-stat">组合因子: <span id="power-suzaku">0%</span></div></div>
                 <div class="list-header">组合配置 (系统)</div><div class="holdings-list" id="list-suzaku"></div>
                 <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-suzaku"></div>
                 <div class="commander-section">
@@ -730,7 +730,7 @@
             <!-- SIRIUS -->
             <div class="guardian-card g-sirius" id="card-sirius">
                 <div class="card-header"><div class="avatar">🐺</div><div class="role-info"><h2 class="pixel-font">SIRIUS</h2><div class="role-desc">Inflow (流入)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div><div class="sub-stat">Power: <span id="power-sirius">0%</span></div></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-sirius">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-sirius">0.00%</span></div><div class="sub-stat">组合因子: <span id="power-sirius">0%</span></div></div>
                 <div class="list-header">组合配置 (系统)</div><div class="holdings-list" id="list-sirius"></div>
                 <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-sirius"></div>
                 <div class="commander-section">
@@ -745,7 +745,7 @@
             <!-- GENBU -->
             <div class="guardian-card g-genbu" id="card-genbu">
                 <div class="card-header"><div class="avatar">🐢</div><div class="role-info"><h2 class="pixel-font">GENBU</h2><div class="role-desc">LowVol (低波)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div><div class="sub-stat">Power: <span id="power-genbu">0%</span></div></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-genbu">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-genbu">0.00%</span></div><div class="sub-stat">组合因子: <span id="power-genbu">0%</span></div></div>
                 <div class="list-header">组合配置 (系统)</div><div class="holdings-list" id="list-genbu"></div>
                 <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-genbu"></div>
                 <div class="commander-section">
@@ -760,7 +760,7 @@
             <!-- KIRIN -->
             <div class="guardian-card g-kirin" id="card-kirin">
                 <div class="card-header"><div class="avatar">🦄</div><div class="role-info"><h2 class="pixel-font">KIRIN</h2><div class="role-desc">DaZhi (大智)</div></div></div>
-                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div><div class="sub-stat">Power: <span id="power-kirin">0%</span></div></div>
+                <div class="main-stat-box"><div class="stat-group"><span class="stat-label">系统组合:</span><span class="stat-value" id="rtn-kirin">--.--%</span></div><div class="stat-group"><span class="stat-label" style="color:#ffd700;">用户组合:</span><span class="stat-value user-stat" id="user-rtn-kirin">0.00%</span></div><div class="sub-stat">组合因子: <span id="power-kirin">0%</span></div></div>
                 <div class="list-header">组合配置 (SYSTEM)</div><div class="holdings-list" id="list-kirin"></div>
                 <div class="list-header">自选观察 (用户)</div><div class="holdings-list adhoc-list" id="adhoc-list-kirin"></div>
                 <div class="commander-section">
@@ -822,23 +822,23 @@
                 
                 <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 10px;">
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">REGION:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 70px; text-align: right; margin-right: 10px;">REGION:</span>
                         <input type="password" id="oss_region" class="cmd-input" style="flex: 1; color:#fff;" value="">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">BUCKET:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 70px; text-align: right; margin-right: 10px;">BUCKET:</span>
                         <input type="password" id="oss_bucket" class="cmd-input" style="flex: 1; color:#fff;" value="">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">AK ID:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 70px; text-align: right; margin-right: 10px;">AK ID:</span>
                         <input type="password" id="oss_ak_id" class="cmd-input" style="flex: 1; color:#fff;" value="">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">SECRET:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 70px; text-align: right; margin-right: 10px;">SECRET:</span>
                         <input type="password" id="oss_ak_secret" class="cmd-input" style="flex: 1; color:#fff;" value="">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 70px; text-align: right; margin-right: 10px;">ARN:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 70px; text-align: right; margin-right: 10px;">ARN:</span>
                         <input type="password" id="oss_stc_rolearn" class="cmd-input" style="flex: 1; color:#fff;" value="">
                     </div>
                 </div>
@@ -878,11 +878,11 @@
                 <!-- 未登录时显示 -->
                 <div id="loginSection" class="auth-form">
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">用户名:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 80px; text-align: right; margin-right: 10px;">用户名:</span>
                         <input type="text" id="auth_username" class="cmd-input" style="flex: 1; color:#fff;" placeholder="Enter Username">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">密码:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 80px; text-align: right; margin-right: 10px;">密码:</span>
                         <input type="password" id="auth_password" class="cmd-input" style="flex: 1; color:#fff;" placeholder="Enter Password">
                     </div>
                     <!-- 替换为带有 80px 占位的结构： -->
@@ -900,11 +900,11 @@
                     </div>
                     <div style="border-top: 1px dashed #444; margin: 5px 0 15px 0;"></div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">旧密码:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 80px; text-align: right; margin-right: 10px;">旧密码:</span>
                         <input type="password" id="cpw_old" class="cmd-input" style="flex: 1; color:#fff;" placeholder="Current Password">
                     </div>
                     <div style="display:flex; align-items: center;">
-                        <span class="switch-label" style="font-size: 0.7em; color:#aaa; width: 80px; text-align: right; margin-right: 10px;">新密码:</span>
+                        <span class="switch-label" style="font-size: 0.7em; color:#fff; width: 80px; text-align: right; margin-right: 10px;">新密码:</span>
                         <input type="password" id="cpw_new" class="cmd-input" style="flex: 1; color:#fff;" placeholder="New Password">
                     </div>
 					<div style="display:flex; gap: 10px; margin-top:10px;">
@@ -927,7 +927,7 @@
                 <div class="pixel-font" style="color:#FFD700; font-size:1.2em;">Quant BATTLE RANKING</div>
                 <button class="close-btn" onclick="document.getElementById('rankingModal').style.display='none'">[X]</button>
             </div>
-            <div style="padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:10px; display:flex; justify-content:space-between; color:#aaa; font-size:0.7em;">
+            <div style="padding-bottom:10px; border-bottom:1px solid #333; margin-bottom:10px; display:flex; justify-content:space-between; color:#fff; font-size:0.7em;">
                 <span>ENTITY</span>
                 <span>RETURN (%)</span>
             </div>
