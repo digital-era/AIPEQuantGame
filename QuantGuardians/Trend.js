@@ -1166,7 +1166,14 @@ async function fetchBatchPrices(codes, type) {
             body: JSON.stringify({ codes: finalCodes, type: type })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        
+        // ========== 修复点：兼容后端返回的 NaN ==========
+        const text = await res.text();
+        // 把 JSON 里所有独立的 NaN 替换成 null（正则匹配单词边界，避免误杀包含 NaN 子串的字符串）
+        const safeText = text.replace(/\bNaN\b/g, 'null');
+        return JSON.parse(safeText);
+        // ================================================
+        
     } catch (e) {
         console.error("Batch fetch error:", e);
         return {};
