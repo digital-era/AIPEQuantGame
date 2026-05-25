@@ -988,134 +988,105 @@ async function fetchPrice(item) {
     if (!item.code) return;
     const finalCode = item.code.length === 5 ? 'HK' + item.code : item.code;
     const marketIsClosed = isMarketClosed();
-    
-    // 【修复点 1】必须在这里声明，否则会污染全局变量
     let officialChangePercent = null; 
 
     try {
-        let intradayData = []; // 分钟级历史数据
-        let closingPriceApiResult = null; // 收盘价格 API 的结果
+        let intradayData = [];
+        let closingPriceApiResult = null;
 
-        // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制
-        // const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`; 
-        // 【建议修改】：加上 cache: 'no-store'
-        // const intradayRes = await fetch(intradayUrl, { cache: 'no-store' }); 
-        // 步骤 1: 始终尝试获取分钟级历史数据，用于微图绘制, 加随机参数绕过缓存/风控
-        // const intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday&_t=${Date.now()}_${Math.random()}`; 
-        // const intradayRes = await fetch(intradayUrl, { cache: 'no-store' });       
-        // const intradayJson = await intradayRes.json();
+        // 步骤 1: 分时数据
         let intradayUrl;
-        if (gLocalAPIBase !== null  && gLocalAPIBase.length > 0) {
-              intradayUrl = `${gLocalAPIBase}${REAL_API_LOCAL_URL}?code=${finalCode}&type=intraday`;
+        if (gLocalAPIBase !== null && gLocalAPIBase.length > 0) {
+            intradayUrl = `${gLocalAPIBase}${REAL_API_LOCAL_URL}?code=${finalCode}&type=intraday`;
         } else {
-              intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`;    
+            intradayUrl = `${REAL_API_URL}?code=${finalCode}&type=intraday`;    
         }
         const intradayJson = await fetchWithRetry(intradayUrl);
-        if (intradayJson && intradayJson.length > 0) {
-            intradayData = intradayJson.map(d => parseFloat(d.price));
+        if (intradayJson && Array.isArray(intradayJson) && intradayJson.length > 0) {
+            intradayData = intradayJson
+                .map(d => parseFloat(d.price))
+                .filter(v => isFinite(v));
         }
 
-        // 步骤 2: 如果市场已关闭，额外获取官方收盘价格
+        // 步骤 2: 收盘价（仅休市）
         if (marketIsClosed) {
-             // const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price
-             // 【建议修改】：加上 cache: 'no-store'
-             // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });
-            // 步骤 2: 收盘价接口, 加随机参数绕过缓存/风控
-            // const closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price&_t=${Date.now()}_${Math.random()}`;
-            // const closePriceRes = await fetch(closePriceUrl, { cache: 'no-store' });  
-            // const closePriceJson = await closePriceRes.json();            
             let closePriceUrl;
-            if (gLocalAPIBase !== null  && gLocalAPIBase.length > 0) {
-                  closePriceUrl = `${gLocalAPIBase}${REAL_API_LOCAL_URL}?code=${finalCode}&type=intraday`;
+            if (gLocalAPIBase !== null && gLocalAPIBase.length > 0) {
+                closePriceUrl = `${gLocalAPIBase}${REAL_API_LOCAL_URL}?code=${finalCode}&type=price`;
             } else {
-                  closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`; // 参数修改为 price   
+                closePriceUrl = `${REAL_API_URL}?code=${finalCode}&type=price`;
             }
             const closePriceJson = await fetchWithRetry(closePriceUrl);
-            // =========== 修改开始 ===========
+            
             if (closePriceJson) {
-                // 情况 A: API 返回对象且包含 latestPrice (你的当前情况)
-                if (closePriceJson.latestPrice !== undefined) {
-                    closingPriceApiResult = parseFloat(closePriceJson.latestPrice);
-                    // 【优化点】提取官方涨跌幅 (API返回的是 4.68 这种直接数值，不是 0.0468)
-                    if (closePriceJson.changePercent !== undefined) {
-                        officialChangePercent = parseFloat(closePriceJson.changePercent);
+                if (closePriceJson.latestPrice !== undefined && closePriceJson.latestPrice !== null) {
+                    const lp = parseFloat(closePriceJson.latestPrice);
+                    if (isFinite(lp)) {
+                        closingPriceApiResult = lp;
+                        if (closePriceJson.changePercent !== undefined && closePriceJson.changePercent !== null) {
+                            const cp = parseFloat(closePriceJson.changePercent);
+                            if (isFinite(cp)) officialChangePercent = cp;
+                        }
                     }
-                } 
-                // 情况 B: API 返回对象但字段名为 price (防御性编程)
-                else if (closePriceJson.price !== undefined) {
-                    closingPriceApiResult = parseFloat(closePriceJson.price);
-                }
-                // 情况 C: API 返回数组 (兼容旧逻辑)
-                else if (Array.isArray(closePriceJson) && closePriceJson.length > 0) {
-                    closingPriceApiResult = parseFloat(closePriceJson[closePriceJson.length - 1].price);
+                } else if (closePriceJson.price !== undefined && closePriceJson.price !== null) {
+                    const p = parseFloat(closePriceJson.price);
+                    if (isFinite(p)) closingPriceApiResult = p;
+                } else if (Array.isArray(closePriceJson) && closePriceJson.length > 0) {
+                    const lastItem = closePriceJson[closePriceJson.length - 1];
+                    if (lastItem && lastItem.price !== undefined && lastItem.price !== null) {
+                        const p = parseFloat(lastItem.price);
+                        if (isFinite(p)) closingPriceApiResult = p;
+                    }
                 }
             }
-            // =========== 修改结束 ===========
         }
         
-        // 步骤 3: 根据市场状态和获取到的数据，确定最终的 currentPrice, refPrice 和 history
+        // 步骤 3: 状态机赋值
         if (marketIsClosed && closingPriceApiResult !== null) {
-            // 市场已关闭，且成功获取到官方收盘价
             item.currentPrice = closingPriceApiResult;
-            // 【优化点】保存官方涨跌幅到 item 对象
             item.officialChangePercent = officialChangePercent; 
-            
-            // 历史数据优先使用分钟线，如果分钟线为空，则用收盘价绘制一条平线
             item.history = intradayData.length > 0 ? intradayData : [closingPriceApiResult, closingPriceApiResult];
-
-            // refPrice (昨日收盘价/今日开盘价) 不应被今日收盘价覆盖。
-            // 只有当 refPrice 尚未设置 (即 Excel 中没有，也未从分钟线获取到开盘价) 时，才将其设置为收盘价
             if (item.refPrice === undefined || item.refPrice === null) {
                 item.refPrice = closingPriceApiResult; 
             }
-
         } else if (intradayData.length > 0) {
-            // 市场未关闭，或已关闭但未获取到官方收盘价，则使用分钟线数据
-            item.currentPrice = intradayData[intradayData.length - 1]; // 最新价格
-            // 交易时间段，清除官方收盘涨跌幅，强制使用实时计算
+            item.currentPrice = intradayData[intradayData.length - 1];
             item.officialChangePercent = null; 
             item.history = intradayData;
-            
-            // 如果 refPrice 未设置 (Excel 中没有)，则使用分钟线的第一个价格作为开盘价
             if (item.refPrice === undefined || item.refPrice === null) {
                 item.refPrice = intradayData[0];
             }
         } else {
-            // 如果无currentPrice
             if (!item.currentPrice) {
-              item.officialChangePercent = null;
-              // 既无分钟线数据，也无收盘价数据 (例如，今天尚未交易或 API 异常)
-              // 此时 currentPrice 保持为 refPrice (来自 Excel 的昨日收盘)，如果 refPrice 也为空，则为 null
-              if (item.refPrice !== null && item.refPrice !== undefined) {
-                  item.currentPrice = item.refPrice;
-                  // 如果没有交易数据，则用 refPrice 绘制一条平线
-                  item.history = [item.refPrice, item.refPrice];
-              } else {
-                  item.currentPrice = null;
-                  item.history = []; // 没有数据，历史曲线为空
-              }
+                item.officialChangePercent = null;
+                if (item.refPrice !== null && item.refPrice !== undefined) {
+                    item.currentPrice = item.refPrice;
+                    item.history = [item.refPrice, item.refPrice];
+                } else {
+                    item.currentPrice = null;
+                    item.history = [];
+                }
             }
         }
 
-        // ================= 【核心优化：refPrice 智能修正与反推】 =================
+        // refPrice 智能修正
         if (item.currentPrice) {
-            // 1. 如果接口提供了官方涨跌幅，利用数学公式绝对反推出精确的“昨收价/基准价”
-            if (item.officialChangePercent !== null && item.officialChangePercent !== undefined) {
-                const deducedRefPrice = item.currentPrice / (1 + item.officialChangePercent / 100);
-                
-                // 如果本地没有 refPrice，或者本地 Excel 记录的 refPrice 和官方反推差距过大 (如发生除权除息)，则覆盖
-                if (!item.refPrice) {
-                    item.refPrice = deducedRefPrice; 
+            if (officialChangePercent !== null && officialChangePercent !== undefined) {
+                const denom = 1 + officialChangePercent / 100;
+                if (isFinite(denom) && denom !== 0) {
+                    const deducedRefPrice = item.currentPrice / denom;
+                    if (isFinite(deducedRefPrice)) {
+                        const existingRef = parseFloat(item.refPrice);
+                        if (!isFinite(existingRef) || Math.abs(existingRef - deducedRefPrice) / deducedRefPrice > 0.15) {
+                            item.refPrice = deducedRefPrice;
+                        }
+                    }
                 }
-            } 
-            // 2. 如果依然没有 refPrice (例如交易时间内，且 Excel 中没有记录)，做最后的降级兜底
-            else if (item.refPrice === undefined || item.refPrice === null || item.refPrice === 0) {
+            } else if (item.refPrice === undefined || item.refPrice === null || item.refPrice === 0) {
                 item.refPrice = intradayData.length > 0 ? intradayData[0] : item.currentPrice;
             }
         }
-        // =========================================================================
 
-        // 如果是 ADHOC 标的，数据回来后立即强制刷新列表 (原逻辑)
         if (item.isAdhoc) {
             for (let key in gameState.guardians) {
                 if (gameState.guardians[key].strategy.includes(item)) {
@@ -1126,11 +1097,7 @@ async function fetchPrice(item) {
         }
     } catch (e) {
         console.error(`Error fetching price for ${item.code}:`, e);
-        // 错误处理中也要清除官方涨跌幅，防止显示过期数据
         item.officialChangePercent = null; 
-      
-        // 【核心修复】只有从未获取过价格时，才回退到 refPrice
-        // 保持已有数据，避免显示过时价格
         if (!item.currentPrice) {
             if (item.refPrice !== null && item.refPrice !== undefined) {
                 item.currentPrice = item.refPrice;
@@ -1140,7 +1107,6 @@ async function fetchPrice(item) {
                 item.history = item.history || [];
             }
         }
-        // 如果已有 currentPrice，保持不变
     }
 }
 
