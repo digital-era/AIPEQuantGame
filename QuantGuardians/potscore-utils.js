@@ -175,6 +175,53 @@ function attachPotScores() {
  * 为单个 item 更新 PotScore 和资金条件
  * @param {Object} item - 标的对象
  */
+// function attachSinglePotScore(item) {
+//     if (!eeiFlow30DaysData || !item || !item.code) return;
+    
+//     // 重置默认值
+//     item.lastPotScore = 0;
+//     item.isSuperFlowPositive = false;
+//     item.isBigFlowPositive = false;
+    
+//     const code = String(item.code).trim();
+//     const history = eeiFlow30DaysData[code];
+    
+//     if (Array.isArray(history) && history.length >= 3) {
+//         const last3Days = history.slice(-3);
+        
+//         const superFlowPositive = last3Days.every(day => {
+//             const val = Number(day['超大单净流入-净占比']);
+//             return !isNaN(val) && val > 0;
+//         });
+        
+//         const bigFlowPositive = last3Days.every(day => {
+//             const val = Number(day['大单净流入-净占比']);
+//             return !isNaN(val) && val > 0;
+//         });
+        
+//         if (superFlowPositive && bigFlowPositive) {
+//             const lastDay = history[history.length - 1];
+//             const potScore = Number(lastDay["PotScore"]);
+//             item.lastPotScore = !isNaN(potScore) ? potScore : 0;
+//             item.isSuperFlowPositive = true;
+//             item.isBigFlowPositive = true;
+//         }
+//     }
+// }
+
+/**
+ * 为单个 item 更新 PotScore 和资金条件
+ * 新规则：超大单/大单均要求【最后一天 > 0 且 最后一天数值 > 前一天数值】
+ * @param {Object} item - 标的对象
+ */
+/**
+ * 为单个 item 更新 PotScore 和资金条件
+ * 规则：
+ *   1. 超大单净流入-净占比：最后一天 > 0，且数值 > 前一天
+ *   2. 大单净流入-净占比：最后一天 > 0，且数值 > 前一天
+ *   3. PotScore：最后一天 > 0，且数值 > 前一天
+ * @param {Object} item - 标的对象
+ */
 function attachSinglePotScore(item) {
     if (!eeiFlow30DaysData || !item || !item.code) return;
     
@@ -186,25 +233,31 @@ function attachSinglePotScore(item) {
     const code = String(item.code).trim();
     const history = eeiFlow30DaysData[code];
     
-    if (Array.isArray(history) && history.length >= 3) {
-        const last3Days = history.slice(-3);
+    if (Array.isArray(history) && history.length >= 2) {
+        const lastDay = history[history.length - 1];
+        const prevDay = history[history.length - 2];
         
-        const superFlowPositive = last3Days.every(day => {
-            const val = Number(day['超大单净流入-净占比']);
-            return !isNaN(val) && val > 0;
-        });
+        // 【规则1】超大单：最后一天 > 0，且数值 > 前一天
+        const lastSuper = Number(lastDay['超大单净流入-净占比']);
+        const prevSuper = Number(prevDay['超大单净流入-净占比']);
+        const superFlowPositive = !isNaN(lastSuper) && lastSuper > 0 && lastSuper > prevSuper;
         
-        const bigFlowPositive = last3Days.every(day => {
-            const val = Number(day['大单净流入-净占比']);
-            return !isNaN(val) && val > 0;
-        });
+        // 【规则2】大单：最后一天 > 0，且数值 > 前一天
+        const lastBig = Number(lastDay['大单净流入-净占比']);
+        const prevBig = Number(prevDay['大单净流入-净占比']);
+        const bigFlowPositive = !isNaN(lastBig) && lastBig > 0 && lastBig > prevBig;
         
-        if (superFlowPositive && bigFlowPositive) {
-            const lastDay = history[history.length - 1];
-            const potScore = Number(lastDay["PotScore"]);
-            item.lastPotScore = !isNaN(potScore) ? potScore : 0;
+        // 【新增规则3】PotScore：最后一天 > 0，且数值 > 前一天
+        const lastPot = Number(lastDay["PotScore"]);
+        const prevPot = Number(prevDay["PotScore"]);
+        const potScorePositive = !isNaN(lastPot) && lastPot > 0 && lastPot > prevPot;
+        
+        // 三个条件同时满足才绑定
+        if (superFlowPositive && bigFlowPositive && potScorePositive) {
+            item.lastPotScore = lastPot;
             item.isSuperFlowPositive = true;
             item.isBigFlowPositive = true;
         }
     }
 }
+
