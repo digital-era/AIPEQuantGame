@@ -257,7 +257,7 @@ function attachSinglePotScore(item) {
     }
 
 
-    function attachSweetPoints() {
+function attachSweetPoints() {
     if (!eeiFlow30DaysData) return;
 
     // 收集所有满足双规则的候选标的
