@@ -255,7 +255,7 @@ function attachSinglePotScore(item) {
             item.isBigFlowPositive = true;
         }
     }
-
+}
 
 function attachSweetPoints() {
     if (!eeiFlow30DaysData) return;
@@ -322,6 +322,5 @@ function attachSweetPoints() {
         candidate.item.isSweet = true;
         candidate.item.sweetPointsScore = candidate.score;
     });
-}
 }
 
