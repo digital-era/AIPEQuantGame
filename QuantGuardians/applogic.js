@@ -2045,7 +2045,8 @@ async function initSystem() {
 
         // ===== 新增：绑定 PotScore 并刷新列表颜色 =====
         if (eeiFlow30DaysData) {
-            attachPotScores();
+            attachPotScores();          
+            attachSweetPoints();
             Object.keys(gameState.guardians).forEach(key => renderLists(key));
         }
         // ================================================
