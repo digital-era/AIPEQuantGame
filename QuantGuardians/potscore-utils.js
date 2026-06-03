@@ -284,7 +284,8 @@ function attachSweetPoints() {
                     // 【规则1】超大单净流入-净占比：最后一天 > 0，且数值 > 前一天
                     const lastSuper = Number(lastDay['超大单净流入-净占比']);
                     const prevSuper = Number(prevDay['超大单净流入-净占比']);
-                    const rule1 = !isNaN(lastSuper) && lastSuper > 0 && lastSuper > prevSuper;
+                    //const rule1 = !isNaN(lastSuper) && lastSuper > 0 && lastSuper > prevSuper;
+                    const rule1 = !isNaN(lastSuper) && lastSuper > 0 ;
 
                     // 【规则2】PotScore：最后一天 > 0
                     const lastPot = Number(lastDay["PotScore"]);
