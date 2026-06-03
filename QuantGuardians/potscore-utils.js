@@ -209,11 +209,7 @@ function attachPotScores() {
 //     }
 // }
 
-/**
- * 为单个 item 更新 PotScore 和资金条件
- * 新规则：超大单/大单均要求【最后一天 > 0 且 最后一天数值 > 前一天数值】
- * @param {Object} item - 标的对象
- */
+
 /**
  * 为单个 item 更新 PotScore 和资金条件
  * 规则：
@@ -259,5 +255,73 @@ function attachSinglePotScore(item) {
             item.isBigFlowPositive = true;
         }
     }
+
+
+    function attachSweetPoints() {
+    if (!eeiFlow30DaysData) return;
+
+    // 收集所有满足双规则的候选标的
+    const candidates = [];
+
+    Object.keys(gameState.guardians).forEach(key => {
+        const g = gameState.guardians[key];
+        [g.strategy, g.portfolio, g.adhocObservations].forEach(list => {
+            if (!Array.isArray(list)) return;
+            list.forEach(item => {
+                // 先重置 Sweet 标记，避免历史残留
+                item.isSweet = false;
+                item.sweetPointsScore = null;
+
+                if (!item || !item.code) return;
+
+                const code = String(item.code).trim();
+                const history = eeiFlow30DaysData[code];
+
+                if (Array.isArray(history) && history.length >= 2) {
+                    const lastDay = history[history.length - 1];
+                    const prevDay = history[history.length - 2];
+
+                    // 【规则1】超大单净流入-净占比：最后一天 > 0，且数值 > 前一天
+                    const lastSuper = Number(lastDay['超大单净流入-净占比']);
+                    const prevSuper = Number(prevDay['超大单净流入-净占比']);
+                    const rule1 = !isNaN(lastSuper) && lastSuper > 0 && lastSuper > prevSuper;
+
+                    // 【规则2】PotScore：最后一天 > 0
+                    const lastPot = Number(lastDay["PotScore"]);
+                    const rule2 = !isNaN(lastPot) && lastPot > 0;
+
+                    // 同时满足规则1和规则2
+                    if (rule1 && rule2) {
+                        // 取最后一天相关数值
+                        const lastBig = Number(lastDay['大单净流入-净占比']);
+                        const lastChange = Number(lastDay['涨跌幅']);
+
+                        // 计算 SweetPointsScore
+                        const sweetPointsScore = 0.110180
+                            + (0.021117 * lastSuper)
+                            - (0.000826 * (isNaN(lastBig) ? 0 : lastBig))
+                            + (0.000668 * (isNaN(lastChange) ? 0 : lastChange))
+                            + (0.331706 * lastPot);
+
+                        candidates.push({
+                            item: item,
+                            score: sweetPointsScore
+                        });
+                    }
+                }
+            });
+        });
+    });
+
+    // 按 SweetPointsScore 逆序排列，取 Top3
+    candidates.sort((a, b) => b.score - a.score);
+    const top3 = candidates.slice(0, 3);
+
+    // Attach：参考 loadSweetPoints 对 isSweet 的赋值方式
+    top3.forEach(candidate => {
+        candidate.item.isSweet = true;
+        candidate.item.sweetPointsScore = candidate.score;
+    });
+}
 }
 
