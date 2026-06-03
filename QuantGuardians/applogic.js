@@ -835,7 +835,15 @@ function createRow(key, item, idx, type) {
 
     // 甜点图标
     let iconPrefix = "";
-    if (item.isSweet) iconPrefix += "🍬";
+    if (item.isSweet) {
+        const scoreText = (item.sweetPointsScore != null) 
+            ? item.sweetPointsScore.toFixed(1) 
+            : '';
+        iconPrefix += `<span style="position:relative;display:inline-block;">
+            <span style="position:absolute;top:-7px;left:-2px;font-size:8px;font-weight:bold;color:#00E5FF;line-height:1;pointer-events:none;">${scoreText}</span>
+            🍬
+        </span>`;
+    }
     if (iconPrefix !== "") iconPrefix += " ";
 
     let deleteHtml = (type === 'adhocObservations' && item.isAdhoc)
