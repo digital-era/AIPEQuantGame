@@ -2021,7 +2021,7 @@ async function initSystem() {
         // 3. loadAdhocFromCloud: 依赖 OSS Client
         await Promise.all([
             loadCloudPortfolio(),
-            //loadSweetPoints(),
+            //loadSweetPoints(),   
             loadAdhocFromCloud(),
             loadTodayFlows()  // <-- 【新增】恢复今日交易流水
         ]);
@@ -2045,8 +2045,12 @@ async function initSystem() {
 
         // ===== 新增：绑定 PotScore 并刷新列表颜色 =====
         if (eeiFlow30DaysData) {
-            attachPotScores();          
-            attachSweetPoints();
+            attachPotScores();    
+            Object.keys(gameState.guardians).forEach(key => renderLists(key));
+        }
+
+       if (eeiFlow30DaysData) {
+            attachSweetPoints();    
             Object.keys(gameState.guardians).forEach(key => renderLists(key));
         }
         // ================================================
